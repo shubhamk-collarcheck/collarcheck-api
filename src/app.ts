@@ -1,16 +1,20 @@
-//app.ts
-
 import express from "express";
-import itemRouter from "./routes/itemRoutes";
-import userRouter from "./routes/userRoutes";
+import morgan from "morgan";
+import cityRouter from "./routes/cityRoutes";
+import stateRouter from "./routes/stateRoutes";
+import countryListRouter from "./routes/countryListRouter";
 import { errorHandler } from "./middlewares/errorHandler";
 
 const app = express();
+const generalRouter = express.Router();
 
+app.use(morgan("dev"));
 app.use(express.json())
 
-app.use("/api/items", itemRouter)
-app.use("/api", userRouter)
+app.use("/wapi/general", generalRouter);
+generalRouter.use("/city", cityRouter);
+generalRouter.use("/state", stateRouter);
+generalRouter.use("/countryList", countryListRouter)
 
 app.use(errorHandler)
 
