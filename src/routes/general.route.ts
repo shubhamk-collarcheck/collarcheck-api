@@ -25,6 +25,7 @@ generalRoute.get("/courseList", courseList)
 generalRoute.get("/courseTypeList", courseTypeList)
 generalRoute.get("/educationDataList", educationDataList)
 generalRoute.get("/all-designation", alldesignation)
+generalRoute.get("/all-job",)
 
 
 export default generalRoute;
