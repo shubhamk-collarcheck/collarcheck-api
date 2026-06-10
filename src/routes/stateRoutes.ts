@@ -3,6 +3,6 @@ import { getAllStates } from '../controllers/stateController';
 
 const stateRouter = Router();
 
-stateRouter.get('/', getAllStates);
+stateRouter.get('/state', getAllStates);
 
 export default stateRouter;

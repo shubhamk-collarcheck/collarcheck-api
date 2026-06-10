@@ -1,18 +1,8 @@
-import { NextFunction, Request, Response, Router } from "express";
-import db from "../db";
-import { cybCountry } from "../../drizzle/schema";
-import { and, eq, ne } from "drizzle-orm";
+import { Router } from "express";
+import { countryListController } from "../controllers/countryListController";
 
 const countryListRouter = Router();
 
-countryListRouter.get("/", async (req: Request, res: Response, next: NextFunction) => {
-	try {
-		const countryData = await db.select().from(cybCountry).where(eq(cybCountry.status, 1));
+countryListRouter.get("/countryList", countryListController);
 
-		const sortedCountries = [...countryData.filter(c => c.id === 101), ...countryData.filter(c => c.id !== 101),];
-
-		res.status(200).json({ status: true, message: "", data: sortedCountries, });
-	} catch (error) {
-		next(error);
-	}
-});
+export default countryListRouter;

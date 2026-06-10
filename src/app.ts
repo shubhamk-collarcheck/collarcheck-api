@@ -12,9 +12,6 @@ app.use(morgan("dev"));
 app.use(express.json())
 
 app.use("/wapi/general", generalRouter);
-generalRouter.use("/city", cityRouter);
-generalRouter.use("/state", stateRouter);
-generalRouter.use("/countryList", countryListRouter)
 
 app.use(errorHandler)
 
