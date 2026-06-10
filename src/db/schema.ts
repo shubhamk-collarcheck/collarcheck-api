@@ -1,1 +1,1 @@
-export { cybCities, cybState } from '../../drizzle/schema';
+export * from "../../drizzle/schema";

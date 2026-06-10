@@ -1,0 +1,370 @@
+{
+  "info": {
+    "_postman_id": "4670bd59-e269-47d9-b88f-8bafb98f3aac",
+    "name": "collarcheck",
+    "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "55603620",
+    "_collection_link": "https://go.postman.co/collection/55603620-4670bd59-e269-47d9-b88f-8bafb98f3aac?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "city",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200\", function () {",
+              "    pm.response.to.have.status(200);",
+              "});"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/city?state=3396",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "city"
+          ],
+          "query": [
+            {
+              "key": "state",
+              "value": "3396"
+            }
+          ]
+        },
+        "description": "This is a GET request and it is used to \"get\" data from an endpoint. There is no request body for a GET request, but you can use query parameters to help specify the resource you want data on (e.g., in this request, we have `id=1`).\n\nA successful GET response will have a `200 OK` status, and should include some kind of response body - for example, HTML web content or JSON data."
+      },
+      "response": []
+    },
+    {
+      "name": "state",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/state?country=101",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "state"
+          ],
+          "query": [
+            {
+              "key": "country",
+              "value": "101"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "countryList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/countryList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "countryList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "allcity",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/allcity/3909",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "allcity",
+            "3909"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "turnover",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/turnover",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "turnover"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "companysize",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/companysize",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "companysize"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "industryList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/industryList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "industryList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "salaryList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/salaryList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "salaryList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "benefitList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/benefitList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "benefitList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "roleTypeList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/roleTypeList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "roleTypeList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "jobExperienceList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/jobExperienceList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "jobExperienceList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "accomodationList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/accomodationList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "accomodationList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "courseList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/courseList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "courseList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "courseTypeList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/courseTypeList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "courseTypeList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "tagList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/tagList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "tagList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "noticePeriod",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/period_list?type=",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "period_list"
+          ],
+          "query": [
+            {
+              "key": "type",
+              "value": ""
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "languageList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/languageList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "languageList"
+          ]
+        }
+      },
+      "response": []
+    }
+  ]
+}
