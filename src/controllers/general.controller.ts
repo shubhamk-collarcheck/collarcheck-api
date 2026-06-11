@@ -6,6 +6,7 @@ import {
 	getAccomodationService, getTagsService, getLanguagesService, getCoursesService,
 	getCourseTypesService, getInstitutionsService, getEducationDataService,
 	getAllDesignationService,
+	allSkillService,
 } from '../services/general.service';
 
 
@@ -185,6 +186,18 @@ export const alldesignation = async (req: Request, res: Response, next: NextFunc
 		const data = await getAllDesignationService();
 		return res.status(200).json({ status: true, messages: 'Designation List', data });
 	} catch (error) {
+		next(error);
+	}
+}
+
+
+
+export const allSkill = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const data = await allSkillService();
+		return res.status(200).json({ status: true, messages: 'Skill List', data });
+	}
+	catch (error) {
 		next(error);
 	}
 }

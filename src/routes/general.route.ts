@@ -2,11 +2,15 @@ import { Router } from 'express';
 import {
 	getAllCities, getCityById, getAllStates, countryListController, allturnover, allcompanysize, noticePeriodList, languageList, industryList, salaryList, benefitList, roleTypeList,
 	jobExperienceList, accomodationList, courseList, courseTypeList, educationDataList, tagList,
-	alldesignation
+	alldesignation,
+	allSkill
 } from '../controllers/general.controller';
 
 const generalRoute = Router();
 
+
+
+generalRoute.get("/all-skill", allSkill)
 generalRoute.get("/city", getAllCities);
 generalRoute.get("/allcity/:stateId", getCityById);
 generalRoute.get("/state", getAllStates);
@@ -25,7 +29,7 @@ generalRoute.get("/courseList", courseList)
 generalRoute.get("/courseTypeList", courseTypeList)
 generalRoute.get("/educationDataList", educationDataList)
 generalRoute.get("/all-designation", alldesignation)
-generalRoute.get("/all-job",)
+
 
 
 export default generalRoute;

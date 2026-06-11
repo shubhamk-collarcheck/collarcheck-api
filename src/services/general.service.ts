@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
 import db from '../db';
-import { cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod, cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation } from '../db/schema';
+import { cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod, cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation, cybSkill } from '../db/schema';
 
 const s3Prefix = process.env.S3_PREFIX || '';
 
@@ -29,7 +29,7 @@ export const getStatesService = async (country?: number) => {
 };
 
 export const getCountriesService = async () => {
-	const countryData = await db.select().from(cybCountry).where(eq(cybCountry.status, 1));
+	const countryData = await db.select({ id: cybCountry.id, name: cybCountry.name }).from(cybCountry).where(eq(cybCountry.status, 1));
 	return [...countryData.filter(c => c.id === 101), ...countryData.filter(c => c.id !== 101)];
 };
 
@@ -121,3 +121,9 @@ export const getEducationDataService = async () => {
 export const getAllDesignationService = async () => {
 	return await db.select({ id: cybDesignation.id, name: cybDesignation.name }).from(cybDesignation).where(eq(cybDesignation.status, 1)).orderBy(cybDesignation.id).limit(30);
 };
+
+
+export const allSkillService = async () => {
+	const conditions = [eq(cybSkill.status, 1)];
+	return await db.select({ id: cybSkill.id, name: cybSkill.name }).from(cybSkill).where(and(...conditions));
+}
