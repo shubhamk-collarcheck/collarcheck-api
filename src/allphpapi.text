@@ -1,0 +1,385 @@
+employee/add-employement
+employee/add-employement/(:num)
+employee/all-employement
+employee/allEmployementNew
+employee/employement-detail/(:num)
+employee/delete-employement/(:num)
+employee/all-education
+employee/add-education
+employee/add-education/(:num)
+employee/education-detail/(:num)
+employee/delete-education/(:num)
+employee/add-skill
+employee/all-skill
+employee/delete-skill/(:num)
+employee/add-portfolio
+employee/add-portfolio/(:num)
+employee/all-portfolio
+employee/portfolio-detail/(:num)
+employee/delete-portfolio/(:num)
+employee/add-certificate
+employee/add-certificate/(:num)
+employee/all-certificate
+employee/certificate-detail/(:num)
+employee/delete-certificate/(:num)
+api/employee/add-document
+api/employee/delete-document/(:num)
+employee/add_language
+employee/allLanguage
+employee/language/(:num)
+employee/currentCompany
+employee/sendCompanyInvite
+employee/add-review
+employee/add-review/(:num)
+employee/deleteReview/(:num)
+employee/reviewRemoveDocument
+employee/edit-user
+employee/changeEmploymentBasic
+employee/show-home-review/(:num)
+employee/apply-job
+employee/all-user
+employee/applyJobList
+employee/ProfilePercentage
+employee/approvedEmployment/(:num)
+employee/AllViewRequest
+employee/approvedVeiwRequest
+employee/rejectVeiwRequest/(:num)
+employee/deleteViewRequest/(:num)
+employee/checkCurrentCompany
+employee/dashboard
+employee/appliedjob
+employee/remove-resume
+auth/company-profile/(:any)
+general/markViewed/(:num)
+employee/sidebar-count
+employee/leave-reminder-experience
+hired
+employee/save-exploring
+employee/cv-details
+employee/edit-profile
+employee/all-company
+employee/user-detail
+user/getSetting
+user/saveSetting
+auth/user-profile/(:any)
+company/sendUserProfileViewRequest
+people-list
+company/getSetting
+company/saveSetting
+company/edit-user
+company/all-connection
+company/add-connection
+company/all-employement
+company/update-employement/(:num)
+company/all-wishlist
+company/add-wishlist
+company/delete-wishlist/(:num)
+company/all-job
+company/add-job
+company/add-job/(:num)
+company/jobStatusChange/(:num)
+company/delete-job/(:num)
+company/cancel-job/(:num)
+company/job-detail/(:num)
+company/job-template-detail/(:any)
+company/job-template
+company/multi-cancel-job
+company/multi-jobStatusChange
+company/add-document
+company/all-review
+company/add-review
+company/add-review/(:num)
+company/rejectReview/(:num)
+company/view-review/(:num)
+company/add-help
+company/allapplication
+company/updateBasicExperience/(:num)
+company/benefit
+company/addBenafit
+company/addBenafit/(:num)
+company/deleteBenafit/(:num)
+company/gallery
+company/addGallery
+company/addGallery/(:num)
+company/deleteGallery/(:num)
+company/addEmployee
+company/addEmployee/(:num)
+company/employeeDetail/(:num)
+company/rejectEmployement/(:num)
+company/rejectPromotion/(:num)
+company/leaveExperience
+company/reviewUniqueUsers
+company/validToReview/(:num)
+auth/company-profile/(:any)
+company/followRequestList
+company/dashboard
+general/markViewed/(:num)
+general/company-followDataList
+general/company-verificationStatus
+company/user-detail
+general/all-message-company
+general/send-message-company
+general/chatMessageReadCompany/(:num)
+company/sidebar-count
+company/employement-request
+company/add-company
+company/add-company/(:num)
+company-list
+company/revoke-delete-account
+company/invite-company
+claim-company
+dashboard/dataList
+dashboard/employmentList
+dashboard/jobDataList
+dashboard/jobFilterDataList
+general/employeeFilterDataList
+general/work-status
+general/employement-type
+general/course-type
+general/department
+general/jobType
+general/all-skill
+general/city
+general/state
+general/turnover
+general/companysize
+general/period_list
+general/languageList
+general/industryList
+general/salaryList
+general/benefitList
+general/roleTypeList
+general/jobExperienceList
+general/accomodationList
+general/countryList
+general/courseList
+general/courseTypeList
+general/educationDataList
+general/allcity/(:num)
+general/all-designation
+general/all-job
+general/job-detail/(:any)
+general/suggestion/(:any)/(:any)
+general/add-suggestion
+general/verify-document-before-registration
+general/verify-gst-before-registration
+general/skill/(:num)
+general/globalSearch
+general/inviteDetail/(:any)
+general/ratingFilter
+general/starRatingEmployies/(:num)
+general/user-profile/(:any)
+people-list-signup
+wapi/auth/globalSearch'
+wapi/general/company-profile/(:any)
+general/verify-authtoken
+logout
+general/doc-list/(:num)
+general/all-message
+general/verify-document
+general/all-notification
+employee/removeNotification
+general/allReadNotification
+general/chatMessageRead/(:num)
+notifications/clear-all-notification
+sendOtp
+verifyOtp
+general/send-message
+user/updatePhone
+user/updateEmail
+user/sendEmailOtp
+user/verifyEmailOtp
+removeNotification/(:num)
+general/follow
+general/followDataList
+general/unfollow/(:num)
+general/removeFollower/(:num)
+general/acceptfollow/(:num)
+general/rejectfollow/(:num)
+general/multi-remove-follower
+multi-unfollow
+multi-acceptfollow
+multi-deleteViewRequest
+multi-rejectfollow
+multi-approvedVeiwRequest
+general/verifyDocument
+general/saveDocument
+general/verifyAadhar
+general/verifyGst
+general/verifyDigilocker
+general/verificationStatus
+wapi/login/sendOtp
+wapi/login/verifyOtp
+wapi/login/googlelogin
+wapi/login/social-login
+wapi/login
+wapi/login/verify-otp
+wapi/employee/register
+wapi/company/register', 'CompanyApi::addCompany
+wapi/employee/signup
+wapi/employee/final-signup
+wapi/employee/upload-resume
+wapi/contact/save-enquiry
+wapi/career/save-enquiry
+wapi/general/consent
+wapi/home/top-company', 'Frontend::get_top_company
+wapi/general/sitemap
+wapi/data-deletion
+wapi/data-deletion
+wapi/test
+wapi/test
+wapi/test
+wapi/test
+wapi/splace
+wapi/report-review'
+wapi/all-delete-option
+wapi/request-delete-account'
+wapi/ai-generate'
+wapi/message-search'
+wapi/field-suggestion
+wapi/check-ccid
+wapi/follow-revoke'
+wapi/manual-document-submit'
+wapi/faqs
+wapi/hired-throw'
+wapi/update-hired-status'
+wapi/decline-hired-status'
+wapi/download-cv'
+wapi/auto-fetch'
+wapi/resume-fetch'
+wapi/resume'
+wapi/resume-parse'
+wapi/backup
+wapi/update-view-request
+wapi/send-email-schedule
+wapi/send-email-schedule/(:num)
+wapi/lat-long-update
+wapi/create-email-schedule
+wapi/create-email-schedule/(:num)
+wapi/final-schedule-update
+wapi/create-reschedule/(:num)
+wapi/cron-notice
+wapi/total-new-job-post
+wapi/job-viewed-not-applied
+wapi/has-not-applied-any-job
+wapi/new-job-match-your-skill
+wapi/candidate-matches-your-job-requirement
+wapi/gentle-reminder
+wapi/marked-immidiate-joiner
+wapi/no-login-or-action
+wapi/got-a-message
+wapi/unified-email
+wapi/update-percentage
+wapi/update-account-setting
+wapi/delete-otp
+wapi/percentage_status_reset
+wapi/send-email-import-employee
+wapi/recommend-employee', 'company\CompanyMobileController::recommend_employee
+wapi/recent-joined-employee', 'company\CompanyMobileController::recent_joined_employee
+wapi/pending-employee-reviews', 'company\CompanyMobileController::pending_employee_reviews
+wapi/most-view-job', 'company\CompanyMobileController::most_view_job
+wapi/review-detail/(:num)', 'company\CompanyMobileController::review_Detail/$1
+wapi/nearby-company', 'WidgetController::get_nearby_company
+wapi/random-widget', 'WidgetController::random_widget
+wapi/similarcompany', 'WidgetController::similarcompany
+wapi/people-similar-university', 'WidgetController::people_similar_university
+wapi/user-past-company', 'WidgetController::user_past_company
+wapi/user-current-company', 'WidgetController::user_current_company
+wapi/similaremployee', 'WidgetController::similaremployee
+wapi/featured-employee', 'WidgetController::featured_employee
+wapi/people-might-know', 'WidgetController::people_might_know
+wapi/nearby-employee', 'WidgetController::get_nearby_employee
+wapi/similar-job', 'WidgetController::get_similar_job
+wapi/immediate-joiner', 'WidgetController::get_immediate_joiner
+wapi/notice-period', 'WidgetController::get_notice_period
+wapi/similar-companies-current', 'WidgetController::similar_companies_current
+wapi/recommended-employee-general', 'WidgetController::recommended_employee_general
+wapi/people-recentaly-join', 'WidgetController::people_recentaly_join
+wapi/currentaly-unemployed', 'WidgetController::currentaly_unemployed
+wapi/freshers', 'WidgetController::freshers
+wapi/auth-all-job', 'WidgetController::allJob
+wapi/widget-detail/(:any)', 'WidgetController::widget_detail/$1
+wapi/view-impressions', 'WidgetController::view_impressions
+wapi/jobs-impressions', 'WidgetController::jobs_impressions
+wapi/people-viewed-profile', 'WidgetController::people_viewed_profile
+wapi/company-viewed-profile', 'WidgetController::company_viewed_profile
+wapi/details-jobs-impressions', 'WidgetController::details_jobs_impressions
+wapi/delete-files/(:num)', 'IndividualApi::deleteFile/$1
+wapi/delete-profile/(:num)', 'IndividualApi::deleteProfile/$1
+track-email/(:num)/(:num)
+wapi/top-company
+wapi/top-user
+wapi/landing-page
+wapi/send-reminder/(:num)', 'Frontend::sendreminder/$1
+wapi/request-domian-verification/(:num)', 'Frontend::requestDomainVerification/$1
+wapi/unsubscribe/(:any)
+wapi/subscribe/(:any)
+wapi/search-data
+wapi/blog-list
+wapi/blog-detail/(:any)
+wapi/get-slug
+wapi/mailtest
+wapi/update-ccid
+wapi/resume-download', 'Frontend::resume_download
+wapi/update-notice', 'IndividualApi::update_notice
+wapi/digilocker
+wapi/save-epfo', 'ModuleController::saveCVPopup
+wapi/resume-template', 'ModuleController::resume_template
+wapi/resume-details', 'ModuleController::resumeDetails
+wapi/switch-account/(:any)
+wapi/create-user-group', 'ModuleController::create_user_group
+wapi/create-user-group/(:num)', 'ModuleController::create_user_group/$1
+wapi/assign-user-permission', 'ModuleController::assign_user_permission
+wapi/assign-user-permission/(:num)', 'ModuleController::assign_user_permission/$1
+wapi/menus/events', 'ModuleController::menuEventList
+wapi/user-group', 'ModuleController::userGroupList
+wapi/group-user-list', 'ModuleController::groupUserList
+wapi/user-permission-list', 'ModuleController::userPermissionList
+wapi/edit-user-permission/(:num)', 'ModuleController::edit_user_permission/$1
+wapi/remove-permission', 'ModuleController::remove_permission
+wapi/all-role-group', 'ModuleController::allGroupList
+wapi/edit-group-role/(:num)', 'ModuleController::edit_group_role/$1
+wapi/remove-group-role', 'ModuleController::remove_group_role
+wapi/checkip
+wapi/doctype-list', 'Frontend::get_doctype_list
+wapi/company-doctype-list', 'Frontend::get_doctype_list
+wapi/reminder-veification-pending
+wapi/otp-verify-account-merge', 'ModuleController::otp_verify_account_merge
+wapi/send-otp-account-merge', 'ModuleController::send_otp_account_merge
+wapi/merge-user-register', 'ModuleController::merge_user_register
+wapi/ai-generate-row
+wapi/revoke-delete-account', 'common\AccountController::revoke_delete_account_self
+digilocker
+wapi/nonclaim-company
+wapi/default-user-list
+wapi/swipe-number', 'common\SwipeController::swipe_number
+wapi/alternate-empty', 'common\SwipeController::alternate_empty
+wapi/clarity
+wapi/collaborator-request', 'common\CollaboratorController::collaborator_request
+wapi/accept-colloborator/(:num)', 'common\CollaboratorController::accept_collaborator/$1
+wapi/collaborator-list', 'common\CollaboratorController::collaborator_list
+wapi/job-collaborator-list', 'common\CollaboratorController::job_collaborator_list
+wapi/get_question
+wapi/delete-email-domains/(:num)', 'CompanyApi::deleteCompanyEmailDomain/$1
+wapi/user-highest-level
+wapi/employee/add-skill-rating', 'RatingController::addSkillRating
+wapi/employee/add-skill-rating/(:num)', 'RatingController::addSkillRating/$1
+wapi/edit-rating-list/(:num)', 'RatingController::editReviewRating/$1
+wapi/show-rating', 'RatingController::showProfileRating
+wapi/update-show-profile-rating', 'RatingController::updateShowProfileRating
+wapi/company/add-skill-rating', 'RatingController::addCompanyReview
+wapi/company/add-skill-rating/(:num)', 'RatingController::addCompanyReview/$1
+wapi/rating-average', 'RatingController::RatingAverage
+wapi/search-filter', 'SearchController::searchfilter
+wapi/update-education-date/(:num)', 'employee\ModuleController::update_education_date/$1
+wapi/saveFireBaseToken', 'module\RequestController::saveFireBaseToken
+wapi/send-claim-otp', 'OtpController::send_claim_otp
+wapi/verify-claim-otp', 'OtpController::verify_claim_otp
+wapi/create_push_scheduler
+wapi/get_last_30_min_signup
+wapi/get_level_1user
+wapi/get_level_1week_user
+wapi/get_level_2user
+wapi/get_level_3user
+wapi/get_level_4user
+wapi/sync-contacts

@@ -5,7 +5,7 @@ import generalRoute from "./routes/general.route";
 
 const app = express();
 
-app.use(morgan("dev"));
+app.use(morgan(":method :url :status :response-time ms - :res[content-length]"));
 app.use(express.json())
 
 app.use("/wapi/general", generalRoute);

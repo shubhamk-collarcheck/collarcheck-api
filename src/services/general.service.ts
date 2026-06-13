@@ -1,6 +1,8 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import db from '../db';
-import { cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod, cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation, cybSkill } from '../db/schema';
+import { cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod, cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation, cybSkill, cybJobMode, cybDepartment, cybEmployementType, cybWorkType, cybUser, cybUserSkill, cybUserExperience } from '../db/schema';
+import { get_empoyee_designation_service, get_industry_list_service, get_state_by_employees_service, get_state_by_id_service, get_employee_department_service, get_skill_list_service, get_course_list_service } from "./job.service"
+import { allEmploymentType, industryList } from '../controllers/general.controller';
 
 const s3Prefix = process.env.S3_PREFIX || '';
 
@@ -127,3 +129,60 @@ export const allSkillService = async () => {
 	const conditions = [eq(cybSkill.status, 1)];
 	return await db.select({ id: cybSkill.id, name: cybSkill.name }).from(cybSkill).where(and(...conditions));
 }
+
+export const jobTypeService = async () => {
+	const conditions = [eq(cybJobMode.status, 1)]
+	return await db.select({ id: cybJobMode.id, name: cybJobMode.name }).from(cybJobMode).where(and(...conditions))
+}
+
+
+export const allDepartmentService = async () => {
+	const conditions = [eq(cybDepartment.status, 1)]
+	return await db.select({ id: cybDepartment.id, name: cybDepartment.name }).from(cybDepartment).where(and(...conditions))
+}
+
+export const allCourseTypeService = async () => {
+	const conditions = [eq(cybCourseType.status, 1)]
+	return await db.select({ id: cybCourseType.id, name: cybCourseType.name }).from(cybCourseType).where(and(...conditions))
+}
+
+export const allEmploymentTypeService = async () => {
+	const conditions = [eq(cybEmployementType.status, 1)]
+	return await db.select({ id: cybEmployementType.id, name: cybEmployementType.name }).from(cybEmployementType).where(and(...conditions))
+}
+
+
+export const allWorkTypeService = async () => {
+	const conditions = [eq(cybWorkType.status, 1)]
+	return await db.select({ id: cybWorkType.id, name: cybWorkType.name }).from(cybWorkType).where(and(...conditions))
+}
+
+export const employeeFilterDataListService = async () => {
+	const [
+		work_typeList,
+		industryList,
+		designationList,
+		departmentList,
+		employment_typeList,
+		salaryList,
+		skillList,
+		courseList,
+		courseTypeList,
+	] = await Promise.all(
+		allWorkTypeService(),
+		get_industry_list_service(),
+		get_empoyee_designation_service(),
+		get_employee_department_service(),
+		allEmploymentTypeService(),
+		getSalaryService(),
+		get_skill_list_service(),
+		get_course_list_service(),
+		allCourseTypeService(),
+	)
+	const stateId = await get_state_by_employees_service()
+	const ids = stateId.map((stateId) => (stateId.state))
+	const stateList = await get_state_by_id_service(ids)
+}
+
+
+
