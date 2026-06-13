@@ -1,7 +1,7 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import db from '../db';
 import { cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod, cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation, cybSkill, cybJobMode, cybDepartment, cybEmployementType, cybWorkType, cybUser, cybUserSkill, cybUserExperience } from '../db/schema';
-import { get_empoyee_designation_service, get_industry_list_service, get_state_by_employees_service, get_state_by_id_service, get_employee_department_service, get_skill_list_service, get_course_list_service } from "./job.service"
+import { get_empoyee_designation_service, get_industry_list_service, get_state_by_employees_service, get_state_by_id_service, get_employee_department_service, get_skill_list_service, get_course_list_service, get_user_skill_service, get_user_experience_skill_service } from "./job.service"
 import { allEmploymentType, industryList } from '../controllers/general.controller';
 
 const s3Prefix = process.env.S3_PREFIX || '';
@@ -165,23 +165,65 @@ export const employeeFilterDataListService = async () => {
 		departmentList,
 		employment_typeList,
 		salaryList,
-		skillList,
 		courseList,
 		courseTypeList,
-	] = await Promise.all(
+	] = await Promise.all([
 		allWorkTypeService(),
 		get_industry_list_service(),
 		get_empoyee_designation_service(),
 		get_employee_department_service(),
 		allEmploymentTypeService(),
 		getSalaryService(),
-		get_skill_list_service(),
 		get_course_list_service(),
 		allCourseTypeService(),
-	)
-	const stateId = await get_state_by_employees_service()
-	const ids = stateId.map((stateId) => (stateId.state))
-	const stateList = await get_state_by_id_service(ids)
+	])
+
+	const stateData = await get_state_by_employees_service()
+	let stateIds = stateData.map((s) => s.state).filter((id) => id !== null)
+	const stateList = await get_state_by_id_service(stateIds)
+
+	const [userSkill, userExpSkill] = await Promise.all([
+		get_user_skill_service(),
+		get_user_experience_skill_service(),
+	])
+
+	const skillSet = new Set<number>()
+
+	for (const row of userSkill) {
+		if (row.skill) skillSet.add(row.skill)
+	}
+
+
+	for (const row of userExpSkill) {
+		if (!row.skill) continue
+		try {
+			const decoded = JSON.parse(row.skill as string)
+			if (Array.isArray(decoded)) {
+				for (const id of decoded) {
+					if (id) skillSet.add(Number(id))
+				}
+			}
+		} catch (error) {
+			throw new Error(`getting error in parsing ${error}`)
+		}
+	}
+
+	const skillList = await get_skill_list_service([...skillSet])
+
+	return {
+		accomodationList: [],
+		universityList: [],
+		work_typeList,
+		stateList,
+		industryList,
+		designationList,
+		departmentList,
+		employment_typeList,
+		salaryList,
+		skillList,
+		courseList,
+		courseTypeList,
+	}
 }
 
 
