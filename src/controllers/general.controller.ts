@@ -7,7 +7,8 @@ import {
 	getCourseTypesService, getInstitutionsService, getEducationDataService, getAllDesignationService,
 	allSkillService, jobTypeService, allDepartmentService, allCourseTypeService,
 	allEmploymentTypeService,
-	allWorkTypeService, employeeFilterDataListService
+	allWorkTypeService, employeeFilterDataListService,
+	jobDataListService
 
 } from '../services/general.service';
 
@@ -260,6 +261,16 @@ export const employeeFilterDataList = async (req: Request, res: Response, next: 
 	try {
 		const data = await employeeFilterDataListService()
 		return res.status(200).json({ status: true, message: "employee filter", data: data })
+	} catch (error) {
+		next(error)
+	}
+}
+
+
+export const jobDataList = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const data = await jobDataListService()
+		return res.status(200).json({ status: true, message: "", data: data })
 	} catch (error) {
 		next(error)
 	}

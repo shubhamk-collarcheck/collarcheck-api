@@ -1,8 +1,9 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
-import { cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod, cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation, cybSkill, cybJobMode, cybDepartment, cybEmployementType, cybWorkType, cybUser, cybUserSkill, cybUserExperience } from '../db/schema';
+import { cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod, cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation, cybSkill, cybJobMode, cybDepartment, cybEmployementType, cybWorkType, cybUser, cybUserSkill, cybUserExperience, cybCompanyJob } from '../db/schema';
 import { get_empoyee_designation_service, get_industry_list_service, get_state_by_employees_service, get_state_by_id_service, get_employee_department_service, get_skill_list_service, get_course_list_service, get_user_skill_service, get_user_experience_skill_service } from "./job.service"
-import { allEmploymentType, industryList } from '../controllers/general.controller';
+import { allEmploymentType } from '../controllers/general.controller';
 
 const s3Prefix = process.env.S3_PREFIX || '';
 
@@ -227,4 +228,216 @@ export const employeeFilterDataListService = async () => {
 }
 
 
+export const jobDataListService = async () => {
+	const [
+		industryList,
+		roleTypeList,
+		salaryList,
+		tagList,
+		departmentList,
+		jobExperienceList,
+		skillList,
+		jobModeList,
+		designationList,
+		countryList
+	] = await Promise.all(
+		[
+			get_industry_list_service(),
+			getRoleTypesService(),
+			getSalaryService(),
+			getTagsService(),
+			allDepartmentService(),
+			getJobExperienceService(),
+			get_skill_list_service(),
+			jobTypeService(),
+			getAllDesignationService(),
+			getCountriesService()
+		])
 
+
+	return {
+		industryList,
+		roleTypeList,
+		salaryList,
+		tagList,
+		departmentList,
+		jobExperienceList,
+		skillList,
+		jobModeList,
+		designationList,
+		countryList
+	}
+
+}
+
+
+
+export const employmentListService = async (id?: string) => {
+	const [
+		designationList,
+		departmentList,
+		salaryList,
+		skillList,
+		employementTypeList
+	] = await Promise.all(
+		[
+			getAllDesignationService(),
+			allDepartmentService(),
+			getSalaryService(),
+			allSkillService(),
+			allEmploymentTypeService(),
+		]
+	)
+
+	const companyUser = alias(cybUser, 'company')
+
+	const [companyRows, userRows] = await Promise.all([
+		db.select({
+			id: cybUser.id,
+			individualId: cybUser.individualId,
+			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			fname: cybUser.fname,
+			contactPerson: cybUser.contactPerson,
+			cityName: cybCities.name,
+			stateName: cybState.name,
+			industryName: cybIndustries.name,
+			totalEmployment: cybUser.noOfEmployee,
+			emailVerified: cybUser.emailVerified,
+			phoneVerified: cybUser.phoneVerified,
+		})
+			.from(cybUser)
+			.leftJoin(cybCities, eq(cybUser.city, cybCities.id))
+			.leftJoin(cybState, eq(cybUser.state, cybState.id))
+			.leftJoin(cybIndustries, eq(cybUser.industry, cybIndustries.id))
+			.where(and(eq(cybUser.userType, 2), eq(cybUser.status, 1), eq(cybUser.isDeleted, 0)))
+			.orderBy(asc(cybUser.id))
+			.limit(10),
+		db.select({
+			id: cybUser.id,
+			individualId: cybUser.individualId,
+			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			fullName: cybUser.fullName,
+			slug: cybUser.slug,
+			designationName: cybDesignation.name,
+			companyName: companyUser.fname,
+			percentage: cybUser.percentage,
+			emailVerified: cybUser.emailVerified,
+			phoneVerified: cybUser.phoneVerified,
+		})
+			.from(cybUser)
+			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
+			.leftJoin(companyUser, eq(cybUser.currentCompany, companyUser.id))
+			.where(and(eq(cybUser.userType, 1), eq(cybUser.status, 1), eq(cybUser.isDeleted, 0)))
+			.orderBy(asc(cybUser.id))
+			.limit(10),
+	])
+
+	const companyIds = companyRows.map(c => c.id)
+	let activeJobCompanySet = new Set<number>()
+	if (companyIds.length > 0) {
+		const activeJobRows = await db.selectDistinct({ companyId: cybCompanyJob.company })
+			.from(cybCompanyJob)
+			.where(and(
+				inArray(cybCompanyJob.company, companyIds),
+				eq(cybCompanyJob.status, 1),
+				eq(cybCompanyJob.isDeleted, 0)
+			))
+		activeJobCompanySet = new Set(activeJobRows.map(j => j.companyId).filter((id): id is number => id !== null))
+	}
+
+	const companyList: {
+		id: number; individual_id: string | null; company_logo: string; company: string | null;
+		contact_person: string | null; city_name: string | null; state_name: string | null;
+		industry_name: string | null; is_verified: number; exploreTalent: number; total_employment: number | null
+	}[] = companyRows.map(c => ({
+		id: c.id,
+		individual_id: c.individualId,
+		company_logo: c.profile ? `${s3Prefix}${c.profile}` : (c.socialImage || ''),
+		company: c.fname,
+		contact_person: c.contactPerson,
+		city_name: c.cityName,
+		state_name: c.stateName,
+		industry_name: c.industryName,
+		is_verified: (c.emailVerified || c.phoneVerified) ? 1 : 0,
+		exploreTalent: activeJobCompanySet.has(c.id) ? 1 : 0,
+		total_employment: c.totalEmployment,
+	}))
+
+	const userList: {
+		id: number; individual_id: string | null; profile: string; name: string | null;
+		slug: string | null; designation_name: string | null; company_name: string | null;
+		userRating: number; is_verified: number
+	}[] = userRows.map(u => ({
+		id: u.id,
+		individual_id: u.individualId,
+		profile: u.profile ? `${s3Prefix}${u.profile}` : (u.socialImage || ''),
+		name: u.fullName,
+		slug: u.slug,
+		designation_name: u.designationName,
+		company_name: u.companyName,
+		userRating: u.percentage || 0,
+		is_verified: (u.emailVerified || u.phoneVerified) ? 1 : 0,
+	}))
+
+	if (id) {
+		const [currUser] = await db.select({
+			id: cybUser.id,
+			individualId: cybUser.individualId,
+			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			fname: cybUser.fname,
+			lname: cybUser.lname,
+			fullName: cybUser.fullName,
+			slug: cybUser.slug,
+			contactPerson: cybUser.contactPerson,
+			userType: cybUser.userType,
+			emailVerified: cybUser.emailVerified,
+			phoneVerified: cybUser.phoneVerified,
+		})
+			.from(cybUser)
+			.where(and(eq(cybUser.id, Number(id)), eq(cybUser.isDeleted, 0)))
+			.limit(1)
+
+		if (currUser) {
+			if (currUser.userType === 1) {
+				userList.push({
+					id: currUser.id,
+					individual_id: currUser.individualId,
+					profile: currUser.profile ? `${s3Prefix}${currUser.profile}` : (currUser.socialImage || ''),
+					name: currUser.fullName || `${currUser.fname} ${currUser.lname}`.trim(),
+					slug: currUser.slug,
+					designation_name: null,
+					company_name: null,
+					userRating: 0,
+					is_verified: (currUser.emailVerified || currUser.phoneVerified) ? 1 : 0,
+				})
+			} else {
+				companyList.push({
+					id: currUser.id,
+					individual_id: currUser.individualId,
+					company_logo: currUser.profile ? `${s3Prefix}${currUser.profile}` : (currUser.socialImage || ''),
+					company: currUser.fname,
+					contact_person: currUser.contactPerson,
+					city_name: null,
+					state_name: null,
+					industry_name: null,
+					is_verified: (currUser.emailVerified || currUser.phoneVerified) ? 1 : 0,
+					exploreTalent: 0,
+					total_employment: null,
+				})
+			}
+		}
+	}
+
+	return {
+		designationList,
+		departmentList,
+		salaryList,
+		skillList,
+		employementTypeList,
+		companyList,
+		userList,
+	}
+}

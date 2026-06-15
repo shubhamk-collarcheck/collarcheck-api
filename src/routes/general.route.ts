@@ -3,8 +3,7 @@ import {
 	getAllCities, getCityById, getAllStates, countryListController, allturnover, allcompanysize, noticePeriodList, languageList, industryList, salaryList, benefitList, roleTypeList,
 	jobExperienceList, accomodationList, courseList, courseTypeList, educationDataList, tagList,
 	alldesignation, allSkill, jobTypeList, allDepartment, allCourseType, allEmploymentType,
-	allWorkType,
-	employeeFilterDataList
+	allWorkType, employeeFilterDataList, jobDataList
 } from '../controllers/general.controller';
 
 const generalRoute = Router();
