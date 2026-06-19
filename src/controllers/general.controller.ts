@@ -1,4 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import { and, eq } from 'drizzle-orm';
+import db from '../db';
+import { cybCompanyJob } from '../db/schema';
 import {
 	getCitiesService, getCitiesByIdService, getStatesService, getCountriesService,
 	getTurnoverService, getNoticePeriodService, getCompanySizeService, getIndustriesService,
@@ -11,6 +14,8 @@ import {
 	jobDataListService
 
 } from '../services/general.service';
+import { get_job_detail } from '../services/users.service';
+import { isEmptyObject } from '../helpers/validaters';
 
 
 
@@ -278,5 +283,34 @@ export const jobDataList = async (req: Request, res: Response, next: NextFunctio
 
 
 
+export const job_detail = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const slug = req.params.slug;
+		const userId = req.query.userId ? Number(req.query.userId) : false;
+		const status = req.query.status ? String(req.query.status) : false;
+		const companyview = req.query.companyview === 'true' || req.query.companyview === '1';
 
+
+		const slugStr = Array.isArray(slug) ? slug[0] : slug;
+		let jobId: number;
+		if (slugStr && isNaN(Number(slugStr))) {
+			const [job] = await db.select({ id: cybCompanyJob.id }).from(cybCompanyJob).where(and(eq(cybCompanyJob.slug, slugStr), eq(cybCompanyJob.isDeleted, 0))).limit(1);
+			if (!job) {
+				return res.status(404).json({ status: false, message: 'Job not found', data: [] });
+			}
+			jobId = job.id;
+		} else {
+			jobId = Number(slugStr || req.query.id);
+		}
+
+		const response = {}
+		const job_detail_data = await get_job_detail(jobId, userId, status, companyview);
+		if (isEmptyObject(job_detail_data)) {
+			response["detail"] = job_detail_data
+		}
+		return res.status(200).json({ status: true, message: '', data: job_detail_data });
+	} catch (error) {
+		next(error);
+	}
+}
 

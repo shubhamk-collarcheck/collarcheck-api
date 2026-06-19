@@ -3,7 +3,7 @@ import {
 	getAllCities, getCityById, getAllStates, countryListController, allturnover, allcompanysize, noticePeriodList, languageList, industryList, salaryList, benefitList, roleTypeList,
 	jobExperienceList, accomodationList, courseList, courseTypeList, educationDataList, tagList,
 	alldesignation, allSkill, jobTypeList, allDepartment, allCourseType, allEmploymentType,
-	allWorkType, employeeFilterDataList, jobDataList
+	allWorkType, employeeFilterDataList, jobDataList, job_detail
 } from '../controllers/general.controller';
 
 const generalRoute = Router();
@@ -33,6 +33,8 @@ generalRoute.get("/courseList", courseList)
 generalRoute.get("/courseTypeList", courseTypeList)
 generalRoute.get("/educationDataList", educationDataList)
 generalRoute.get("/all-designation", alldesignation)
+// generalRoute.get("/all-job",)
+generalRoute.get("/job-detail/:slug", job_detail)
 
 
 

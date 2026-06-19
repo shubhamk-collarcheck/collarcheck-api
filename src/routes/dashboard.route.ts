@@ -8,7 +8,7 @@ const dashboardRoute = Router();
 dashboardRoute.get("/dataList", dataList)
 dashboardRoute.get('/employmentList', employmentList);
 dashboardRoute.get("/jobDataList", jobDataList)
-dashboardRoute.get('/jobFilterDataList');
+// dashboardRoute.get('/jobFilterDataList');
 
 
 export default dashboardRoute;
