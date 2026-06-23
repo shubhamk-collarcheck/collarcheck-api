@@ -1,11 +1,11 @@
 {
   "info": {
-    "_postman_id": "4670bd59-e269-47d9-b88f-8bafb98f3aac",
+    "_postman_id": "792e956c-0747-4525-b29d-1fa3f51fb55a",
     "name": "collarcheck",
     "description": "### Welcome to Postman! This is your first collection. \n\nCollections are your starting point for building and testing APIs. You can use this one to:\n\n• Group related requests\n• Test your API in real-world scenarios\n• Document and share your requests\n\nUpdate the name and overview whenever you’re ready to make it yours.\n\n[Learn more about Postman Collections.](https://learning.postman.com/docs/collections/collections-overview/)",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "55603620",
-    "_collection_link": "https://go.postman.co/collection/55603620-4670bd59-e269-47d9-b88f-8bafb98f3aac?source=collection_link"
+    "_collection_link": "https://go.postman.co/collection/55603620-792e956c-0747-4525-b29d-1fa3f51fb55a?source=collection_link"
   },
   "item": [
     {
@@ -365,6 +365,279 @@
         }
       },
       "response": []
+    },
+    {
+      "name": "all-designation",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/all-designation",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "all-designation"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "jobType",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/jobType",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "jobType"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "department",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/department",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "department"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "employeeFilterDataList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/employeeFilterDataList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "employeeFilterDataList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "general/employeeFilterDataList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/employeeFilterDataList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "employeeFilterDataList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/work-status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/work-status",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "work-status"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "/jobDataList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/jobDataList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "jobDataList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "employmentList",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/dashboard/employmentList",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "dashboard",
+            "employmentList"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "general/job-detail/(:any)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{URL}}/wapi/general/job-detail/regulatory-manager?companyview=1",
+          "host": [
+            "{{URL}}"
+          ],
+          "path": [
+            "wapi",
+            "general",
+            "job-detail",
+            "regulatory-manager"
+          ],
+          "query": [
+            {
+              "key": "companyview",
+              "value": "1"
+            }
+          ]
+        }
+      },
+      "response": [
+        {
+          "name": "general/job-detail/(:any)",
+          "originalRequest": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/job-detail/accountant",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "job-detail",
+                "accountant"
+              ]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": null,
+          "header": [
+            {
+              "key": "Date",
+              "value": "Thu, 18 Jun 2026 05:09:08 GMT"
+            },
+            {
+              "key": "Server",
+              "value": "Apache/2.4.58 (Win64) OpenSSL/3.1.3 PHP/8.2.12"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "Access-Control-Allow-Origin",
+              "value": "*"
+            },
+            {
+              "key": "Access-Control-Allow-Methods",
+              "value": "POST, GET, OPTIONS, DELETE, PUT"
+            },
+            {
+              "key": "Access-Control-Allow-Methods",
+              "value": "GET, POST, OPTIONS, PUT, DELETE"
+            },
+            {
+              "key": "Access-Control-Allow-Headers",
+              "value": "append,delete,entries,foreach,get,has,keys,set,values,Authorization,X-Company"
+            },
+            {
+              "key": "Access-Control-Allow-Headers",
+              "value": "Content-Type, Authorization"
+            },
+            {
+              "key": "X-Powered-By",
+              "value": "PHP/8.2.12"
+            },
+            {
+              "key": "Set-Cookie",
+              "value": "ci_session=81d99cda8465fbd2df8fab48ce22204c; expires=Thu, 18 Jun 2026 07:09:12 GMT; Max-Age=7200; path=/; HttpOnly; SameSite=Lax"
+            },
+            {
+              "key": "Expires",
+              "value": "Thu, 19 Nov 1981 08:52:00 GMT"
+            },
+            {
+              "key": "Cache-Control",
+              "value": "no-store, no-cache, must-revalidate"
+            },
+            {
+              "key": "Pragma",
+              "value": "no-cache"
+            },
+            {
+              "key": "Keep-Alive",
+              "value": "timeout=5, max=100"
+            },
+            {
+              "key": "Connection",
+              "value": "Keep-Alive"
+            },
+            {
+              "key": "Transfer-Encoding",
+              "value": "chunked"
+            },
+            {
+              "key": "Content-Type",
+              "value": "text/html; charset=UTF-8"
+            }
+          ],
+          "cookie": [],
+          "body": "{\"status\":true,\"data\":{\"detail\":{\"id\":\"7\",\"individual_id\":null,\"job_title\":\"Frontend & Shopify Developer\",\"job_description\":\"\n<p>New Jon<\\/p>\",\"roles_responsibility\":null,\"department_name\":\"Expo company\",\"experience_name\":\"Fresher\",\"department\":\"350\",\"experience\":\"1\",\"skill\":[],\"role_type_name\":\"Internship\",\"job_mode_name\":\"Remote\",\"industry_name\":\"Airlines\\/Aviation\",\"role_type\":\"3\",\"industry\":\"2\",\"vacancy\":\"5\",\"urgent\":false,\"designation_name\":\"Product controller\",\"country_name\":\"India\",\"state_name\":\"Delhi\",\"designation\":\"4808\",\"country\":\"101\",\"state\":\"4021\",\"city\":\"154228\",\"job_mode\":\"2\",\"document\":\"\",\"city_name\":\"Badarpur border\",\"salary\":\"2\",\"salary_name\":\"3-6 Lakhs\",\"company_name\":\"Yash Enterprises Ltd.\",\"profile\":null,\"create_date\":\"2025-03-24 23:42:23\",\"applicationCount\":\"41\",\"status\":\"0\",\"slug\":\"accountant\",\"gallery\":[],\"company_slug\":null,\"apply\":false,\"is_verified\":false,\"colloborator\":false,\"collaboratorList\":[],\"totalCount\":0},\"JobList\":[{\"id\":\"876\",\"individual_id\":\"CCC705743\",\"job_title\":\"Paid assistant\",\"job_description\":\"\n    <p>ad<\\/p>\",\"roles_responsibility\":\"\",\"department_name\":null,\"experience_name\":\"7-10 years\",\"department\":null,\"experience\":\"7\",\"skill\":[{\"id\":\"555\",\"name\":\"Alternative Dispute Resolution\"},{\"id\":\"7614\",\"name\":\"Immunochemistry\"},{\"id\":\"16544\",\"name\":\"Waste Heat Recovery\"}],\"role_type_name\":\"Full Time\",\"job_mode_name\":\"Work from office\",\"industry_name\":\"Accounting @@@@!!!\",\"role_type\":\"1\",\"industry\":\"190\",\"vacancy\":\"21\",\"urgent\":false,\"designation_name\":null,\"country_name\":\"India\",\"state_name\":\"Delhi\",\"designation\":null,\"country\":\"101\",\"state\":\"4021\",\"city\":null,\"job_mode\":\"1\",\"document\":\"\",\"city_name\":null,\"salary\":\"0\",\"salary_name\":null,\"company_name\":\"fdsf\",\"profile\":null,\"create_date\":\"2026-06-06 12:49:37\",\"applicationCount\":\"0\",\"status\":\"1\",\"slug\":\"paid-assistant-delhi-7-10-years-0606267236\",\"gallery\":[],\"company_slug\":\"fdsf-ccc705743\",\"apply\":false,\"is_verified\":false},{\"id\":\"875\",\"individual_id\":\"CCC698198\",\"job_title\":\"Head athletic trainer\",\"job_description\":\"\n        <p>ds ad a a<\\/p>\",\"roles_responsibility\":\"\",\"department_name\":null,\"experience_name\":\"0-1 years\",\"department\":null,\"experience\":\"2\",\"skill\":[{\"id\":\"980\",\"name\":\"ASI\"},{\"id\":\"3213\",\"name\":\"CPSIA\"},{\"id\":\"8544\",\"name\":\"Klarity\"},{\"id\":\"11561\",\"name\":\"PBX\"}],\"role_type_name\":\"Part Time\",\"job_mode_name\":\"Work from office\",\"industry_name\":\"Advertisement Agency\",\"role_type\":\"2\",\"industry\":\"207\",\"vacancy\":\"12\",\"urgent\":false,\"designation_name\":null,\"country_name\":\"India\",\"state_name\":\"Delhi\",\"designation\":null,\"country\":\"101\",\"state\":\"4021\",\"city\":null,\"job_mode\":\"1\",\"document\":\"\",\"city_name\":null,\"salary\":\"0\",\"salary_name\":null,\"company_name\":\"my company 23\",\"profile\":null,\"create_date\":\"2026-06-06 12:05:56\",\"applicationCount\":\"0\",\"status\":\"1\",\"slug\":\"head-athletic-trainer-delhi-0-1-years-0606269858\",\"gallery\":[],\"company_slug\":\"my-company-23-ccc698198\",\"apply\":false,\"is_verified\":false},{\"id\":\"874\",\"individual_id\":\"CCC739217\",\"job_title\":\"email markeitn\",\"job_description\":\"\n            <p>test<\\/p>\",\"roles_responsibility\":null,\"department_name\":\"IT & Development\",\"experience_name\":\"10-12 years\",\"department\":\"34\",\"experience\":\"8\",\"skill\":[{\"id\":\"2534\",\"name\":\"Church Relations\"},{\"id\":\"10895\",\"name\":\"OEMs\"},{\"id\":\"15862\",\"name\":\"Ultra Low Latency\"},{\"id\":\"16820\",\"name\":\"Wind Mitigation\"}],\"role_type_name\":\"Full Time\",\"job_mode_name\":\"Hybrid\",\"industry_name\":\"IT Services & Consulting\",\"role_type\":\"1\",\"industry\":\"148\",\"vacancy\":\"5\",\"urgent\":true,\"designation_name\":\"Executive\",\"country_name\":\"India\",\"state_name\":\"Bihar\",\"designation\":\"377\",\"country\":\"101\",\"state\":\"4037\",\"city\":null,\"job_mode\":\"3\",\"document\":\"\",\"city_name\":null,\"salary\":\"2\",\"salary_name\":\"3-6 Lakhs\",\"company_name\":\"Zenith Digital Marketing\",\"profile\":\"https:\\/\\/ccpl-s3.s3.ap-south-1.amazonaws.com\\/uploads\\/profile\\/e3afc25b92b4ee3f36294d46e3eb88618f20c033035e2e8a27f6b9aa65f5bca3.jpg\",\"create_date\":\"2026-06-04 18:31:06\",\"applicationCount\":\"0\",\"status\":\"1\",\"slug\":\"email-markeitn-bihar-executive-10-12-years-0406266951\",\"gallery\":[\"https:\\/\\/ccpl-s3.s3.ap-south-1.amazonaws.com\\/uploads\\/images\\/bdfc0e2792501ed7c6db8875581ccfb1e1dd5ecb3ba4522f14786d9c7407e009.jpg\",\"https:\\/\\/ccpl-s3.s3.ap-south-1.amazonaws.com\\/uploads\\/images\\/79c8074a311410ad958cc531ee4d494e553213addbba699a0253e007f45cbcdb.png\"],\"company_slug\":\"zenith-digital-marketing-ccc739217\",\"apply\":false,\"is_verified\":true},{\"id\":\"873\",\"individual_id\":\"CCC175807\",\"job_title\":\"QA Engineer\",\"job_description\":\"\n                <h2>\n                    <strong>Job&nbsp;Summary<\\/strong><\\/h2>\n                        <p>We&nbsp;are&nbsp;seeking&nbsp;a&nbsp;QA&nbsp;Engineer&nbsp;who&nbsp;will&nbsp;be&nbsp;responsible&nbsp;for&nbsp;designing,&nbsp;executing,&nbsp;and&nbsp;maintaining&nbsp;test&nbsp;plans&nbsp;and&nbsp;test&nbsp;cases.&nbsp;The&nbsp;ideal&nbsp;candidate&nbsp;will&nbsp;work&nbsp;closely&nbsp;with&nbsp;developers,&nbsp;product&nbsp;managers,&nbsp;and&nbsp;other&nbsp;stakeholders&nbsp;to&nbsp;identify&nbsp;issues&nbsp;and&nbsp;ensure&nbsp;the&nbsp;delivery&nbsp;of&nbsp;high-quality&nbsp;software.<\\/p>\n                            <h2>\n                                <strong>Key&nbsp;Responsibilities<\\/strong><\\/h2>\n                                    <ul>\n                                        <li>Develop&nbsp;and&nbsp;execute&nbsp;manual&nbsp;and&nbsp;automated&nbsp;test&nbsp;cases.<\\/li>\n                                            <li>Create&nbsp;and&nbsp;maintain&nbsp;test&nbsp;plans,&nbsp;test&nbsp;scenarios,&nbsp;and&nbsp;test&nbsp;documentation.<\\/li>\n                                                <li>Identify,&nbsp;document,&nbsp;track,&nbsp;and&nbsp;verify&nbsp;software&nbsp;defects.<\\/li>\n                                                    <li>Collaborate&nbsp;with&nbsp;developers&nbsp;to&nbsp;resolve&nbsp;issues&nbsp;and&nbsp;improve&nbsp;product&nbsp;quality.<\\/li>\n                                                        <li>Participate&nbsp;in&nbsp;requirement&nbsp;reviews&nbsp;and&nbsp;provide&nbsp;feedback&nbsp;from&nbsp;a&nbsp;quality&nbsp;perspective.<\\/li>\n                                                            <li>Perform&nbsp;functional,&nbsp;regression,&nbsp;integration,&nbsp;and&nbsp;performance&nbsp;testing.<\\/li>\n                                                                <li>Contribute&nbsp;to&nbsp;continuous&nbsp;improvement&nbsp;of&nbsp;QA&nbsp;processes&nbsp;and&nbsp;testing&nbsp;standards.<\\/li>\n                                                                    <li>Ensure&nbsp;releases&nbsp;meet&nbsp;quality&nbsp;standards&nbsp;before&nbsp;deployment.<\\/li><\\/ul>\",\"roles_responsibility\":null,\"department_name\":\"Software Testing\",\"experience_name\":\"7-10 years\",\"department\":\"72\",\"experience\":\"7\",\"skill\":[{\"id\":\"818\",\"name\":\"API Testing\"},{\"id\":\"3789\",\"name\":\"Defect Tracking\"},{\"id\":\"5158\",\"name\":\"ETL Testing\"},{\"id\":\"9395\",\"name\":\"Manual Testing\"},{\"id\":\"11724\",\"name\":\"Performance Testing\"},{\"id\":\"15280\",\"name\":\"Test Automation\"},{\"id\":\"17813\",\"name\":\"Database Testing\"},{\"id\":\"17849\",\"name\":\"Automation Testing\"},{\"id\":\"19117\",\"name\":\"Agile Methodology\"},{\"id\":\"19273\",\"name\":\"IoT Testing\"}],\"role_type_name\":\"Full Time\",\"job_mode_name\":\"Hybrid\",\"industry_name\":\"Quality Assurance\",\"role_type\":\"1\",\"industry\":\"343\",\"vacancy\":\"8\",\"urgent\":true,\"designation_name\":\"Qa\\/qc engineer\",\"country_name\":\"India\",\"state_name\":\"Uttar Pradesh\",\"designation\":\"1913\",\"country\":\"101\",\"state\":\"4022\",\"city\":\"133230\",\"job_mode\":\"3\",\"document\":\"\",\"city_name\":\"Noida\",\"salary\":\"3\",\"salary_name\":\"6-10 Lakhs\",\"company_name\":\"Fluper Pvt. Ltd.\",\"profile\":null,\"create_date\":\"2026-06-03 18:12:29\",\"applicationCount\":\"0\",\"status\":\"1\",\"slug\":\"qa-engineer-uttar-pradesh-qaqc-engineer-7-10-years-0306264907\",\"gallery\":[\"https:\\/\\/ccpl-s3.s3.ap-south-1.amazonaws.com\\/uploads\\/images\\/5709ba682afc8b2721458077e69d59b93ef572f6a30aa56044b97e2fc04cfd7b.jfif\"],\"company_slug\":\"fluper-pvt-ltd-ccc175807\",\"apply\":false,\"is_verified\":true}],\"company\":{\"id\":\"38942\",\"fname\":\"Yash Enterprises Ltd.\",\"individual_id\":null,\"user_type\":\"2\",\"email\":null,\"phone\":null,\"phone_verified\":null,\"email_verified\":null,\"email_alternate\":null,\"second_phone_verify\":null,\"email_alternate_verify\":null,\"second_phone\":null,\"verified_domain\":\"0\",\"profile\":null,\"slug\":null,\"country\":null,\"city\":null,\"state\":null,\"city_name\":null,\"state_name\":null,\"country_name\":null,\"present_address\":null,\"profile_description\":null,\"linkdin\":null,\"youtube\":null,\"instagram\":null,\"facebook\":null,\"tumblr\":\"\",\"discord\":\"\",\"twitter\":null,\"snapchat\":\"\",\"contact_person\":null,\"website\":null,\"turnover\":null,\"turnover_name\":null,\"company_size\":null,\"company_size_name\":null,\"incorporate_date\":null,\"industry\":\"228\",\"industry_name\":\"Web & IT Solutions\",\"login_time\":null,\"claim_status\":\"0\",\"latitude\":null,\"longitude\":null,\"totalConnection\":0,\"allEmploymentCount\":0,\"benefitList\":[]}}}"
+        }
+      ]
     }
   ]
 }
