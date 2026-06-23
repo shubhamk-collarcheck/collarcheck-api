@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, like, or, sql, SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import {
@@ -306,5 +306,168 @@ export const get_job_detail = async (jobId: number, userId: number | false = fal
 	}
 
 	return arr;
+};
+
+interface SearchJobFilter {
+	keyword?: string;
+	city?: number;
+	state?: number;
+	salary?: number;
+	designation?: number;
+	urgent?: number;
+	vacancy?: number;
+	industry?: number;
+	country?: number;
+	job_mode?: number;
+	department?: number;
+	experience?: number;
+	role_type?: number;
+	company?: number;
+	id_not_in?: number;
+	posted_date?: number;
+	stateArr?: { id: number }[];
+	citiesArr?: { id: number }[];
+	designationArr?: { id: number }[];
+	departmentArr?: { id: number }[];
+	skillArray?: { id: number }[];
+	job_id?: number[];
+	random?: boolean;
+	limit?: number;
+	offset?: number;
+}
+
+export const get_search_skill = async (keyword: string) => {
+	if (!keyword) return [];
+	const rows = await db.select({ id: cybSkill.id })
+		.from(cybSkill)
+		.where(and(eq(cybSkill.status, 1), like(cybSkill.name, '%' + keyword + '%')));
+	return rows;
+};
+
+export const get_search_job_list = async (filter: SearchJobFilter = {}) => {
+	const keyword = filter.keyword || '';
+	const conditions: (SQL)[] = [];
+
+	conditions.push(eq(cybCompanyJob.status, 1));
+	conditions.push(eq(cybCompanyJob.isDeleted, 0));
+	conditions.push(eq(cybUser.isDeleted, 0));
+
+	if (filter.city) conditions.push(eq(cybCompanyJob.city, filter.city));
+	if (filter.state) conditions.push(eq(cybCompanyJob.state, filter.state));
+	if (filter.salary) conditions.push(eq(cybCompanyJob.salary, filter.salary));
+	if (filter.designation) conditions.push(eq(cybCompanyJob.designation, filter.designation));
+	if (filter.urgent) conditions.push(eq(cybCompanyJob.urgent, filter.urgent));
+	if (filter.vacancy) conditions.push(eq(cybCompanyJob.vacancy, filter.vacancy));
+	if (filter.industry) conditions.push(eq(cybCompanyJob.industry, filter.industry));
+	if (filter.country) conditions.push(eq(cybCompanyJob.country, filter.country));
+	if (filter.job_mode) conditions.push(eq(cybCompanyJob.jobMode, filter.job_mode));
+	if (filter.department) conditions.push(eq(cybCompanyJob.department, filter.department));
+	if (filter.experience) conditions.push(eq(cybCompanyJob.experience, String(filter.experience)));
+	if (filter.role_type) conditions.push(eq(cybCompanyJob.roleType, filter.role_type));
+	if (filter.company) conditions.push(eq(cybCompanyJob.company, filter.company));
+
+	if (filter.id_not_in) {
+		conditions.push(sql`${cybCompanyJob.id} <> ${filter.id_not_in}`);
+	}
+
+	if (filter.posted_date) {
+		const d = new Date();
+		d.setDate(d.getDate() - filter.posted_date);
+		conditions.push(sql`DATE_FORMAT(${cybCompanyJob.createDate}, '%Y-%m-%d') >= ${d.toISOString().split('T')[0]}`);
+	}
+
+	if (keyword) {
+		const kwConds: (SQL | undefined)[] = [
+			like(cybCompanyJob.skill, '%' + keyword + '%'),
+			like(cybIndustries.name, '%' + keyword + '%'),
+			like(cybDepartment.name, '%' + keyword + '%'),
+			like(cybJobExperiences.name, '%' + keyword + '%'),
+			like(cybRoleTypes.name, '%' + keyword + '%'),
+			like(cybDesignation.name, '%' + keyword + '%'),
+			like(cybJobMode.name, '%' + keyword + '%'),
+		];
+
+		const parts = keyword.split(' ').filter(Boolean);
+		if (parts.length > 0) {
+			const titleConds = parts.map(p => like(cybCompanyJob.jobTitle, '%' + p + '%'));
+			kwConds.push(or(...titleConds));
+		}
+
+		const skills = await get_search_skill(keyword);
+		if (skills.length > 0) {
+			const skConds = skills.map(s => sql`JSON_CONTAINS(${cybCompanyJob.skill}, ${JSON.stringify(String(s.id))}, '$')`);
+			kwConds.push(or(...skConds));
+		}
+
+		conditions.push(or(...kwConds));
+	}
+
+	const arrGroups: [any[] | undefined, keyof SearchJobFilter][] = [
+		[filter.stateArr, 'stateArr'], [filter.citiesArr, 'citiesArr'],
+		[filter.designationArr, 'designationArr'], [filter.departmentArr, 'departmentArr'],
+	];
+	const hasArrs = arrGroups.some(([a]) => a && a.length > 0);
+	if (hasArrs) {
+		const findConds: SQL[] = [];
+		const colMap: Record<string, any> = {
+			stateArr: cybCompanyJob.state,
+			citiesArr: cybCompanyJob.city,
+			designationArr: cybCompanyJob.designation,
+			departmentArr: cybCompanyJob.department,
+		};
+		for (const [arr, key] of arrGroups) {
+			if (arr && arr.length > 0) {
+				for (const item of arr) {
+					findConds.push(sql`FIND_IN_SET(${item.id}, ${colMap[key]})`);
+				}
+			}
+		}
+		conditions.push(or(...findConds));
+	}
+
+	if (filter.skillArray && filter.skillArray.length > 0) {
+		const skConds = filter.skillArray.map(sk =>
+			sql`JSON_CONTAINS(${cybCompanyJob.skill}, ${JSON.stringify(String(sk.id))}, '$')`
+		);
+
+		if (keyword) {
+			const mainAnd = and(...conditions);
+			const skillOr = or(...skConds);
+			if (mainAnd && skillOr) {
+				conditions.length = 0;
+				conditions.push(or(mainAnd, skillOr));
+			}
+		} else {
+			conditions.push(or(...skConds));
+		}
+	}
+
+	if (filter.job_id && filter.job_id.length > 0) {
+		conditions.push(inArray(cybCompanyJob.id, filter.job_id));
+	}
+
+	const query = db.select({ id: cybCompanyJob.id })
+		.from(cybCompanyJob)
+		.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id))
+		.leftJoin(cybState, eq(cybCompanyJob.state, cybState.id))
+		.leftJoin(cybCountry, eq(cybCompanyJob.country, cybCountry.id))
+		.leftJoin(cybIndustries, eq(cybCompanyJob.industry, cybIndustries.id))
+		.leftJoin(cybJobExperiences, eq(cybCompanyJob.experience, cybJobExperiences.id))
+		.leftJoin(cybRoleTypes, eq(cybCompanyJob.roleType, cybRoleTypes.id))
+		.leftJoin(cybDepartment, eq(cybCompanyJob.department, cybDepartment.id))
+		.leftJoin(cybDesignation, eq(cybCompanyJob.designation, cybDesignation.id))
+		.leftJoin(cybJobMode, eq(cybCompanyJob.jobMode, cybJobMode.id))
+		.leftJoin(cybUser, eq(cybCompanyJob.company, cybUser.id))
+		.leftJoin(cybSalary, eq(cybCompanyJob.salary, cybSalary.id))
+		.where(and(...conditions))
+		.orderBy(desc(cybCompanyJob.id));
+
+	if (filter.limit !== undefined && filter.limit !== null) {
+		const rows = await query.limit(filter.limit).offset(filter.offset || 0);
+		return rows;
+	}
+
+	const rows = await query;
+	return rows.length;
 };
 

@@ -282,6 +282,10 @@ export const jobDataList = async (req: Request, res: Response, next: NextFunctio
 }
 
 
+export type JobResponse = {
+	detail: Record<string, any>
+}
+
 
 export const job_detail = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -303,7 +307,7 @@ export const job_detail = async (req: Request, res: Response, next: NextFunction
 			jobId = Number(slugStr || req.query.id);
 		}
 
-		const response = {}
+		const response: JobResponse = {}
 		const job_detail_data = await get_job_detail(jobId, userId, status, companyview);
 		if (isEmptyObject(job_detail_data)) {
 			response["detail"] = job_detail_data
