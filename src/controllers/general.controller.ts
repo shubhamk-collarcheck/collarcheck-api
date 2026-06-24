@@ -14,8 +14,9 @@ import {
 	jobDataListService
 
 } from '../services/general.service';
-import { get_job_detail } from '../services/users.service';
+import { get_job_detail, get_search_job_list } from '../services/users.service';
 import { isEmptyObject } from '../helpers/validaters';
+
 
 
 
@@ -282,10 +283,6 @@ export const jobDataList = async (req: Request, res: Response, next: NextFunctio
 }
 
 
-export type JobResponse = {
-	detail: Record<string, any>
-}
-
 
 export const job_detail = async (req: Request, res: Response, next: NextFunction) => {
 	try {
@@ -307,12 +304,37 @@ export const job_detail = async (req: Request, res: Response, next: NextFunction
 			jobId = Number(slugStr || req.query.id);
 		}
 
-		const response: JobResponse = {}
-		const job_detail_data = await get_job_detail(jobId, userId, status, companyview);
-		if (isEmptyObject(job_detail_data)) {
-			response["detail"] = job_detail_data
+		const jobDetailData = await get_job_detail(jobId, userId, status, companyview);
+
+		if (!isEmptyObject(jobDetailData)) {
+			const filterLogic = {
+				"id_not_in": jobDetailData["id"],
+				"status": 1,
+				"limit": 4,
+				"offset": 0,
+				"skillArray": jobDetailData["skill"]
+			}
+
+			const jobList = await get_search_job_list(filterLogic)
+
+			const relatedJob = []
+
+			if (!isEmptyObject(jobList)) {
+				for (let job of jobList) {
+					const jobDetail = await get_job_detail(job.id)
+					relatedJob.push(jobDetail)
+				}
+			}
 		}
-		return res.status(200).json({ status: true, message: '', data: job_detail_data });
+
+		return res.status(200).json(
+			{
+				status: true,
+				message: '',
+				data: {
+					detail: jobDetailData
+				}
+			});
 	} catch (error) {
 		next(error);
 	}

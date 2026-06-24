@@ -346,7 +346,7 @@ export const get_search_skill = async (keyword: string) => {
 
 export const get_search_job_list = async (filter: SearchJobFilter = {}) => {
 	const keyword = filter.keyword || '';
-	const conditions: (SQL)[] = [];
+	const conditions: (SQL | undefined)[] = [];
 
 	conditions.push(eq(cybCompanyJob.status, 1));
 	conditions.push(eq(cybCompanyJob.isDeleted, 0));
