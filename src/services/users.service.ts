@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, like, or, sql, SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, getTableColumns, inArray, like, or, sql, SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import {
@@ -7,7 +7,8 @@ import {
 	cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation,
 	cybSkill, cybJobMode, cybDepartment, cybEmployementType, cybWorkType, cybUser,
 	cybUserSkill, cybUserExperience, cybCompanyJob, cybApplication, cybGalleries,
-	cybJobCollaborators, cybGender, cybVerifyDocument, cybUserDetails, cybUserDomains
+	cybJobCollaborators, cybGender, cybVerifyDocument, cybUserDetails, cybUserDomains,
+	cybCompanyBenefits
 } from '../db/schema';
 
 import { get_job_skill, get_gallery_list } from "../helpers/decoder"
@@ -99,8 +100,192 @@ export const get_user_detail = async (id: number) => {
 	return row;
 };
 
+export const get_all_connection = async (companyId: number) => {
+	const [result] = await db
+		.select({ count: sql<number>`COUNT(DISTINCT ${cybUserExperience.user})` })
+		.from(cybUserExperience)
+		.innerJoin(cybUser, eq(cybUserExperience.user, cybUser.id))
+		.where(
+			and(
+				eq(cybUserExperience.approved, 1),
+				eq(cybUserExperience.stillWorking, 1),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUserExperience.company, companyId)
+			)
+		);
 
+	return result?.count || 0;
+};
 
+export const get_complete_connection = async (companyId: number) => {
+	const [result] = await db
+		.select({ count: sql<number>`COUNT(DISTINCT ${cybUserExperience.user})` })
+		.from(cybUserExperience)
+		.innerJoin(cybUser, eq(cybUserExperience.user, cybUser.id))
+		.where(
+			and(
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUser.isDeleted, 0)
+			)
+		);
+
+	return result?.count || 0;
+};
+
+export const get_benefits_list = async (companyId: number) => {
+	const rows = await db
+		.select({
+			benefitId: cybCompanyBenefits.benefitId,
+			benefitName: cybBenefits.name,
+			image: cybBenefits.image,
+			benefitDescription: cybBenefits.description,
+		})
+		.from(cybCompanyBenefits)
+		.leftJoin(cybBenefits, eq(cybCompanyBenefits.benefitId, cybBenefits.id))
+		.where(
+			and(
+				eq(cybCompanyBenefits.companyId, companyId),
+				eq(cybCompanyBenefits.status, 1),
+				eq(cybBenefits.status, 1),
+				eq(cybCompanyBenefits.isDeleted, 0)
+			)
+		)
+		.orderBy(asc(cybCompanyBenefits.sortOrder));
+
+	return rows;
+};
+
+export const get_company_detail = async (id: number | null) => {
+	if (id == null) {
+		return {}
+	}
+	const [detail] = await db
+		.select({
+			id: cybUser.id,
+			individualId: cybUser.individualId,
+			userType: cybUser.userType,
+			fname: cybUser.fname,
+			email: cybUser.email,
+			phone: cybUser.phone,
+			phoneVerified: cybUser.phoneVerified,
+			emailVerified: cybUser.emailVerified,
+			emailAlternate: cybUser.emailAlternate,
+			secondPhoneVerify: cybUser.secondPhoneVerify,
+			emailAlternateVerify: cybUser.emailAlternateVerify,
+			secondPhone: cybUser.secondPhone,
+			slug: cybUser.slug,
+			country: cybUser.country,
+			city: cybUser.city,
+			state: cybUser.state,
+			presentAddress: cybUser.presentAddress,
+			profileDescription: cybUser.profileDescription,
+			linkdin: cybUser.linkdin,
+			youtube: cybUser.youtube,
+			instagram: cybUser.instagram,
+			facebook: cybUser.facebook,
+			twitter: cybUser.twitter,
+			contactPerson: cybUser.contactPerson,
+			website: cybUser.website,
+			turnover: cybUser.turnover,
+			companySize: cybUser.companySize,
+			incorporateDate: cybUser.incorporateDate,
+			industry: cybUser.industry,
+			loginTime: cybUser.loginTime,
+			claimStatus: cybUser.claimStatus,
+			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			cityName: cybCities.name,
+			stateName: cybState.name,
+			countryName: cybCountry.name,
+			industryName: cybIndustries.name,
+			turnoverName: cybTurnover.name,
+			companySizeName: cybCompanySize.name,
+			latitude: cybUserDetails.latitude,
+			longitude: cybUserDetails.longitude,
+			isVerified: cybUserDetails.isVerified,
+		})
+		.from(cybUser)
+		.leftJoin(cybUserDetails, eq(cybUserDetails.userId, cybUser.id))
+		.leftJoin(cybCities, eq(cybUser.city, cybCities.id))
+		.leftJoin(cybState, eq(cybUser.state, cybState.id))
+		.leftJoin(cybCountry, eq(cybUser.country, cybCountry.id))
+		.leftJoin(cybIndustries, eq(cybUser.industry, cybIndustries.id))
+		.leftJoin(cybTurnover, eq(cybUser.turnover, cybTurnover.id))
+		.leftJoin(cybCompanySize, eq(cybUser.companySize, cybCompanySize.id))
+		.where(
+			and(
+				eq(cybUser.id, id),
+				eq(cybUser.status, 1),
+				eq(cybUser.isDeleted, 0),
+				eq(cybUser.userType, 2)
+			)
+		)
+		.limit(1);
+
+	if (!detail) {
+		return [];
+	}
+
+	const totalConnection = await get_all_connection(detail.id);
+	const allEmploymentCount = await get_complete_connection(detail.id);
+	const benefitList = await get_benefits_list(detail.id);
+
+	const allBenefits = benefitList.map((val) => ({
+		benefit_name: val.benefitName,
+		image: val.image ? `${s3Prefix}${val.image}` : '',
+	}));
+
+	return {
+		id: detail.id,
+		fname: detail.fname,
+		individual_id: detail.individualId,
+		user_type: detail.userType,
+		email: detail.email,
+		phone: detail.phone,
+		phone_verified: detail.phoneVerified,
+		email_verified: detail.emailVerified,
+		email_alternate: detail.emailAlternate,
+		second_phone_verify: detail.secondPhoneVerify,
+		email_alternate_verify: detail.emailAlternateVerify,
+		second_phone: detail.secondPhone,
+		verified_domain: detail.isVerified,
+		profile: detail.profile ? `${s3Prefix}${detail.profile}` : (detail.socialImage || ''),
+		slug: detail.slug,
+		country: detail.country,
+		city: detail.city,
+		state: detail.state,
+		city_name: detail.cityName,
+		state_name: detail.stateName,
+		country_name: detail.countryName,
+		present_address: detail.presentAddress,
+		profile_description: detail.profileDescription,
+		linkdin: detail.linkdin,
+		youtube: detail.youtube,
+		instagram: detail.instagram,
+		facebook: detail.facebook,
+		tumblr: '',
+		discord: '',
+		twitter: detail.twitter,
+		snapchat: '',
+		contact_person: detail.contactPerson,
+		website: detail.website,
+		turnover: detail.turnover,
+		turnover_name: detail.turnoverName,
+		company_size: detail.companySize,
+		company_size_name: detail.companySizeName,
+		incorporate_date: detail.incorporateDate,
+		industry: detail.industry,
+		industry_name: detail.industryName,
+		login_time: detail.loginTime,
+		claim_status: detail.claimStatus,
+		latitude: detail.latitude,
+		longitude: detail.longitude,
+		totalConnection,
+		allEmploymentCount,
+		benefitList: allBenefits,
+	};
+};
 
 const check_job_applied = async (jobId: number | null, userId: number | false) => {
 	if (!jobId || !userId) return false;
@@ -170,52 +355,50 @@ export const user_verified = async (userId: number | null) => {
 	return isVerify;
 };
 
-
-
-
 export const get_job_detail = async (jobId: number, userId: number | false = false, status: number | string | false = false, companyview: boolean = false) => {
-	const condition = [eq(cybCompanyJob.id, jobId), eq(cybCompanyJob.isDeleted, 0), eq(cybUser.isDeleted, 0)];
-	const rows = await db.select({
-		id: cybCompanyJob.id,
-		individual_id: cybUser.individualId,
-		job_title: cybCompanyJob.jobTitle,
-		job_description: cybCompanyJob.jobDescription,
-		roles_responsibility: cybCompanyJob.rolesResponsibility,
-		department_name: cybDepartment.name,
-		experience_name: cybJobExperiences.name,
-		department: cybCompanyJob.department,
-		experience: cybCompanyJob.experience,
-		skill: cybCompanyJob.skill,
-		role_type_name: cybRoleTypes.name,
-		job_mode_name: cybJobMode.name,
-		industry_name: cybIndustries.name,
-		role_type: cybCompanyJob.roleType,
-		industry: cybCompanyJob.industry,
-		vacancy: cybCompanyJob.vacancy,
-		urgent: cybCompanyJob.urgent,
-		designation_name: cybDesignation.name,
-		country_name: cybCountry.name,
-		state_name: cybState.name,
-		designation: cybCompanyJob.designation,
-		country: cybCompanyJob.country,
-		state: cybCompanyJob.state,
-		city: cybCompanyJob.city,
-		job_mode: cybCompanyJob.jobMode,
-		document: cybCompanyJob.document,
-		city_name: cybCities.name,
-		salary: cybCompanyJob.salary,
-		salary_name: cybSalary.name,
-		company_name: cybUser.fname,
-		profile: cybUser.profile,
-		social_image: cybUser.socialImage,
-		companyId: cybUser.id,
-		company_slug: cybUser.slug,
-		create_date: cybCompanyJob.createDate,
-		applicationCount: sql<number>`COUNT(${cybApplication.id})`,
-		status: cybCompanyJob.status,
-		slug: cybCompanyJob.slug,
-		company: cybCompanyJob.company,
-	})
+	const condition = [eq(cybCompanyJob.id, jobId), eq(cybCompanyJob.isDeleted, 0), eq(cybUser.isDeleted, 0),];
+	const rows = await db
+		.select({
+			id: cybCompanyJob.id,
+			individual_id: cybUser.individualId,
+			job_title: cybCompanyJob.jobTitle,
+			job_description: cybCompanyJob.jobDescription,
+			roles_responsibility: cybCompanyJob.rolesResponsibility,
+			department_name: cybDepartment.name,
+			experience_name: cybJobExperiences.name,
+			department: cybCompanyJob.department,
+			experience: cybCompanyJob.experience,
+			skill: cybCompanyJob.skill,
+			role_type_name: cybRoleTypes.name,
+			job_mode_name: cybJobMode.name,
+			industry_name: cybIndustries.name,
+			role_type: cybCompanyJob.roleType,
+			industry: cybCompanyJob.industry,
+			vacancy: cybCompanyJob.vacancy,
+			urgent: cybCompanyJob.urgent,
+			designation_name: cybDesignation.name,
+			country_name: cybCountry.name,
+			state_name: cybState.name,
+			designation: cybCompanyJob.designation,
+			country: cybCompanyJob.country,
+			state: cybCompanyJob.state,
+			city: cybCompanyJob.city,
+			job_mode: cybCompanyJob.jobMode,
+			document: cybCompanyJob.document,
+			city_name: cybCities.name,
+			salary: cybCompanyJob.salary,
+			salary_name: cybSalary.name,
+			company_name: cybUser.fname,
+			profile: cybUser.profile,
+			social_image: cybUser.socialImage,
+			companyId: cybUser.id,
+			company_slug: cybUser.slug,
+			create_date: cybCompanyJob.createDate,
+			applicationCount: sql<number>`COUNT(${cybApplication.id})`,
+			status: cybCompanyJob.status,
+			slug: cybCompanyJob.slug,
+			company: cybCompanyJob.company,
+		})
 		.from(cybCompanyJob)
 		.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id))
 		.leftJoin(cybState, eq(cybCompanyJob.state, cybState.id))
@@ -235,78 +418,57 @@ export const get_job_detail = async (jobId: number, userId: number | false = fal
 
 	const job_detail = rows[0];
 
-	if (!job_detail) return [];
+	if (!job_detail) {
+		return [];
+	}
 
 	const skillList = await get_job_skill(job_detail.skill);
 	const galleryList = await get_gallery_list(job_detail.companyId);
 	const applied = await check_job_applied(job_detail.id, userId);
-	const isVerified = await user_verified(job_detail.companyId)
+	const isVerified = await user_verified(job_detail.companyId);
 
-
-	const arr: Record<string, any> = {
-		id: job_detail.id,
-		individual_id: job_detail.individual_id,
-		job_title: job_detail.job_title,
-		job_description: job_detail.job_description,
-		roles_responsibility: job_detail.roles_responsibility,
-		department_name: job_detail.department_name,
-		experience_name: job_detail.experience_name,
-		department: job_detail.department,
-		experience: job_detail.experience,
+	const response = {
+		...job_detail,
 		skill_text: job_detail.skill,
 		skill: skillList,
-		role_type_name: job_detail.role_type_name,
-		job_mode_name: job_detail.job_mode_name,
-		industry_name: job_detail.industry_name,
-		role_type: job_detail.role_type,
-		industry: job_detail.industry,
-		vacancy: job_detail.vacancy,
-		urgent: job_detail.urgent === 1 ? true : false,
-		designation_name: job_detail.designation_name,
-		country_name: job_detail.country_name,
-		state_name: job_detail.state_name,
-		designation: job_detail.designation,
-		country: job_detail.country,
-		state: job_detail.state,
-		city: job_detail.city,
-		job_mode: job_detail.job_mode,
+		urgent: job_detail.urgent === 1,
 		document: job_detail.document ? `${s3Prefix}${job_detail.document}` : '',
-		city_name: job_detail.city_name,
-		salary: job_detail.salary,
-		salary_name: job_detail.salary_name,
-		company_name: job_detail.company_name,
 		profile: job_detail.profile ? `${s3Prefix}${job_detail.profile}` : (job_detail.social_image || ''),
-		create_date: job_detail.create_date,
-		applicationCount: job_detail.applicationCount,
-		status: job_detail.status,
-		slug: job_detail.slug,
 		gallery: galleryList,
-		company_slug: job_detail.company_slug,
 		apply: applied,
 		is_verified: isVerified,
 	};
 
-	if (companyview) {
-		const fil = { user_id: job_detail.company!, job_id: job_detail.id };
-		const { data, count } = await job_collaborator_list(fil);
-		arr['colloborator'] = data.length > 0 ? true : false;
-
-		const final = data.map((val: any) => ({
-			id: val.id,
-			full_name: val.full_name,
-			slug: val.slug,
-			individual_id: val.individual_id,
-			profile: val.profile ? `${s3Prefix}${val.profile}` : (val.social_image || ''),
-			designation_name: val.designation_name,
-		}));
-
-		arr['collaboratorList'] = final;
-
-		arr['totalCount'] = count;
+	if (!companyview) {
+		return response;
 	}
 
-	return arr;
-};
+	const fil = {
+		user_id: job_detail.company!,
+		job_id: job_detail.id,
+	};
+
+	const { data, count } = await job_collaborator_list(fil);
+
+	const collaboratorList = data.map((val: any) => ({
+		id: val.id,
+		full_name: val.full_name,
+		slug: val.slug,
+		individual_id: val.individual_id,
+		profile: val.profile
+			? `${s3Prefix}${val.profile}`
+			: (val.social_image || ''),
+		designation_name: val.designation_name,
+	}));
+
+	return {
+		...response,
+		colloborator: data.length > 0,
+		collaboratorList,
+		totalCount: count,
+	};
+}
+
 
 interface SearchJobFilter {
 	keyword?: string;
@@ -325,9 +487,9 @@ interface SearchJobFilter {
 	company?: number;
 	id_not_in?: number;
 	posted_date?: number;
-	stateArr?: { id: number }[];
-	citiesArr?: { id: number }[];
-	designationArr?: { id: number }[];
+	stateArr?: { id: number }[],
+	citiesArr?: { id: number }[],
+	designationArr?: { id: number }[],
 	departmentArr?: { id: number }[];
 	skillArray?: { id: number }[];
 	job_id?: number[];
@@ -346,12 +508,7 @@ export const get_search_skill = async (keyword: string) => {
 
 export const get_search_job_list = async (filter: SearchJobFilter = {}) => {
 	const keyword = filter.keyword || '';
-	const conditions: (SQL | undefined)[] = [];
-
-	conditions.push(eq(cybCompanyJob.status, 1));
-	conditions.push(eq(cybCompanyJob.isDeleted, 0));
-	conditions.push(eq(cybUser.isDeleted, 0));
-
+	const conditions: (SQL | undefined)[] = [eq(cybCompanyJob.status, 1), eq(cybCompanyJob.isDeleted, 0), eq(cybUser.isDeleted, 0)];
 	if (filter.city) conditions.push(eq(cybCompanyJob.city, filter.city));
 	if (filter.state) conditions.push(eq(cybCompanyJob.state, filter.state));
 	if (filter.salary) conditions.push(eq(cybCompanyJob.salary, filter.salary));

@@ -1,0 +1,1 @@
+- each layer stays focused: the service just handles data, the controller handles shape, and the route is just the connector. That should keep things neat and easy to maintain!

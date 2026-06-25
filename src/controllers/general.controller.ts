@@ -14,7 +14,7 @@ import {
 	jobDataListService
 
 } from '../services/general.service';
-import { get_job_detail, get_search_job_list } from '../services/users.service';
+import { get_company_detail, get_job_detail, get_search_job_list } from '../services/users.service';
 import { isEmptyObject } from '../helpers/validaters';
 
 
@@ -291,48 +291,55 @@ export const job_detail = async (req: Request, res: Response, next: NextFunction
 		const status = req.query.status ? String(req.query.status) : false;
 		const companyview = req.query.companyview === 'true' || req.query.companyview === '1';
 
-
 		const slugStr = Array.isArray(slug) ? slug[0] : slug;
 		let jobId: number;
+		let company: number | null;
 		if (slugStr && isNaN(Number(slugStr))) {
-			const [job] = await db.select({ id: cybCompanyJob.id }).from(cybCompanyJob).where(and(eq(cybCompanyJob.slug, slugStr), eq(cybCompanyJob.isDeleted, 0))).limit(1);
+			const [job] = await db.select({ id: cybCompanyJob.id, company: cybCompanyJob.company }).from(cybCompanyJob).where(and(eq(cybCompanyJob.slug, slugStr), eq(cybCompanyJob.isDeleted, 0))).limit(1);
 			if (!job) {
 				return res.status(404).json({ status: false, message: 'Job not found', data: [] });
 			}
 			jobId = job.id;
+			company = job.company!
 		} else {
 			jobId = Number(slugStr || req.query.id);
+			const [data] = await db.select({ company: cybCompanyJob.company }).from(cybCompanyJob).where(eq(cybCompanyJob.id, jobId))
+			company = data.company
 		}
 
 		const jobDetailData = await get_job_detail(jobId, userId, status, companyview);
 
-		if (!isEmptyObject(jobDetailData)) {
+		const relatedJob = []
+		if (!Array.isArray(jobDetailData)) {
 			const filterLogic = {
-				"id_not_in": jobDetailData["id"],
+				"id_not_in": jobDetailData.id,
 				"status": 1,
 				"limit": 4,
 				"offset": 0,
-				"skillArray": jobDetailData["skill"]
+				"skillArray": jobDetailData.skill
 			}
 
 			const jobList = await get_search_job_list(filterLogic)
 
-			const relatedJob = []
-
-			if (!isEmptyObject(jobList)) {
+			if (Array.isArray(jobList)) {
 				for (let job of jobList) {
 					const jobDetail = await get_job_detail(job.id)
 					relatedJob.push(jobDetail)
 				}
 			}
+
 		}
+
+		const companyData = await get_company_detail(company)
 
 		return res.status(200).json(
 			{
 				status: true,
 				message: '',
 				data: {
-					detail: jobDetailData
+					detail: jobDetailData,
+					JobList: relatedJob,
+					company: companyData
 				}
 			});
 	} catch (error) {
