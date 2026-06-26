@@ -5,6 +5,8 @@ import {
 	alldesignation, allSkill, jobTypeList, allDepartment, allCourseType, allEmploymentType,
 	allWorkType, employeeFilterDataList, jobDataList, job_detail
 } from '../controllers/general.controller';
+import { validateData } from '../middlewares/validation.middleware';
+import { jobDetailSchema } from '../validators/job.validator';
 
 const generalRoute = Router();
 
@@ -34,7 +36,7 @@ generalRoute.get("/courseTypeList", courseTypeList)
 generalRoute.get("/educationDataList", educationDataList)
 generalRoute.get("/all-designation", alldesignation)
 // generalRoute.get("/all-job",)
-generalRoute.get("/job-detail/:slug", job_detail)
+generalRoute.get("/job-detail/:slug", validateData(jobDetailSchema), job_detail)
 
 
 

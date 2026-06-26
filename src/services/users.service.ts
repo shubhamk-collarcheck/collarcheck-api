@@ -13,6 +13,7 @@ import {
 
 import { get_job_skill, get_gallery_list } from "../helpers/decoder"
 import { job_collaborator_list } from './Collaborator.service';
+import { isEmptyObject } from '../helpers/validaters';
 
 const s3Prefix = process.env.S3_PREFIX || '';
 
@@ -156,10 +157,7 @@ export const get_benefits_list = async (companyId: number) => {
 	return rows;
 };
 
-export const get_company_detail = async (id: number | null) => {
-	if (id == null) {
-		return {}
-	}
+export const get_company_detail = async (id: number) => {
 	const [detail] = await db
 		.select({
 			id: cybUser.id,
@@ -224,7 +222,7 @@ export const get_company_detail = async (id: number | null) => {
 		.limit(1);
 
 	if (!detail) {
-		return [];
+		return null;
 	}
 
 	const totalConnection = await get_all_connection(detail.id);
@@ -355,8 +353,8 @@ export const user_verified = async (userId: number | null) => {
 	return isVerify;
 };
 
-export const get_job_detail = async (jobId: number, userId: number | false = false, status: number | string | false = false, companyview: boolean = false) => {
-	const condition = [eq(cybCompanyJob.id, jobId), eq(cybCompanyJob.isDeleted, 0), eq(cybUser.isDeleted, 0),];
+export const get_job_detail = async (slug: string, userId: number | false = false, status: number | string | false = false, companyview: boolean = false) => {
+	const condition = [eq(cybCompanyJob.slug, slug), eq(cybCompanyJob.isDeleted, 0), eq(cybUser.isDeleted, 0),];
 	const rows = await db
 		.select({
 			id: cybCompanyJob.id,
@@ -419,7 +417,7 @@ export const get_job_detail = async (jobId: number, userId: number | false = fal
 	const job_detail = rows[0];
 
 	if (!job_detail) {
-		return [];
+		return null;
 	}
 
 	const skillList = await get_job_skill(job_detail.skill);
@@ -468,6 +466,75 @@ export const get_job_detail = async (jobId: number, userId: number | false = fal
 		totalCount: count,
 	};
 }
+
+export const get_jobs_detail_by_ids = async (ids: number[]) => {
+	if (!ids.length) return [];
+
+	const rows = await db
+		.select({
+			id: cybCompanyJob.id,
+			job_title: cybCompanyJob.jobTitle,
+			job_description: cybCompanyJob.jobDescription,
+			roles_responsibility: cybCompanyJob.rolesResponsibility,
+			department_name: cybDepartment.name,
+			experience_name: cybJobExperiences.name,
+			department: cybCompanyJob.department,
+			experience: cybCompanyJob.experience,
+			skill: cybCompanyJob.skill,
+			role_type_name: cybRoleTypes.name,
+			job_mode_name: cybJobMode.name,
+			industry_name: cybIndustries.name,
+			role_type: cybCompanyJob.roleType,
+			industry: cybCompanyJob.industry,
+			vacancy: cybCompanyJob.vacancy,
+			urgent: cybCompanyJob.urgent,
+			designation_name: cybDesignation.name,
+			country_name: cybCountry.name,
+			state_name: cybState.name,
+			designation: cybCompanyJob.designation,
+			country: cybCompanyJob.country,
+			state: cybCompanyJob.state,
+			city: cybCompanyJob.city,
+			job_mode: cybCompanyJob.jobMode,
+			document: cybCompanyJob.document,
+			city_name: cybCities.name,
+			salary: cybCompanyJob.salary,
+			salary_name: cybSalary.name,
+			company_name: cybUser.fname,
+			profile: cybUser.profile,
+			social_image: cybUser.socialImage,
+			companyId: cybUser.id,
+			company_slug: cybUser.slug,
+			create_date: cybCompanyJob.createDate,
+			applicationCount: sql<number>`COUNT(${cybApplication.id})`,
+			status: cybCompanyJob.status,
+			slug: cybCompanyJob.slug,
+			company: cybCompanyJob.company,
+		})
+		.from(cybCompanyJob)
+		.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id))
+		.leftJoin(cybState, eq(cybCompanyJob.state, cybState.id))
+		.leftJoin(cybCountry, eq(cybCompanyJob.country, cybCountry.id))
+		.leftJoin(cybIndustries, eq(cybCompanyJob.industry, cybIndustries.id))
+		.leftJoin(cybJobExperiences, eq(cybCompanyJob.experience, cybJobExperiences.id))
+		.leftJoin(cybRoleTypes, eq(cybCompanyJob.roleType, cybRoleTypes.id))
+		.leftJoin(cybDepartment, eq(cybCompanyJob.department, cybDepartment.id))
+		.leftJoin(cybDesignation, eq(cybCompanyJob.designation, cybDesignation.id))
+		.leftJoin(cybApplication, eq(cybCompanyJob.id, cybApplication.job))
+		.leftJoin(cybJobMode, eq(cybCompanyJob.jobMode, cybJobMode.id))
+		.leftJoin(cybUser, eq(cybCompanyJob.company, cybUser.id))
+		.leftJoin(cybSalary, eq(cybCompanyJob.salary, cybSalary.id))
+		.where(and(inArray(cybCompanyJob.id, ids), eq(cybCompanyJob.isDeleted, 0), eq(cybUser.isDeleted, 0)))
+		.groupBy(cybCompanyJob.id);
+
+	return rows.map((job) => ({
+		...job,
+		skill_text: job.skill,
+		urgent: job.urgent === 1,
+		document: job.document ? `${s3Prefix}${job.document}` : '',
+		profile: job.profile ? `${s3Prefix}${job.profile}` : (job.social_image || ''),
+	}));
+};
 
 
 interface SearchJobFilter {
@@ -603,7 +670,7 @@ export const get_search_job_list = async (filter: SearchJobFilter = {}) => {
 		conditions.push(inArray(cybCompanyJob.id, filter.job_id));
 	}
 
-	const query = db.select({ id: cybCompanyJob.id })
+	const query = db.select({ id: cybCompanyJob.id, slug: cybCompanyJob.slug })
 		.from(cybCompanyJob)
 		.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id))
 		.leftJoin(cybState, eq(cybCompanyJob.state, cybState.id))
