@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { InferInsertModel } from "drizzle-orm"
+import { cybUserExperience } from "../db/schema";
 
 const idOrText = z.union([
 	z.coerce.number()
@@ -59,3 +61,14 @@ export type EmploymentBody =
 
 
 export type EmploymentRequestBody = z.infer<typeof employmentRequestSchema>
+
+
+
+export type EmploymentInsert = InferInsertModel<typeof cybUserExperience>
+
+
+
+
+
+
+

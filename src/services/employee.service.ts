@@ -7,7 +7,7 @@ import { isBlank, isEmptyArray } from "../utils/helpers";
 import { urlTitle } from "../utils/generator";
 import { BadRequestError } from "../middlewares/errorHandler";
 
-import { EmploymentBody } from "../types/employee.types";
+import { EmploymentBody, EmploymentInsert } from "../types/employee.types";
 
 
 type ResolveResult = {
@@ -126,23 +126,24 @@ export const resolveSkill = async (arr: (string | number)[], id: number): Promis
 	return { ids: [...filterNumber, ...resolvedIds], created: true };
 };
 
-export async function employment_update_service(user_id: number, employment_id: number, data: EmploymentBody, file?: Express.Multer.File) {
+
+export async function employment_update_service(user_id: number, employment_id: number, data: EmploymentBody, file?: Express.Multer.File,) {
 	const exist = await employmentRepositery.findById(employment_id);
-	if (exist === undefined) {
+
+	if (!exist) {
 		throw new BadRequestError("employment_id is wrong");
 	}
 
-	const save: Record<string, any> = {};
+	const isStillWorking = data.still_working || data.worked_till_date === "present";
 
-	if (data.still_working || data.worked_till_date === 'present') {
-		save.still_working = 1;
-		save.worked_till_date = null;
-	} else {
-		save.still_working = 0;
-		save.worked_till_date = data.worked_till_date;
+	if (!isStillWorking) {
+		const joiningDate = new Date(data.joining_date);
+		const workedTillDate = new Date(data.worked_till_date!);
 
-		if (new Date(save.worked_till_date) <= new Date(data.joining_date)) {
-			throw new BadRequestError("Worked till date cannot be less than or equal to joining date");
+		if (workedTillDate <= joiningDate) {
+			throw new BadRequestError(
+				"Worked till date cannot be less than or equal to joining date"
+			);
 		}
 	}
 
@@ -153,38 +154,45 @@ export async function employment_update_service(user_id: number, employment_id: 
 		resolveSkill(data.skill, user_id),
 	]);
 
-	save.user = user_id;
-	save.company = company.id;
-	save.department = department.id;
-	save.designation = designation.id;
-	save.skill = JSON.stringify(skills.ids);
-	save.description = data.description;
-	save.employment_type = data.employment_type;
-	save.certificate = file?.path;
+	const save: Partial<EmploymentInsert> = {
+		user: user_id,
+		company: company.id,
+		department: department.id,
+		designation: designation.id,
+		skill: JSON.stringify(skills.ids),
+		description: data.description,
+		employmentType: data.employment_type,
+		stillWorking: isStillWorking ? 1 : 0,
+		workedTillDate: isStillWorking ? null : data.worked_till_date!,
+	};
+
+	if (file)
+		save.certificate = file.path;
+
 
 	if (exist.approved !== 1) {
-		save.salary = data.salary;
-		save.salary_inhand = data.salary_inhand;
-		save.salary_mode = data.salary_mode;
-		save.hired = data.hired;
-		save.joining_date = data.joining_date;
+		Object.assign(save, {
+			salary: data.salary,
+			salary_inhand: data.salary_inhand,
+			salary_mode: data.salary_mode,
+			hired: data.hired,
+			joining_date: data.joining_date,
+		});
 	}
 
-	return await employmentRepositery.update(employment_id, save);
+	return employmentRepositery.update(employment_id, save);
 }
+export async function employment_create_service(user_id: number, data: EmploymentBody, file?: Express.Multer.File,) {
+	const isStillWorking = data.still_working || data.worked_till_date === "present";
 
-export async function employment_create_service(user_id: number, data: EmploymentBody, file?: Express.Multer.File) {
-	const save: Record<string, any> = {};
+	if (!isStillWorking) {
+		const joiningDate = new Date(data.joining_date);
+		const workedTillDate = new Date(data.worked_till_date!);
 
-	if (data.still_working || data.worked_till_date === 'present') {
-		save.still_working = 1;
-		save.worked_till_date = null;
-	} else {
-		save.still_working = 0;
-		save.worked_till_date = data.worked_till_date;
-
-		if (new Date(save.worked_till_date) <= new Date(data.joining_date)) {
-			throw new BadRequestError("Worked till date cannot be less than or equal to joining date");
+		if (workedTillDate <= joiningDate) {
+			throw new BadRequestError(
+				"Worked till date cannot be greater than joining date"
+			);
 		}
 	}
 
@@ -195,14 +203,37 @@ export async function employment_create_service(user_id: number, data: Employmen
 		resolveSkill(data.skill, user_id),
 	]);
 
-	save.user = user_id;
-	save.company = company.id;
-	save.department = department.id;
-	save.designation = designation.id;
-	save.skill = JSON.stringify(skills.ids);
-	save.description = data.description;
-	save.employment_type = data.employment_type;
-	save.certificate = file?.path;
+	const save: Partial<EmploymentInsert> = {
+		user: user_id,
+		company: company.id,
+		department: department.id,
+		designation: designation.id,
+		skill: JSON.stringify(skills.ids),
+		description: data.description,
+		employmentType: data.employment_type,
+		certificate: file?.path ?? null,
+		stillWorking: isStillWorking ? 1 : 0,
+		workedTillDate: isStillWorking ? null : data.worked_till_date,
+	};
 
-	return save;
+	const result = await employmentRepositery.create(save);
+
+	const employmentCount = await employmentRepositery.countByUserId(user_id);
+
+	if (employmentCount === 1 && isStillWorking) {
+		const user = await usersRepositery.findById(user_id);
+
+		if (
+			user &&
+			!user.currentPossition &&
+			!user.currentCompany
+		) {
+			await usersRepositery.update(user_id, {
+				currentPossition: designation.id,
+				currentCompany: company.id,
+			});
+		}
+	}
+
+	return result;
 }
