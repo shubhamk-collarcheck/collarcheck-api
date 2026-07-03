@@ -3,6 +3,7 @@ import morgan from "morgan";
 import { errorHandler } from "./middlewares/errorHandler";
 import generalRoute from "./routes/general.route";
 import dashboardRoute from "./routes/dashboard.route";
+import employRouter from "./routes/employee.route";
 import bodyParser from "body-parser"
 
 const app = express();
@@ -13,6 +14,7 @@ app.use(bodyParser.json());
 
 app.use("/wapi/general", generalRoute);
 app.use("/wapi/dashboard", dashboardRoute)
+app.use("/wapi/employee", employRouter)
 
 app.use(errorHandler)
 

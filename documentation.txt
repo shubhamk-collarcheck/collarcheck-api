@@ -1,0 +1,6 @@
+- route layer use callback from controller
+- controller layer will only deal with response and request, because you can can by just consoling the request and response for verifaction
+- request verification is going to done by zod as middleware 
+- service layer will consist of db query and and it will generate response data 
+
+

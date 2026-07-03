@@ -1,11 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { z, ZodError } from 'zod';
 
-
-export function validateData(schema: z.ZodObject<any, any>) {
+export function validateData<T extends z.ZodTypeAny>(schema: T) {
 	return (req: Request, res: Response, next: NextFunction) => {
 		try {
-			schema.parse({
+			req.validated = schema.parse({
 				params: req.params,
 				query: req.query,
 				body: req.body,

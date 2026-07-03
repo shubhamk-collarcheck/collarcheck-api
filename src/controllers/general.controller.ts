@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from 'express';
 import { and, eq } from 'drizzle-orm';
 import db from '../db';
 import { cybCompanyJob } from '../db/schema';
+
+
+import { isEmptyObject } from '../utils/helpers';
 import {
 	getCitiesService, getCitiesByIdService, getStatesService, getCountriesService,
 	getTurnoverService, getNoticePeriodService, getCompanySizeService, getIndustriesService,
@@ -14,8 +17,8 @@ import {
 	jobDataListService
 
 } from '../services/general.service';
-import { get_company_detail, get_job_detail, get_search_job_list, get_jobs_detail_by_ids } from '../services/users.service';
-import { isEmptyObject } from '../helpers/validaters';
+import { get_job_detail_service, get_search_job_list, get_jobs_detail_by_ids } from '../services/job.service';
+import { get_company_detail } from "../services/users.service"
 
 
 
@@ -290,7 +293,7 @@ export const job_detail = async (req: Request, res: Response, next: NextFunction
 		const userId = req.query.userId ? Number(req.query.userId) : false;
 		const status = req.query.status ? String(req.query.status) : false;
 		const companyview = req.query.companyview === "true" || req.query.companyview === "1";
-		const jobDetailData = await get_job_detail(slug, userId, status, companyview);
+		const jobDetailData = await get_job_detail_service(slug, userId, status, companyview);
 		if (!jobDetailData) {
 			return res.status(400).json({
 				status: false, message: 'Job not found', data: []
