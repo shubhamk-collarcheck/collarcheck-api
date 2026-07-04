@@ -16,7 +16,7 @@ import type { NewDesignation } from "../types/designation.types";
 import type { NewDepartment } from "../types/department.types";
 import type { NewSkill } from "../types/skill.types";
 import db from "../db";
-import { cybUser, cybDepartment, cybDesignation, cybSkill } from "../../drizzle/schema";
+import { cybDepartment, cybDesignation, cybSkill, cybUser } from "../db/schema";
 
 
 type ResolveResult<T> = {
