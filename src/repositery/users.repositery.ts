@@ -13,6 +13,7 @@ type NewUser = InferInsertModel<typeof cybUser>
 type Exprience = InferSelectModel<typeof cybUserExperience>
 
 export const USER_PREFIX = { EMPLOYEE: "CCE", COMPANY: "CCC", } as const;
+export const USER_TYPE = { EMPLOYEE: 1, COMPANY: 2, } as const;
 
 
 export function randomNumber(length = 6): string {
@@ -65,10 +66,15 @@ class UsersRepository {
 		return await db.select().from(cybUser).where(eq(cybUser.slug, slug))
 	}
 	async create(data: Partial<NewUser>): Promise<User> {
-		const [user] = await db.insert(cybUser).values(data);
-		return user as unknown as User;
-	}
+		const [{ id }] = await db.insert(cybUser).values(data).$returningId();
 
+		const user = await this.findById(id);
+
+		if (!user) {
+			throw new Error("User was inserted but could not be retrieved.");
+		}
+		return user;
+	}
 	async update(id: number, data: Partial<NewUser>): Promise<User | undefined> {
 		await db.update(cybUser).set(data).where(eq(cybUser.id, id));
 		return this.findById(id);

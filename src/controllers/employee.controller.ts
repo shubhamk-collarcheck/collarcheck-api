@@ -17,12 +17,11 @@ export async function updloadResume(req: Request, res: Response, next: NextFunct
 
 export async function addExperience(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { id: userId } = req.auth as AuthUser;
-
+		const { user_id } = req.auth as AuthUser;
 		const { body, params } = req.validated as EmploymentRequestBody;
-		const result = await employment_create_service(userId, body, req.file);
+		const result = await employment_create_service(user_id, body, req.file);
 
-		return res.status(201).json({ message: "succefull", done: result });
+		return res.status(201).json({ message: "successful", done: result });
 
 	} catch (err) {
 		next(err);
@@ -31,12 +30,14 @@ export async function addExperience(req: Request, res: Response, next: NextFunct
 
 export async function updateExperience(req: Request, res: Response, next: NextFunction) {
 	try {
-		const userId = req.auth!.id;
+
+		const { user_id } = req.auth as AuthUser;
+		console.log("data user id ", user_id)
 
 		const { body, params } = req.validated as EmploymentRequestBody;
-		const result = await employment_update_service(userId, params.employment_id!, body, req.file);
+		const result = await employment_update_service(user_id, params.employment_id!, body, req.file);
 
-		return res.status(201).json({ message: "succefull", done: result });
+		return res.status(201).json({ message: "successful", done: result });
 
 	} catch (err) {
 		next(err);

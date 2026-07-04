@@ -28,7 +28,7 @@ class designationRepositery {
 	}
 
 	async create(data: Partial<NewDesignation>): Promise<Designation> {
-		const [designation] = await db.insert(cybDesignation).values(data);
+		const [designation] = await db.insert(cybDesignation).values(data).$returningId()
 		return designation as unknown as Designation;
 	}
 

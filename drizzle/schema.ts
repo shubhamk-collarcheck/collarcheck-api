@@ -1131,7 +1131,7 @@ export const cybTurnover = mysqlTable("cyb_turnover", {
 });
 
 export const cybUser = mysqlTable("cyb_user", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey(),
 	individualId: varchar("individual_id", { length: 11 }),
 	userType: int("user_type").default(1),
 	fname: varchar({ length: 60 }),

@@ -20,7 +20,7 @@ class departmentRepositery {
 	}
 
 	async create(data: Partial<NewDepartment>): Promise<Department> {
-		const [department] = await db.insert(cybDepartment).values(data);
+		const [department] = await db.insert(cybDepartment).values(data).$returningId();
 		return department as unknown as Department;
 	}
 }

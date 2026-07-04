@@ -1,4 +1,4 @@
-import usersRepositery, { USER_PREFIX } from "../repositery/users.repositery";
+import usersRepositery, { USER_PREFIX, USER_TYPE } from "../repositery/users.repositery";
 import designationRepositery from "../repositery/designation.repositery";
 import departmentRepositery from "../repositery/department.repositery";
 import skillRepositery from "../repositery/skill.repositery";
@@ -21,7 +21,8 @@ export const resolveCompany = async (value: string | number, id: number): Promis
 	}
 	const name = value.trim();
 
-	const existing = await usersRepositery.findByName(name, 2)
+	const existing = await usersRepositery.findByName(name, USER_TYPE.COMPANY)
+	console.log({ existing }, "companyExisting\n")
 
 	if (!isEmptyArray(existing)) {
 		return { id: existing[0].id, created: false }
@@ -173,10 +174,10 @@ export async function employment_update_service(user_id: number, employment_id: 
 	if (exist.approved !== 1) {
 		Object.assign(save, {
 			salary: data.salary,
-			salary_inhand: data.salary_inhand,
-			salary_mode: data.salary_mode,
-			hired: data.hired,
-			joining_date: data.joining_date,
+			salaryInhand: data.salary_inhand,
+			salaryMode: data.salary_mode,
+			hired: data.hired ? 1 : 0,
+			joiningDate: data.joining_date,
 		});
 	}
 
@@ -203,6 +204,9 @@ export async function employment_create_service(user_id: number, data: Employmen
 		resolveSkill(data.skill, user_id),
 	]);
 
+
+	console.log({ company, department, designation, skills })
+
 	const save: Partial<EmploymentInsert> = {
 		user: user_id,
 		company: company.id,
@@ -214,6 +218,11 @@ export async function employment_create_service(user_id: number, data: Employmen
 		certificate: file?.path ?? null,
 		stillWorking: isStillWorking ? 1 : 0,
 		workedTillDate: isStillWorking ? null : data.worked_till_date,
+		salary: data.salary,
+		salaryInhand: data.salary_inhand,
+		salaryMode: data.salary_mode,
+		hired: data.hired ? 1 : 0,
+		joiningDate: data.joining_date,
 	};
 
 	const result = await employmentRepositery.create(save);
