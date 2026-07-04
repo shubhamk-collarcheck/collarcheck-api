@@ -14,6 +14,10 @@ app.use(morgan(":method :url :status :response-time ms - :res[content-length]"))
 app.use(express.json());
 app.use(bodyParser.json());
 
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
+});
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/wapi/general", generalRoute);
 app.use("/wapi/dashboard", dashboardRoute);
