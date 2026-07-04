@@ -1,5 +1,12 @@
+import fs from 'fs';
 import multer from 'multer';
 import path from 'path';
+
+const uploadDir = path.join(process.cwd(), 'uploads', 'document');
+
+if (!fs.existsSync(uploadDir)) {
+	fs.mkdirSync(uploadDir, { recursive: true });
+}
 
 const storage = multer.diskStorage({
 	destination: (req, file, cb) => {

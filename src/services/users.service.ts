@@ -12,7 +12,7 @@ import {
 	cybCompanyBenefits
 } from '../db/schema';
 
-import { get_job_skill, get_gallery_list } from "../utils/decoders"
+import { decodeSkill, decodeGallery } from "../utils/decoders"
 import { job_collaborator_list } from './Collaborator.service';
 import { isEmptyArray, isEmptyObject } from '../utils/helpers';
 

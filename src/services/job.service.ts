@@ -5,7 +5,7 @@ import { get_user_detail } from './users.service';
 
 import { SearchJobFilter } from "../types/job.types"
 import { job_collaborator_list } from './Collaborator.service';
-import { get_gallery_list, get_job_skill } from '../helpers/decoder';
+import { decodeSkill, decodeGallery } from '../utils/decoders';
 
 
 
@@ -243,8 +243,8 @@ export const get_job_detail_service = async (slug: string, userId: number | fals
 		return null;
 	}
 
-	const skillList = await get_job_skill(job_detail.skill);
-	const galleryList = await get_gallery_list(job_detail.companyId);
+	const skillList = await decodeSkill(job_detail.skill);
+	const galleryList = await decodeGallery(job_detail.companyId);
 	const applied = await check_job_applied(job_detail.id, userId);
 	const isVerified = await user_verified(job_detail.companyId);
 

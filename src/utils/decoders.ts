@@ -10,7 +10,7 @@ import { boolean } from 'drizzle-orm/gel-core';
 
 const s3Prefix = process.env.S3_PREFIX || '';
 
-export const get_job_skill = async (skill: string | null) => {
+export const decodeSkill = async (skill: string | null) => {
 	if (!skill) return [];
 	try {
 		const decoded = JSON.parse(skill as string);
@@ -27,10 +27,17 @@ export const get_job_skill = async (skill: string | null) => {
 	return [];
 };
 
-export const get_gallery_list = async (companyId: number | null) => {
+export const decodeGallery = async (companyId: number | null) => {
 	if (!companyId) return [];
 	const rows = await db.select()
 		.from(cybGalleries)
 		.where(and(eq(cybGalleries.companyId, companyId), eq(cybGalleries.status, 1), eq(cybGalleries.isDeleted, 0)));
 	return rows.map(gal => gal.image ? `${s3Prefix}${gal.image}` : '');
 };
+
+
+
+
+
+
+
