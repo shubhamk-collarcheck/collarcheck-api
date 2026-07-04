@@ -16,6 +16,7 @@ import type { NewDesignation } from "../types/designation.types";
 import type { NewDepartment } from "../types/department.types";
 import type { NewSkill } from "../types/skill.types";
 import db from "../db";
+import { cybUser, cybDepartment, cybDesignation, cybSkill } from "../../drizzle/schema";
 
 
 type ResolveResult<T> = {
@@ -96,7 +97,6 @@ export const resolveDepartment = async (value: string | number, id: number): Pro
 		"status": 1,
 	}
 
-	const result = await departmentRepositery.create(insertData)
 	return { id: null, data: insertData }
 }
 export const resolveSkill = async (arr: (string | number)[], id: number): Promise<{ ids: number[], data: NewSkill[] }> => {
@@ -140,7 +140,35 @@ export async function employmentTransaction(user_id: number, data: EmploymentBod
 		resolveSkill(data.skill, user_id),
 	]);
 
-	await db.transaction(async (tx) => { })
+	const result = await db.transaction(async (tx) => {
+		let companyId = company.id;
+		if (!companyId && company.data) {
+			const [inserted] = await tx.insert(cybUser).values(company.data).$returningId();
+			companyId = inserted.id;
+		}
+
+		let departmentId = department.id;
+		if (!departmentId && department.data) {
+			const [inserted] = await tx.insert(cybDepartment).values(department.data).$returningId();
+			departmentId = inserted.id;
+		}
+
+		let designationId = designation.id;
+		if (!designationId && designation.data) {
+			const [inserted] = await tx.insert(cybDesignation).values(designation.data).$returningId();
+			designationId = inserted.id;
+		}
+
+		let skillIds = [...skills.ids];
+		if (!isEmptyArray(skills.data)) {
+			const inserted = await tx.insert(cybSkill).values(skills.data).$returningId();
+			skillIds = [...skillIds, ...inserted.map((s) => s.id)];
+		}
+
+		return { companyId, departmentId, designationId, skillIds };
+	});
+
+	return result;
 }
 
 
@@ -166,19 +194,14 @@ export async function employment_update_service(user_id: number, employment_id: 
 		}
 	}
 
-	const [company, department, designation, skills] = await Promise.all([
-		resolveCompany(data.company, user_id),
-		resolveDepartment(data.department, user_id),
-		resolveDesignation(data.designation, user_id),
-		resolveSkill(data.skill, user_id),
-	]);
+	const { companyId, departmentId, designationId, skillIds } = await employmentTransaction(user_id, data);
 
 	const save: Partial<EmploymentInsert> = {
 		user: user_id,
-		company: company.id,
-		department: department.id,
-		designation: designation.id,
-		skill: JSON.stringify(skills.ids),
+		company: companyId,
+		department: departmentId,
+		designation: designationId,
+		skill: JSON.stringify(skillIds),
 		description: data.description,
 		employmentType: data.employment_type,
 		stillWorking: isStillWorking ? 1 : 0,
@@ -202,7 +225,6 @@ export async function employment_update_service(user_id: number, employment_id: 
 	return employmentRepositery.update(employment_id, save);
 }
 
-function employmentTransaction(company:)
 export async function employment_create_service(user_id: number, data: EmploymentBody, file?: Express.Multer.File,) {
 	const isStillWorking = data.still_working || data.worked_till_date === "present";
 
@@ -217,22 +239,14 @@ export async function employment_create_service(user_id: number, data: Employmen
 		}
 	}
 
-	const [company, department, designation, skills] = await Promise.all([
-		resolveCompany(data.company, user_id),
-		resolveDepartment(data.department, user_id),
-		resolveDesignation(data.designation, user_id),
-		resolveSkill(data.skill, user_id),
-	]);
-
-
-	console.log({ company, department, designation, skills })
+	const { companyId, departmentId, designationId, skillIds } = await employmentTransaction(user_id, data);
 
 	const save: Partial<EmploymentInsert> = {
 		user: user_id,
-		company: company.id,
-		department: department.id,
-		designation: designation.id,
-		skill: JSON.stringify(skills.ids),
+		company: companyId,
+		department: departmentId,
+		designation: designationId,
+		skill: JSON.stringify(skillIds),
 		description: data.description,
 		employmentType: data.employment_type,
 		certificate: file?.path ?? null,
@@ -258,8 +272,8 @@ export async function employment_create_service(user_id: number, data: Employmen
 			!user.currentCompany
 		) {
 			await usersRepositery.update(user_id, {
-				currentPossition: designation.id,
-				currentCompany: company.id,
+				currentPossition: designationId,
+				currentCompany: companyId,
 			});
 		}
 	}
