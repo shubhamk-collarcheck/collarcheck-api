@@ -8,24 +8,31 @@ import { urlTitle } from "../utils/generator";
 import { BadRequestError } from "../middlewares/errorHandler";
 
 import { EmploymentBody, EmploymentInsert } from "../types/employee.types";
+import { ComposeTransform } from "node:stream";
 
 
-type ResolveResult = {
-	id: number;
-	created: boolean;
+import type { NewUser } from "../types/user.types";
+import type { NewDesignation } from "../types/designation.types";
+import type { NewDepartment } from "../types/department.types";
+import type { NewSkill } from "../types/skill.types";
+import db from "../db";
+
+
+type ResolveResult<T> = {
+	id: number | null
+	data: T | null
 }
 
-export const resolveCompany = async (value: string | number, id: number): Promise<ResolveResult> => {
+export const resolveCompany = async (value: string | number, id: number): Promise<ResolveResult<NewUser>> => {
 	if (typeof value === "number") {
-		return { id: value, created: false };
+		return { id: value, data: null };
 	}
 	const name = value.trim();
 
 	const existing = await usersRepositery.findByName(name, USER_TYPE.COMPANY)
-	console.log({ existing }, "companyExisting\n")
 
 	if (!isEmptyArray(existing)) {
-		return { id: existing[0].id, created: false }
+		return { id: existing[0].id, data: null }
 	}
 	const uniqueId = await usersRepositery.generateUniqueId(USER_PREFIX.COMPANY)
 	const uniqueSlug = await usersRepositery.generateSlug(`${name}-${uniqueId}`)
@@ -39,14 +46,13 @@ export const resolveCompany = async (value: string | number, id: number): Promis
 		"individual_id": uniqueId,
 		"slug": uniqueSlug
 	}
-	const result = await usersRepositery.create(insertData);
-	return { id: result.id, created: true }
+	return { id: null, data: insertData }
 };
 
 
-export const resolveDesignation = async (value: string | number, id: number): Promise<ResolveResult> => {
+export const resolveDesignation = async (value: string | number, id: number): Promise<ResolveResult<NewDesignation>> => {
 	if (typeof value === "number") {
-		return { id: value, created: false };
+		return { id: value, data: null };
 	}
 
 	const designation = value.trim()
@@ -54,7 +60,7 @@ export const resolveDesignation = async (value: string | number, id: number): Pr
 	const existing = await designationRepositery.findByName(designation)
 
 	if (!isEmptyArray(existing)) {
-		return { id: existing[0].id, created: false }
+		return { id: existing[0].id, data: null }
 	}
 
 	const slug = await designationRepositery.generateSlug(designation)
@@ -66,15 +72,14 @@ export const resolveDesignation = async (value: string | number, id: number): Pr
 		slug,
 	}
 
-	const result = await designationRepositery.create(insertData)
 
-	return { id: result.id, created: true }
+	return { id: null, data: insertData }
 }
 
 
-export const resolveDepartment = async (value: string | number, id: number): Promise<ResolveResult> => {
+export const resolveDepartment = async (value: string | number, id: number): Promise<ResolveResult<NewDepartment>> => {
 	if (typeof value === "number") {
-		return { id: value, created: false };
+		return { id: value, data: null };
 	}
 
 	const department = value.trim()
@@ -82,7 +87,7 @@ export const resolveDepartment = async (value: string | number, id: number): Pro
 	const existing = await departmentRepositery.findByName(department)
 
 	if (!isEmptyArray(existing)) {
-		return { id: existing[0].id, created: false };
+		return { id: existing[0].id, data: null };
 	}
 	const insertData = {
 		"name": department,
@@ -92,14 +97,14 @@ export const resolveDepartment = async (value: string | number, id: number): Pro
 	}
 
 	const result = await departmentRepositery.create(insertData)
-	return { id: result.id, created: true }
+	return { id: null, data: insertData }
 }
-export const resolveSkill = async (arr: (string | number)[], id: number): Promise<{ ids: number[], created: boolean }> => {
+export const resolveSkill = async (arr: (string | number)[], id: number): Promise<{ ids: number[], data: NewSkill[] }> => {
 	const filterNumber = arr.filter((item) => typeof item === "number");
 	const filterString = arr.filter((item) => typeof item === "string").map((s) => s.trim()).filter((s) => s.length > 0);
 
 	if (isEmptyArray(filterString)) {
-		return { ids: filterNumber, created: false };
+		return { ids: filterNumber, data: [] };
 	}
 
 	const uniqueNames = [...new Set(filterString)];
@@ -108,24 +113,37 @@ export const resolveSkill = async (arr: (string | number)[], id: number): Promis
 	const nameToId = new Map<string, number>();
 	existingSkills.forEach((skill) => nameToId.set(skill.name!, skill.id));
 
+	const nameAlreadyExistId = existingSkills.map((skill) => skill.id)
+
 	const namesToCreate = uniqueNames.filter((name) => !nameToId.has(name));
 
+	let createSkillsData: NewSkill[] = []
 	if (!isEmptyArray(namesToCreate)) {
-		const created = await skillRepositery.bulkCreate(
-			namesToCreate.map((name) => ({
-				name,
-				user_defined: 1,
-				user_id: id,
-				status: 1,
-			}))
-		);
-		created.forEach((skill) => nameToId.set(skill.name!, skill.id));
+		createSkillsData = namesToCreate.map((name) => ({
+			name,
+			user_defined: 1,
+			user_id: id,
+			status: 1,
+		}))
 	}
 
-	const resolvedIds = filterString.map((name) => nameToId.get(name)!);
 
-	return { ids: [...filterNumber, ...resolvedIds], created: true };
+	return { ids: [...filterNumber, ...nameAlreadyExistId], data: createSkillsData };
 };
+
+
+export async function employmentTransaction(user_id: number, data: EmploymentBody) {
+	const [company, department, designation, skills] = await Promise.all([
+		resolveCompany(data.company, user_id),
+		resolveDepartment(data.department, user_id),
+		resolveDesignation(data.designation, user_id),
+		resolveSkill(data.skill, user_id),
+	]);
+
+	await db.transaction(async (tx) => { })
+}
+
+
 
 
 export async function employment_update_service(user_id: number, employment_id: number, data: EmploymentBody, file?: Express.Multer.File,) {
@@ -183,6 +201,8 @@ export async function employment_update_service(user_id: number, employment_id: 
 
 	return employmentRepositery.update(employment_id, save);
 }
+
+function employmentTransaction(company:)
 export async function employment_create_service(user_id: number, data: EmploymentBody, file?: Express.Multer.File,) {
 	const isStillWorking = data.still_working || data.worked_till_date === "present";
 

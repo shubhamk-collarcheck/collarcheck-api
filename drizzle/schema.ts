@@ -2,7 +2,7 @@ import { mysqlTable, mysqlSchema, tinyint, bigint, AnyMySqlColumn, int, varchar,
 import { sql } from "drizzle-orm"
 
 export const cybAccomodation = mysqlTable("cyb_accomodation", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int(),
 	createDate: varchar("create_date", { length: 100 }),
@@ -10,7 +10,7 @@ export const cybAccomodation = mysqlTable("cyb_accomodation", {
 });
 
 export const cybAccountDeleteRequests = mysqlTable("cyb_account_delete_requests", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	optionId: int("option_id").notNull(),
 	message: text(),
@@ -21,7 +21,7 @@ export const cybAccountDeleteRequests = mysqlTable("cyb_account_delete_requests"
 });
 
 export const cybAccountSetting = mysqlTable("cyb_account_setting", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	code: varchar({ length: 250 }),
 	key: varchar({ length: 250 }),
@@ -33,7 +33,7 @@ export const cybAccountSetting = mysqlTable("cyb_account_setting", {
 	]);
 
 export const cybAdmin = mysqlTable("cyb_admin", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	username: varchar({ length: 100 }).notNull(),
 	permission: longtext(),
 	firstname: varchar({ length: 250 }),
@@ -52,7 +52,7 @@ export const cybAdmin = mysqlTable("cyb_admin", {
 });
 
 export const cybAdminGroup = mysqlTable("cyb_admin_group", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	permission: text(),
 	rights: text(),
@@ -66,14 +66,14 @@ export const cybAdminGroup = mysqlTable("cyb_admin_group", {
 });
 
 export const cybAdminPermission = mysqlTable("cyb_admin_permission", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userGroup: int("user_group"),
 	menu: int(),
 	permission: longtext(),
 });
 
 export const cybApplication = mysqlTable("cyb_application", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	job: int(),
 	user: int(),
 	status: int().default(1).notNull(),
@@ -83,7 +83,7 @@ export const cybApplication = mysqlTable("cyb_application", {
 });
 
 export const cybAuthor = mysqlTable("cyb_author", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 150 }).notNull(),
 	status: tinyint().default(1).notNull(),
 	createDate: datetime("create_date", { mode: 'string' }),
@@ -91,7 +91,7 @@ export const cybAuthor = mysqlTable("cyb_author", {
 });
 
 export const cybBenefits = mysqlTable("cyb_benefits", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	image: varchar({ length: 250 }),
 	description: text(),
@@ -103,7 +103,7 @@ export const cybBenefits = mysqlTable("cyb_benefits", {
 });
 
 export const cybBlog = mysqlTable("cyb_blog", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	title: text(),
 	image: text(),
 	thumbnailImage: text("thumbnail_image"),
@@ -128,7 +128,7 @@ export const cybBlog = mysqlTable("cyb_blog", {
 });
 
 export const cybBranches = mysqlTable("cyb_branches", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: int(),
 	status: tinyint().default(1).notNull(),
 	createDate: datetime("create_date", { mode: 'string' }).notNull(),
@@ -136,7 +136,7 @@ export const cybBranches = mysqlTable("cyb_branches", {
 });
 
 export const cybCareerEnquiries = mysqlTable("cyb_career_enquiries", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	firstName: varchar({ length: 100 }).notNull(),
 	lastName: varchar({ length: 100 }),
 	email: varchar({ length: 100 }).notNull(),
@@ -147,7 +147,7 @@ export const cybCareerEnquiries = mysqlTable("cyb_career_enquiries", {
 });
 
 export const cybCategories = mysqlTable("cyb_categories", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 255 }),
 	status: tinyint().default(1).notNull(),
 	createDate: datetime("create_date", { mode: 'string' }),
@@ -155,7 +155,7 @@ export const cybCategories = mysqlTable("cyb_categories", {
 });
 
 export const cybChatSupport = mysqlTable("cyb_chat_support", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	type: varchar({ length: 50 }).notNull(),
 	question: text().notNull(),
 	answer: text().notNull(),
@@ -165,7 +165,7 @@ export const cybChatSupport = mysqlTable("cyb_chat_support", {
 });
 
 export const cybCities = mysqlTable("cyb_cities", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	state: int().default(0),
 	userDifined: int("user_difined").default(0),
@@ -179,7 +179,7 @@ export const cybCities = mysqlTable("cyb_cities", {
 	]);
 
 export const cybClaimCompanyEnquires = mysqlTable("cyb_claim_company_enquires", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	contactPerson: varchar("contact_person", { length: 80 }).notNull(),
 	company: int().notNull(),
 	email: varchar({ length: 50 }),
@@ -190,7 +190,7 @@ export const cybClaimCompanyEnquires = mysqlTable("cyb_claim_company_enquires", 
 });
 
 export const cybClarity = mysqlTable("cyb_clarity", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	result: longtext(),
 	createDate: varchar("create_date", { length: 100 }),
@@ -198,7 +198,7 @@ export const cybClarity = mysqlTable("cyb_clarity", {
 });
 
 export const cybCompanyBenefits = mysqlTable("cyb_company_benefits", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	companyId: int("company_id").notNull(),
 	benefitId: int("benefit_id").notNull(),
 	description: text(),
@@ -213,7 +213,7 @@ export const cybCompanyBenefits = mysqlTable("cyb_company_benefits", {
 	]);
 
 export const cybCompanyBranches = mysqlTable("cyb_company_branches", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	branchId: int("branch_id"),
 	companyId: int("company_id"),
 	status: tinyint().default(1).notNull(),
@@ -222,7 +222,7 @@ export const cybCompanyBranches = mysqlTable("cyb_company_branches", {
 });
 
 export const cybCompanyConnection = mysqlTable("cyb_company_connection", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	company: int(),
 	user: int(),
 	currentEmployee: int("current_employee").default(0),
@@ -232,7 +232,7 @@ export const cybCompanyConnection = mysqlTable("cyb_company_connection", {
 });
 
 export const cybCompanyDocument = mysqlTable("cyb_company_document", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	company: int(),
 	doctype: varchar({ length: 50 }),
 	docName: text("doc_name"),
@@ -244,7 +244,7 @@ export const cybCompanyDocument = mysqlTable("cyb_company_document", {
 });
 
 export const cybCompanyInvite = mysqlTable("cyb_company_invite", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	fname: varchar({ length: 250 }),
 	lname: varchar({ length: 100 }),
 	phone: varchar({ length: 50 }),
@@ -264,7 +264,7 @@ export const cybCompanyInvite = mysqlTable("cyb_company_invite", {
 });
 
 export const cybCompanyJob = mysqlTable("cyb_company_job", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	company: int(),
 	jobTitle: text("job_title"),
 	jobDescription: text("job_description"),
@@ -298,7 +298,7 @@ export const cybCompanyJob = mysqlTable("cyb_company_job", {
 	]);
 
 export const cybCompanySize = mysqlTable("cyb_company_size", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int(),
 	createDate: varchar("create_date", { length: 250 }),
@@ -306,7 +306,7 @@ export const cybCompanySize = mysqlTable("cyb_company_size", {
 });
 
 export const cybCompanyWishlist = mysqlTable("cyb_company_wishlist", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	company: int(),
 	user: int(),
 	status: int().default(1),
@@ -315,7 +315,7 @@ export const cybCompanyWishlist = mysqlTable("cyb_company_wishlist", {
 });
 
 export const cybCountry = mysqlTable("cyb_country", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 36 }),
 	sortname: varchar({ length: 3 }),
 	iso2: varchar({ length: 2 }),
@@ -324,7 +324,7 @@ export const cybCountry = mysqlTable("cyb_country", {
 });
 
 export const cybCourses = mysqlTable("cyb_courses", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text().notNull(),
 	image: varchar({ length: 250 }),
 	status: int().default(1).notNull(),
@@ -338,7 +338,7 @@ export const cybCourses = mysqlTable("cyb_courses", {
 	]);
 
 export const cybCourseType = mysqlTable("cyb_course_type", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	status: int().default(1).notNull(),
 	createDate: datetime("create_date", { mode: 'string' }),
@@ -346,7 +346,7 @@ export const cybCourseType = mysqlTable("cyb_course_type", {
 });
 
 export const cybCrmCall = mysqlTable("cyb_crm_call", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	callccid: varchar({ length: 150 }).notNull(),
 	userId: int("user_id"),
 	callDuration: varchar("call_duration", { length: 10 }),
@@ -365,7 +365,7 @@ export const cybCrmCall = mysqlTable("cyb_crm_call", {
 });
 
 export const cybCustomerVisits = mysqlTable("cyb_customer_visits", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	restaurantId: int("restaurant_id"),
 	customerId: varchar("customer_id", { length: 150 }),
 	// you can use { mode: 'date' }, if you want to have Date as type for this column
@@ -380,7 +380,7 @@ export const cybCustomerVisits = mysqlTable("cyb_customer_visits", {
 });
 
 export const cybDeleteOptions = mysqlTable("cyb_delete_options", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	title: varchar({ length: 250 }),
 	createDate: varchar("create_date", { length: 250 }),
 	modifyDate: varchar("modify_date", { length: 250 }),
@@ -389,7 +389,7 @@ export const cybDeleteOptions = mysqlTable("cyb_delete_options", {
 });
 
 export const cybDepartment = mysqlTable("cyb_department", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	userDefined: int("user_defined"),
 	userId: int("user_id"),
@@ -402,7 +402,7 @@ export const cybDepartment = mysqlTable("cyb_department", {
 	]);
 
 export const cybDesignation = mysqlTable("cyb_designation", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	status: int().default(1).notNull(),
 	userId: int("user_id"),
@@ -416,7 +416,7 @@ export const cybDesignation = mysqlTable("cyb_designation", {
 	]);
 
 export const cybDoctype = mysqlTable("cyb_doctype", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }),
 	status: int().default(1).notNull(),
 	docfor: int().default(0).notNull(),
@@ -427,7 +427,7 @@ export const cybDoctype = mysqlTable("cyb_doctype", {
 });
 
 export const cybEmailBlacklist = mysqlTable("cyb_email_blacklist", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	email: varchar({ length: 100 }).notNull(),
 	reason: text(),
 	source: text(),
@@ -439,7 +439,7 @@ export const cybEmailBlacklist = mysqlTable("cyb_email_blacklist", {
 	]);
 
 export const cybEmailTemplates = mysqlTable("cyb_email_templates", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	short: varchar({ length: 11 }),
 	status: int(),
@@ -451,7 +451,7 @@ export const cybEmailTemplates = mysqlTable("cyb_email_templates", {
 });
 
 export const cybEmployementType = mysqlTable("cyb_employement_type", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	status: int().default(1).notNull(),
 	createDate: datetime("create_date", { mode: 'string' }),
@@ -459,7 +459,7 @@ export const cybEmployementType = mysqlTable("cyb_employement_type", {
 });
 
 export const cybEnquiries = mysqlTable("cyb_enquiries", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	firstName: varchar({ length: 100 }).notNull(),
 	lastName: varchar({ length: 100 }),
 	email: varchar({ length: 100 }).notNull(),
@@ -470,7 +470,7 @@ export const cybEnquiries = mysqlTable("cyb_enquiries", {
 });
 
 export const cybEventMenu = mysqlTable("cyb_event_menu", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 150 }).notNull(),
 	description: varchar({ length: 255 }),
 	menuId: int("menu_id"),
@@ -481,7 +481,7 @@ export const cybEventMenu = mysqlTable("cyb_event_menu", {
 });
 
 export const cybFaqs = mysqlTable("cyb_faqs", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	question: varchar({ length: 255 }),
 	answer: text(),
 	shortedOrder: int("shorted_order").default(1),
@@ -491,7 +491,7 @@ export const cybFaqs = mysqlTable("cyb_faqs", {
 });
 
 export const cybFollow = mysqlTable("cyb_follow", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	followedId: int("followed_id").notNull(),
 	followerId: int("follower_id").notNull(),
 	status: int().default(0).notNull(),
@@ -501,7 +501,7 @@ export const cybFollow = mysqlTable("cyb_follow", {
 });
 
 export const cybFrontMenu = mysqlTable("cyb_front_menu", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	parentId: int("parent_id"),
 	title: varchar({ length: 255 }),
 	name: varchar({ length: 250 }),
@@ -528,7 +528,7 @@ export const cybFrontMenu = mysqlTable("cyb_front_menu", {
 });
 
 export const cybGalleries = mysqlTable("cyb_galleries", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	companyId: int("company_id").notNull(),
 	name: text(),
 	image: varchar({ length: 250 }),
@@ -540,14 +540,14 @@ export const cybGalleries = mysqlTable("cyb_galleries", {
 });
 
 export const cybGender = mysqlTable("cyb_gender", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 20 }).notNull(),
 	status: int().default(1).notNull(),
 	createDate: varchar("create_date", { length: 20 }),
 });
 
 export const cybHelp = mysqlTable("cyb_help", {
-	id: int().notNull(),
+	id: int().primaryKey().notNull(),
 	experience: int(),
 	subject: text(),
 	message: text(),
@@ -557,7 +557,7 @@ export const cybHelp = mysqlTable("cyb_help", {
 });
 
 export const cybIndustries = mysqlTable("cyb_industries", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int().default(1),
 	isDeleted: int("is_deleted").default(0).notNull(),
@@ -571,7 +571,7 @@ export const cybIndustries = mysqlTable("cyb_industries", {
 	]);
 
 export const cybInstitutions = mysqlTable("cyb_institutions", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	image: varchar({ length: 250 }),
 	userDefined: int("user_defined"),
@@ -582,7 +582,7 @@ export const cybInstitutions = mysqlTable("cyb_institutions", {
 });
 
 export const cybJobCollaborators = mysqlTable("cyb_job_collaborators", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	companyId: int("company_id"),
 	userId: text("user_id"),
 	jobId: int("job_id"),
@@ -598,7 +598,7 @@ export const cybJobCollaborators = mysqlTable("cyb_job_collaborators", {
 	]);
 
 export const cybJobCollaboratorLogs = mysqlTable("cyb_job_collaborator_logs", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	companyId: int("company_id"),
 	userId: int("user_id"),
 	module: varchar({ length: 50 }),
@@ -607,7 +607,7 @@ export const cybJobCollaboratorLogs = mysqlTable("cyb_job_collaborator_logs", {
 });
 
 export const cybJobExperiences = mysqlTable("cyb_job_experiences", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int(),
 	createDate: varchar("create_date", { length: 250 }),
@@ -615,7 +615,7 @@ export const cybJobExperiences = mysqlTable("cyb_job_experiences", {
 });
 
 export const cybJobMeta = mysqlTable("cyb_job_meta", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	metaTitle: varchar("meta_title", { length: 255 }),
 	metaDescription: varchar("meta_description", { length: 255 }),
 	metaKeyword: varchar("meta_keyword", { length: 255 }),
@@ -636,7 +636,7 @@ export const cybJobMeta = mysqlTable("cyb_job_meta", {
 });
 
 export const cybJobMode = mysqlTable("cyb_job_mode", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int().default(1),
 	createDate: datetime("create_date", { mode: 'string' }),
@@ -644,7 +644,7 @@ export const cybJobMode = mysqlTable("cyb_job_mode", {
 });
 
 export const cybJobTemplate = mysqlTable("cyb_job_template", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	company: int(),
 	jobTitle: text("job_title"),
 	templateName: varchar("template_name", { length: 50 }),
@@ -679,7 +679,7 @@ export const cybJobTemplate = mysqlTable("cyb_job_template", {
 	]);
 
 export const cybLanguages = mysqlTable("cyb_languages", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int().notNull(),
 	userDefined: int("user_defined"),
@@ -689,7 +689,7 @@ export const cybLanguages = mysqlTable("cyb_languages", {
 });
 
 export const cybLogs = mysqlTable("cyb_logs", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	type: varchar({ length: 50 }),
 	callMethod: varchar("call_method", { length: 100 }),
@@ -701,7 +701,7 @@ export const cybLogs = mysqlTable("cyb_logs", {
 });
 
 export const cybManualDocumentVerify = mysqlTable("cyb_manual_document_verify", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	doctype: int(),
 	description: text(),
@@ -716,7 +716,7 @@ export const cybManualDocumentVerify = mysqlTable("cyb_manual_document_verify", 
 	]);
 
 export const cybMenu = mysqlTable("cyb_menu", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	parentId: int("parent_id"),
 	name: varchar({ length: 250 }),
 	fafa: varchar({ length: 250 }),
@@ -728,7 +728,7 @@ export const cybMenu = mysqlTable("cyb_menu", {
 });
 
 export const cybMergeCompany = mysqlTable("cyb_merge_company", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	mergeCompany: int("merge_company"),
 	mainCompany: int("main_company"),
 	status: tinyint().default(1),
@@ -738,7 +738,7 @@ export const cybMergeCompany = mysqlTable("cyb_merge_company", {
 });
 
 export const cybMergeCompanyRequest = mysqlTable("cyb_merge_company_request", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	requestFrom: int("request_from").notNull(),
 	requestTo: int("request_to").notNull(),
 	status: tinyint(),
@@ -747,7 +747,7 @@ export const cybMergeCompanyRequest = mysqlTable("cyb_merge_company_request", {
 });
 
 export const cybMessage = mysqlTable("cyb_message", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	sender: int().notNull(),
 	receiver: int().notNull(),
 	forApproval: int("for_approval").default(1).notNull(),
@@ -757,7 +757,7 @@ export const cybMessage = mysqlTable("cyb_message", {
 });
 
 export const cybMessageHistory = mysqlTable("cyb_message_history", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	messageId: int("message_id").default(0),
 	sender: int().notNull(),
 	receiver: int().notNull(),
@@ -772,7 +772,7 @@ export const cybMessageHistory = mysqlTable("cyb_message_history", {
 });
 
 export const cybMigrations = mysqlTable("cyb_migrations", {
-	id: bigint({ mode: "number" }).autoincrement().notNull(),
+	id: bigint({ mode: "number" }).autoincrement().primaryKey().notNull(),
 	version: varchar({ length: 255 }).notNull(),
 	class: varchar({ length: 255 }).notNull(),
 	group: varchar({ length: 255 }).notNull(),
@@ -782,7 +782,7 @@ export const cybMigrations = mysqlTable("cyb_migrations", {
 });
 
 export const cybMonth = mysqlTable("cyb_month", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	monthNumber: int("month_number"),
 	status: int().default(1).notNull(),
@@ -791,7 +791,7 @@ export const cybMonth = mysqlTable("cyb_month", {
 });
 
 export const cybNoticePeriod = mysqlTable("cyb_notice_period", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int(),
 	type: char({ length: 10 }),
@@ -800,7 +800,7 @@ export const cybNoticePeriod = mysqlTable("cyb_notice_period", {
 });
 
 export const cybNotifications = mysqlTable("cyb_notifications", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	sender: int().notNull(),
 	receiver: int().notNull(),
 	message: text(),
@@ -816,7 +816,7 @@ export const cybNotifications = mysqlTable("cyb_notifications", {
 });
 
 export const cybOtp = mysqlTable("cyb_otp", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	phone: varchar({ length: 20 }).notNull(),
 	email: varchar({ length: 250 }),
 	otp: varchar({ length: 10 }).notNull(),
@@ -831,7 +831,7 @@ export const cybOtp = mysqlTable("cyb_otp", {
 	]);
 
 export const cybPermission = mysqlTable("cyb_permission", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	permissionName: text("permission_name").notNull(),
 	permissionKey: text("permission_key"),
 	status: int().default(1).notNull(),
@@ -839,7 +839,7 @@ export const cybPermission = mysqlTable("cyb_permission", {
 });
 
 export const cybPortfolioDocumentType = mysqlTable("cyb_portfolio_document_type", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	type: text(),
 	status: int().default(1).notNull(),
 	createDate: datetime("create_date", { mode: 'string' }),
@@ -847,7 +847,7 @@ export const cybPortfolioDocumentType = mysqlTable("cyb_portfolio_document_type"
 });
 
 export const cybRamdomWidgets = mysqlTable("cyb_ramdom_widgets", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	heading: text().notNull(),
 	status: int(),
 	variant: varchar({ length: 250 }),
@@ -860,7 +860,7 @@ export const cybRamdomWidgets = mysqlTable("cyb_ramdom_widgets", {
 });
 
 export const cybRatingWeight = mysqlTable("cyb_rating_weight", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	session: varchar({ length: 100 }),
 	weight: varchar({ length: 20 }),
 	type: mysqlEnum(['latest', 'previous', 'others', 'session_avg', 'progressive', 'criteria_lifetime', 'unique_criteria']),
@@ -872,7 +872,7 @@ export const cybRatingWeight = mysqlTable("cyb_rating_weight", {
 });
 
 export const cybReels = mysqlTable("cyb_reels", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	title: text(),
 	thumbnailImage: text("thumbnail_image"),
 	video: varchar({ length: 255 }),
@@ -885,7 +885,7 @@ export const cybReels = mysqlTable("cyb_reels", {
 });
 
 export const cybReportReviews = mysqlTable("cyb_report_reviews", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	reviewId: int("review_id").notNull(),
 	message: text(),
@@ -895,7 +895,7 @@ export const cybReportReviews = mysqlTable("cyb_report_reviews", {
 });
 
 export const cybRestaurants = mysqlTable("cyb_restaurants", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
 	email: varchar({ length: 255 }),
 	phone: varchar({ length: 20 }),
@@ -919,7 +919,7 @@ export const cybRestaurants = mysqlTable("cyb_restaurants", {
 	]);
 
 export const cybRestaurantCategory = mysqlTable("cyb_restaurant_category", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }),
 	status: tinyint().default(1).notNull(),
 	isDeleted: tinyint("is_deleted").default(0).notNull(),
@@ -928,7 +928,7 @@ export const cybRestaurantCategory = mysqlTable("cyb_restaurant_category", {
 });
 
 export const cybRestaurantCustomers = mysqlTable("cyb_restaurant_customers", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	restaurantId: int("restaurant_id"),
 	customerId: varchar("customer_id", { length: 150 }),
 	// you can use { mode: 'date' }, if you want to have Date as type for this column
@@ -942,7 +942,7 @@ export const cybRestaurantCustomers = mysqlTable("cyb_restaurant_customers", {
 });
 
 export const cybResumeDownload = mysqlTable("cyb_resume_download", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id"),
 	templeteId: int("templete_id"),
 	status: tinyint().default(1).notNull(),
@@ -951,7 +951,7 @@ export const cybResumeDownload = mysqlTable("cyb_resume_download", {
 });
 
 export const cybResumeTemplates = mysqlTable("cyb_resume_templates", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	thumbnail: varchar({ length: 100 }),
 	status: int(),
@@ -963,7 +963,7 @@ export const cybResumeTemplates = mysqlTable("cyb_resume_templates", {
 });
 
 export const cybRoleTypes = mysqlTable("cyb_role_types", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int(),
 	createDate: varchar("create_date", { length: 250 }),
@@ -971,7 +971,7 @@ export const cybRoleTypes = mysqlTable("cyb_role_types", {
 });
 
 export const cybSalary = mysqlTable("cyb_salary", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int(),
 	createDate: varchar("create_date", { length: 250 }),
@@ -979,7 +979,7 @@ export const cybSalary = mysqlTable("cyb_salary", {
 });
 
 export const cybSchedulars = mysqlTable("cyb_schedulars", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }),
 	emails: longtext(),
 	inactiveEmails: longtext("inactive_emails"),
@@ -998,7 +998,7 @@ export const cybSchedulars = mysqlTable("cyb_schedulars", {
 });
 
 export const cybSchedularEmailTemp = mysqlTable("cyb_schedular_email_temp", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	schedularId: int("schedular_id"),
 	email: varchar({ length: 250 }),
 	status: int().default(0).notNull(),
@@ -1008,7 +1008,7 @@ export const cybSchedularEmailTemp = mysqlTable("cyb_schedular_email_temp", {
 });
 
 export const cybSchedularHistory = mysqlTable("cyb_schedular_history", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	schedularId: int("schedular_id"),
 	email: varchar({ length: 250 }),
 	template: int(),
@@ -1020,7 +1020,7 @@ export const cybSchedularHistory = mysqlTable("cyb_schedular_history", {
 	]);
 
 export const cybSetting = mysqlTable("cyb_setting", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	code: varchar({ length: 50 }),
 	key: varchar({ length: 50 }),
 	value: varchar({ length: 250 }),
@@ -1030,7 +1030,7 @@ export const cybSetting = mysqlTable("cyb_setting", {
 });
 
 export const cybSkill = mysqlTable("cyb_skill", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	status: int().default(1).notNull(),
 	userId: int("user_id"),
@@ -1043,7 +1043,7 @@ export const cybSkill = mysqlTable("cyb_skill", {
 	]);
 
 export const cybSkillRating = mysqlTable("cyb_skill_rating", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	reviewId: int("review_id"),
 	experienceId: int("experience_id"),
@@ -1060,7 +1060,7 @@ export const cybSkillRating = mysqlTable("cyb_skill_rating", {
 	]);
 
 export const cybSkillRatingHistory = mysqlTable("cyb_skill_rating_history", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	reviewHistoryId: int("review_history_id"),
 	skillId: int("skill_id").notNull(),
 	rating: int().default(0).notNull(),
@@ -1074,7 +1074,7 @@ export const cybSkillRatingHistory = mysqlTable("cyb_skill_rating_history", {
 	]);
 
 export const cybState = mysqlTable("cyb_state", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 56 }),
 	country: int(),
 	code: varchar({ length: 5 }),
@@ -1086,7 +1086,7 @@ export const cybState = mysqlTable("cyb_state", {
 	]);
 
 export const cybSuggestion = mysqlTable("cyb_suggestion", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 500 }),
 	phone: bigint({ mode: "number" }),
 	description: text(),
@@ -1095,7 +1095,7 @@ export const cybSuggestion = mysqlTable("cyb_suggestion", {
 });
 
 export const cybTag = mysqlTable("cyb_tag", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 150 }),
 	status: tinyint().default(1),
 	userDefined: int("user_defined"),
@@ -1105,7 +1105,7 @@ export const cybTag = mysqlTable("cyb_tag", {
 });
 
 export const cybTrackEmails = mysqlTable("cyb_track_emails", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	templateId: int("template_id").notNull(),
 	schedularId: int("schedular_id"),
@@ -1113,7 +1113,7 @@ export const cybTrackEmails = mysqlTable("cyb_track_emails", {
 });
 
 export const cybTriggerEmail = mysqlTable("cyb_trigger_email", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int().notNull(),
 	email: varchar({ length: 100 }).notNull(),
 	template: int().notNull(),
@@ -1123,7 +1123,7 @@ export const cybTriggerEmail = mysqlTable("cyb_trigger_email", {
 });
 
 export const cybTurnover = mysqlTable("cyb_turnover", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }).notNull(),
 	status: int(),
 	createDate: varchar("create_date", { length: 250 }),
@@ -1216,7 +1216,7 @@ export const cybUser = mysqlTable("cyb_user", {
 	]);
 
 export const cybUserCertificate = mysqlTable("cyb_user_certificate", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int(),
 	university: text(),
 	course: text(),
@@ -1234,7 +1234,7 @@ export const cybUserCertificate = mysqlTable("cyb_user_certificate", {
 });
 
 export const cybUserContacts = mysqlTable("cyb_user_contacts", {
-	id: bigint({ mode: "number" }).autoincrement().notNull(),
+	id: bigint({ mode: "number" }).autoincrement().primaryKey().notNull(),
 	userId: bigint("user_id", { mode: "number" }).notNull(),
 	mobile: varchar({ length: 20 }).notNull(),
 	contactName: varchar("contact_name", { length: 255 }),
@@ -1248,7 +1248,7 @@ export const cybUserContacts = mysqlTable("cyb_user_contacts", {
 	]);
 
 export const cybUserDetails = mysqlTable("cyb_user_details", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	noticeEmployments: text("notice_employments"),
 	latitude: varchar({ length: 50 }),
@@ -1267,7 +1267,7 @@ export const cybUserDetails = mysqlTable("cyb_user_details", {
 	]);
 
 export const cybUserDeviceTokens = mysqlTable("cyb_user_device_tokens", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id"),
 	deviceType: varchar("device_type", { length: 20 }),
 	deviceId: varchar("device_id", { length: 50 }),
@@ -1281,7 +1281,7 @@ export const cybUserDeviceTokens = mysqlTable("cyb_user_device_tokens", {
 	]);
 
 export const cybUserDocument = mysqlTable("cyb_user_document", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int(),
 	doctype: int(),
 	doc: text(),
@@ -1293,7 +1293,7 @@ export const cybUserDocument = mysqlTable("cyb_user_document", {
 });
 
 export const cybUserDomains = mysqlTable("cyb_user_domains", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	addedBy: int("added_by"),
 	domain: varchar({ length: 255 }),
@@ -1313,7 +1313,7 @@ export const cybUserDomains = mysqlTable("cyb_user_domains", {
 	]);
 
 export const cybUserEducation = mysqlTable("cyb_user_education", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int(),
 	university: int(),
 	course: int(),
@@ -1340,7 +1340,7 @@ export const cybUserEducation = mysqlTable("cyb_user_education", {
 	]);
 
 export const cybUserExperience = mysqlTable("cyb_user_experience", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int(),
 	company: int(),
 	employmentType: int("employment_type"),
@@ -1377,7 +1377,7 @@ export const cybUserExperience = mysqlTable("cyb_user_experience", {
 	]);
 
 export const cybUserExperienceRating = mysqlTable("cyb_user_experience_rating", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	experience: int(),
 	company: int(),
 	rating: int().default(0).notNull(),
@@ -1399,7 +1399,7 @@ export const cybUserExperienceRating = mysqlTable("cyb_user_experience_rating", 
 	]);
 
 export const cybUserExperienceRatingHistory = mysqlTable("cyb_user_experience_rating_history", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	ratingId: int("rating_id"),
 	rating: int().default(0),
 	review: text(),
@@ -1412,7 +1412,7 @@ export const cybUserExperienceRatingHistory = mysqlTable("cyb_user_experience_ra
 });
 
 export const cybUserGroup = mysqlTable("cyb_user_group", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	groupId: int("group_id"),
 	menuPermission: text("menu_permission"),
 	eventPermission: text("event_permission"),
@@ -1425,7 +1425,7 @@ export const cybUserGroup = mysqlTable("cyb_user_group", {
 });
 
 export const cybUserLanguage = mysqlTable("cyb_user_language", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int(),
 	language: int(),
 	verbal: int(),
@@ -1440,7 +1440,7 @@ export const cybUserLanguage = mysqlTable("cyb_user_language", {
 	]);
 
 export const cybUserLevels = mysqlTable("cyb_user_levels", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int().notNull(),
 	level: int(),
 	createdAt: datetime("created_at", { mode: 'string' }).notNull(),
@@ -1448,7 +1448,7 @@ export const cybUserLevels = mysqlTable("cyb_user_levels", {
 });
 
 export const cybUserLoginHistory = mysqlTable("cyb_user_login_history", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id").notNull(),
 	deviceId: varchar("device_id", { length: 255 }),
 	ipAddress: varchar("ip_address", { length: 50 }),
@@ -1460,7 +1460,7 @@ export const cybUserLoginHistory = mysqlTable("cyb_user_login_history", {
 });
 
 export const cybUserMainGroup = mysqlTable("cyb_user_main_group", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 250 }),
 	description: varchar({ length: 255 }),
 	status: tinyint().default(1).notNull(),
@@ -1471,7 +1471,7 @@ export const cybUserMainGroup = mysqlTable("cyb_user_main_group", {
 });
 
 export const cybUserPermission = mysqlTable("cyb_user_permission", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id"),
 	groupId: int("group_id"),
 	addedBy: int("added_by"),
@@ -1483,7 +1483,7 @@ export const cybUserPermission = mysqlTable("cyb_user_permission", {
 });
 
 export const cybUserProfileViewRequest = mysqlTable("cyb_user_profile_view_request", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userid: int().notNull(),
 	companyid: int().notNull(),
 	otp: varchar({ length: 10 }),
@@ -1498,7 +1498,7 @@ export const cybUserProfileViewRequest = mysqlTable("cyb_user_profile_view_reque
 });
 
 export const cybUserProtfolio = mysqlTable("cyb_user_protfolio", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int(),
 	type: int(),
 	title: text(),
@@ -1516,7 +1516,7 @@ export const cybUserProtfolio = mysqlTable("cyb_user_protfolio", {
 });
 
 export const cybUserRelation = mysqlTable("cyb_user_relation", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id"),
 	companyId: int("company_id"),
 	type: tinyint(),
@@ -1528,7 +1528,7 @@ export const cybUserRelation = mysqlTable("cyb_user_relation", {
 });
 
 export const cybUserSkill = mysqlTable("cyb_user_skill", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	user: int(),
 	skill: int(),
 	rating: int().default(0),
@@ -1542,7 +1542,7 @@ export const cybUserSkill = mysqlTable("cyb_user_skill", {
 	]);
 
 export const cybUserUpdateExperience = mysqlTable("cyb_user_update_experience", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	experienceId: int("experience_id").notNull(),
 	user: int().notNull(),
 	salary: varchar({ length: 250 }),
@@ -1558,7 +1558,7 @@ export const cybUserUpdateExperience = mysqlTable("cyb_user_update_experience", 
 });
 
 export const cybUserUpdateExperienceHistory = mysqlTable("cyb_user_update_experience_history", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	updateId: int("update_id"),
 	parent: int().default(0),
 	experienceId: int("experience_id").notNull(),
@@ -1576,7 +1576,7 @@ export const cybUserUpdateExperienceHistory = mysqlTable("cyb_user_update_experi
 });
 
 export const cybVerifyDocument = mysqlTable("cyb_verify_document", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	userId: int("user_id"),
 	doctype: varchar({ length: 20 }),
 	docName: text("doc_name"),
@@ -1592,7 +1592,7 @@ export const cybVerifyDocument = mysqlTable("cyb_verify_document", {
 	]);
 
 export const cybViewImpressions = mysqlTable("cyb_view_impressions", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	currentUser: int("current_user").notNull(),
 	remoteId: int("remote_id").notNull(),
 	type: mysqlEnum(['Profile', 'Job']),
@@ -1602,7 +1602,7 @@ export const cybViewImpressions = mysqlTable("cyb_view_impressions", {
 });
 
 export const cybWebMenu = mysqlTable("cyb_web_menu", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	parentId: int("parent_id"),
 	type: int(),
 	name: varchar({ length: 250 }),
@@ -1615,14 +1615,14 @@ export const cybWebMenu = mysqlTable("cyb_web_menu", {
 });
 
 export const cybWidgets = mysqlTable("cyb_widgets", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: varchar({ length: 255 }).notNull(),
 	status: int().default(1),
 	createDate: varchar("create_date", { length: 20 }),
 });
 
 export const cybWidgetPosition = mysqlTable("cyb_widget_position", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	widgetId: int("widget_id").notNull(),
 	placement: int(),
 	variant: varchar({ length: 50 }),
@@ -1630,7 +1630,7 @@ export const cybWidgetPosition = mysqlTable("cyb_widget_position", {
 });
 
 export const cybWorkType = mysqlTable("cyb_work_type", {
-	id: int().autoincrement().notNull(),
+	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	status: int().default(1).notNull(),
 	userDefined: int("user_defined"),

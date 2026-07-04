@@ -28,8 +28,14 @@ class designationRepositery {
 	}
 
 	async create(data: Partial<NewDesignation>): Promise<Designation> {
-		const [designation] = await db.insert(cybDesignation).values(data).$returningId()
-		return designation as unknown as Designation;
+		const [{ id }] = await db.insert(cybDesignation).values(data).$returningId();
+
+		const designation = await this.findById(id);
+
+		if (!designation) {
+			throw new Error("Designation was inserted but could not be retrieved.");
+		}
+		return designation;
 	}
 
 	async generateSlug(name: string) {

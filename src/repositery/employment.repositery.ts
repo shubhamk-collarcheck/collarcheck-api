@@ -77,8 +77,14 @@ class employmentRepositery {
 	}
 
 	async create(data: Partial<NewEmployment>): Promise<Employment> {
-		const [employment] = await db.insert(cybUserExperience).values(data);
-		return employment as unknown as Employment;
+		const [{ id }] = await db.insert(cybUserExperience).values(data).$returningId();
+
+		const employment = await this.findById(id);
+
+		if (!employment) {
+			throw new Error("Employment was inserted but could not be retrieved.");
+		}
+		return employment;
 	}
 
 	async update(id: number, data: Partial<NewEmployment>): Promise<Employment | undefined> {

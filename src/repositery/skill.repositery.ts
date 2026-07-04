@@ -25,8 +25,14 @@ class skillRepositery {
 	}
 
 	async create(data: Partial<NewSkill>): Promise<Skill> {
-		const [skill] = await db.insert(cybSkill).values(data);
-		return skill as unknown as Skill;
+		const [{ id }] = await db.insert(cybSkill).values(data).$returningId();
+
+		const skill = await this.findById(id);
+
+		if (!skill) {
+			throw new Error("Skill was inserted but could not be retrieved.");
+		}
+		return skill;
 	}
 	async bulkCreate(data: Partial<NewSkill>[]): Promise<Skill[]> {
 		if (isEmptyArray(data)) return [];

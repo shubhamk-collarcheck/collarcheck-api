@@ -20,8 +20,14 @@ class departmentRepositery {
 	}
 
 	async create(data: Partial<NewDepartment>): Promise<Department> {
-		const [department] = await db.insert(cybDepartment).values(data).$returningId();
-		return department as unknown as Department;
+		const [{ id }] = await db.insert(cybDepartment).values(data).$returningId();
+
+		const department = await this.findById(id);
+
+		if (!department) {
+			throw new Error("Department was inserted but could not be retrieved.");
+		}
+		return department;
 	}
 }
 
