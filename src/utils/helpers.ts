@@ -67,4 +67,7 @@ export const omit = <T extends object, K extends keyof T>(obj: T, keys: K[]): Om
 	return copy;
 }
 
+export const getS3Url = (key: string): string =>
+	`https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
 

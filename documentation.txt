@@ -1,6 +1,29 @@
+------------------------------------------------------------ layer understanding -----------------------------------------------------------
 - route layer use callback from controller
 - controller layer will only deal with response and request, because you can can by just consoling the request and response for verifaction
 - request verification is going to done by zod as middleware 
-- service layer will consist of db query and and it will generate response data 
+- service layer will consist of small number of db query and and it will generate response data, you can also alter the response in this. 
+- repositery layer will do all the db query
 
+------------------------------------------------------------ naming convention ---------------------------------------------------------------
+
+Item                        | Convention              | Example
+----------------------------|-------------------------|---------------------------------
+Environment Variables       | UPPER_SNAKE_CASE        | DB_HOST, JWT_SECRET, PORT
+Files                       | kebab-case              | user.controller.ts, auth.routes.ts
+Folders                     | kebab-case              | controllers/, repositories/, services/
+Controller Functions        | camelCase               | createUser, getUserById, updateProfile
+Service Functions           | camelCase + service     | registerUserService, processOrderService
+Zod Schemas                 | PascalCase + Schema     | CreateUserSchema, LoginSchema
+Variables                   | camelCase               | userData, newUserId
+Constants                   | UPPER_SNAKE_CASE        | DEFAULT_PAGE_SIZE
+Interfaces / Types          | PascalCase              | UserResponse, CreateUserDto
+Classes                     | PascalCase              | UserRepository, AuthService
+
+
+------------------------------------------------------------- verification layer --------------------------------------------------------------
+[] write zod schema in the PascalCase(filename) + .schema.ts
+[] validate all the request with zod schema, and use req.validate data 
+[] no need to convert to integer.
+[] type the validate with "as" clause
 

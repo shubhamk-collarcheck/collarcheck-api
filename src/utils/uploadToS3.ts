@@ -29,7 +29,6 @@ const s3Storage = multerS3({
 		cb(null, { fieldname: file.fieldname });
 	},
 
-	// Random key — never trust originalname for the S3 path
 	key: (req: Express.Request, file: Express.Multer.File, cb) => {
 		const ext = path.extname(file.originalname).toLowerCase();
 		cb(null, `resumes/${randomUUID()}${ext}`);

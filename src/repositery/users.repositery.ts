@@ -1,9 +1,9 @@
 
-import { and, asc, desc, eq, getTableColumns, inArray, ne, sql, SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql, SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import { cybUser, cybUserExperience } from '../db/schema';
+import { cybUser, cybUserExperience, cybEmployementType, cybDesignation, cybDepartment } from '../db/schema';
 import { isEmptyArray } from '../utils/helpers';
 import { createSlug } from "../utils/generator";
 
@@ -84,6 +84,20 @@ class UsersRepository {
 		const condition = [eq(cybUserExperience.user, id), ne(cybUserExperience.hired, 0), eq(cybUserExperience.isDeleted, 0)]
 		const hireList = await db.select().from(cybUserExperience).where(and(...condition))
 		return hireList
+	}
+
+	async getUserExperience(id: number) {
+		const companyUser = alias(cybUser, 'company');
+		const condition = [and(eq(cybUserExperience.user, id), eq(cybUserExperience.isDeleted, 0), eq(companyUser.isDeleted, 0))]
+		const result = await db.select().from(cybUserExperience)
+			.leftJoin(companyUser, eq(cybUserExperience.company, companyUser.id))
+			.leftJoin(cybEmployementType, eq(cybUserExperience.employmentType, cybEmployementType.id))
+			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
+			.leftJoin(cybDepartment, eq(cybUserExperience.department, cybDepartment.id))
+			.where(and(...condition))
+			.orderBy(desc(cybUserExperience.stillWorking), desc(cybUserExperience.joiningDate));
+
+		return result;
 	}
 	async generateUniqueId(prefix: string): Promise<string> {
 		while (true) {

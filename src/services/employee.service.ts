@@ -174,7 +174,7 @@ export async function employmentTransaction(user_id: number, data: EmploymentBod
 
 
 
-export async function employment_update_service(user_id: number, employment_id: number, data: EmploymentBody, file?: Express.Multer.File,) {
+export async function employmentUpdateService(user_id: number, employment_id: number, data: EmploymentBody, file?: Express.MulterS3.File) {
 	const exist = await employmentRepositery.findById(employment_id);
 
 	if (!exist) {
@@ -209,7 +209,7 @@ export async function employment_update_service(user_id: number, employment_id: 
 	};
 
 	if (file)
-		save.certificate = file.path;
+		save.certificate = file.key;
 
 
 	if (exist.approved !== 1) {
@@ -225,7 +225,7 @@ export async function employment_update_service(user_id: number, employment_id: 
 	return employmentRepositery.update(employment_id, save);
 }
 
-export async function employment_create_service(user_id: number, data: EmploymentBody, file?: Express.Multer.File,) {
+export async function employmentCreateService(user_id: number, data: EmploymentBody, file?: Express.MulterS3.File) {
 	const isStillWorking = data.still_working || data.worked_till_date === "present";
 
 	if (!isStillWorking) {
@@ -249,7 +249,7 @@ export async function employment_create_service(user_id: number, data: Employmen
 		skill: JSON.stringify(skillIds),
 		description: data.description,
 		employmentType: data.employment_type,
-		certificate: file?.path ?? null,
+		certificate: file?.key ?? null,
 		stillWorking: isStillWorking ? 1 : 0,
 		workedTillDate: isStillWorking ? null : data.worked_till_date,
 		salary: data.salary,
@@ -279,4 +279,9 @@ export async function employment_create_service(user_id: number, data: Employmen
 	}
 
 	return result;
+}
+
+
+export function allExperienceService(user_id: number) {
+	const experienceList = usersRepositery.getUserExperience(user_id)
 }
