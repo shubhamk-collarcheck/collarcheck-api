@@ -31,7 +31,7 @@ const s3Storage = multerS3({
 
 	key: (req: Express.Request, file: Express.Multer.File, cb) => {
 		const ext = path.extname(file.originalname).toLowerCase();
-		cb(null, `resumes/${randomUUID()}${ext}`);
+		cb(null, `uploads/resumesTemp/${randomUUID()}${ext}`);
 	}
 });
 

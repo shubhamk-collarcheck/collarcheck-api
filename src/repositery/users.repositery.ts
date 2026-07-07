@@ -89,7 +89,42 @@ class UsersRepository {
 	async getUserExperience(id: number) {
 		const companyUser = alias(cybUser, 'company');
 		const condition = [and(eq(cybUserExperience.user, id), eq(cybUserExperience.isDeleted, 0), eq(companyUser.isDeleted, 0))]
-		const result = await db.select().from(cybUserExperience)
+		const result = await db.select({
+			id: cybUserExperience.id,
+			user: cybUserExperience.user,
+			company: cybUserExperience.company,
+			employmentType: cybUserExperience.employmentType,
+			designation: cybUserExperience.designation,
+			workEmail: cybUserExperience.workEmail,
+			salary: cybUserExperience.salary,
+			salaryMode: cybUserExperience.salaryMode,
+			salaryInhand: cybUserExperience.salaryInhand,
+			joiningDate: cybUserExperience.joiningDate,
+			workedTillDate: cybUserExperience.workedTillDate,
+			department: cybUserExperience.department,
+			stillWorking: cybUserExperience.stillWorking,
+			skill: cybUserExperience.skill,
+			certificate: cybUserExperience.certificate,
+			description: cybUserExperience.description,
+			approved: cybUserExperience.approved,
+			status: cybUserExperience.status,
+			isDeleted: cybUserExperience.isDeleted,
+			createDate: cybUserExperience.createDate,
+			modifyDate: cybUserExperience.modifyDate,
+			companyName: companyUser.fname,
+			companyId: companyUser.id,
+			onNotice: companyUser.onNotice,
+			onImmediate: companyUser.onImmediate,
+			onExplore: companyUser.onExplore,
+			profile: companyUser.profile,
+			claimStatus: companyUser.claimStatus,
+			socialImage: companyUser.socialImage,
+			companySlug: companyUser.slug,
+			employementName: cybEmployementType.name,
+			designationName: cybDesignation.name,
+			departmentName: cybDepartment.name,
+		})
+			.from(cybUserExperience)
 			.leftJoin(companyUser, eq(cybUserExperience.company, companyUser.id))
 			.leftJoin(cybEmployementType, eq(cybUserExperience.employmentType, cybEmployementType.id))
 			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))

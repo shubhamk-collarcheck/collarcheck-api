@@ -27,3 +27,39 @@ Classes                     | PascalCase              | UserRepository, AuthServ
 [] no need to convert to integer.
 [] type the validate with "as" clause
 
+------------------------------------------------------------- find more task to do -------------------------------------------------------------
+[] find  "//todo"
+[] assumption i have taken "// making assumption"
+
+
+---------------------------------------------------------------- website logic -----------------------------------------------------------------
+
++ EXPERIENCE ADDED
+        |
+        v
+Send the Email for VERIFICATION To the company
+        |
+        v
+Email sent to Company(if company is alreay present on the collarcheck) 
+        |
+        v
+approve that user has worked in the company
+        |
+        v
+Now You can add Skill + Rating
+        |
+        v
+In Pending state
+        |
+        v
+Send again for VERIFICATION in the comany dashboard
+        |
+        v
+Now you can show it as VERIFIED
+
+
+
+
+
+
+

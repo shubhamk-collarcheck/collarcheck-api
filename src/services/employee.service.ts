@@ -3,6 +3,8 @@ import designationRepositery from "../repositery/designation.repositery";
 import departmentRepositery from "../repositery/department.repositery";
 import skillRepositery from "../repositery/skill.repositery";
 import employmentRepositery from "../repositery/employment.repositery"
+import companyRepositery from "../repositery/company.repositery"
+import reviewRepositery from "../repositery/review.repositery"
 import { isBlank, isEmptyArray } from "../utils/helpers";
 import { urlTitle } from "../utils/generator";
 import { BadRequestError } from "../middlewares/errorHandler";
@@ -17,6 +19,7 @@ import type { NewDepartment } from "../types/department.types";
 import type { NewSkill } from "../types/skill.types";
 import db from "../db";
 import { cybDepartment, cybDesignation, cybSkill, cybUser } from "../db/schema";
+import { decodeS3URL, decodeSkill } from "../utils/decoders";
 
 
 type ResolveResult<T> = {
@@ -209,7 +212,7 @@ export async function employmentUpdateService(user_id: number, employment_id: nu
 	};
 
 	if (file)
-		save.certificate = file.key;
+		save.certificate = file.location;
 
 
 	if (exist.approved !== 1) {
@@ -249,7 +252,7 @@ export async function employmentCreateService(user_id: number, data: EmploymentB
 		skill: JSON.stringify(skillIds),
 		description: data.description,
 		employmentType: data.employment_type,
-		certificate: file?.key ?? null,
+		certificate: file?.location ?? null,
 		stillWorking: isStillWorking ? 1 : 0,
 		workedTillDate: isStillWorking ? null : data.worked_till_date,
 		salary: data.salary,
@@ -281,7 +284,331 @@ export async function employmentCreateService(user_id: number, data: EmploymentB
 	return result;
 }
 
+export async function allExperienceService(user_id: number) {
+	const experienceList = await usersRepositery.getUserExperience(user_id);
 
-export function allExperienceService(user_id: number) {
-	const experienceList = usersRepositery.getUserExperience(user_id)
+	const data = await Promise.all(experienceList.map(async (experience) => {
+		const onExplore = experience.onExplore ? 1 : 0;
+
+		let showOnExplore = 0;
+		// todo
+		// if (onExplore === 1) {
+		// 	showOnExplore = (await showExploring(experience.user, user_id)) ? 1 : 0;
+		// }
+
+
+		const onImmediate = showOnExplore === 1 ? (experience.onImmediate ? 1 : 0) : 0;
+		const onNotice = showOnExplore === 1 ? (experience.onNotice ? 1 : 0) : 0;
+
+		const basicUpdateList = await employmentRepositery.getExperienceUpdateList(experience.id)
+		// making assumption
+		const checkInvitation = await companyRepositery.checkInvitationSend(experience.company!, user_id)
+		const employmentStatus = await reviewRepositery.getEmploymentStatus(experience.id)
+
+		return {
+			id: experience.id,
+			company_logo: decodeS3URL(experience.profile),
+			company: experience.companyName,
+			company_id: experience.company,
+			salary: experience.salary,
+			employment_type: experience.employementName,
+			designation: experience.designationName,
+			joining_date: experience.joiningDate,
+			worked_till_date: experience.workedTillDate,
+			still_working: experience.stillWorking ?? 0,
+			approved: experience.approved,
+			description: experience.description,
+			salary_inhand: experience.salary,
+			salary_mode: experience.salaryMode,
+			department: experience.departmentName,
+			claim_status: experience.claimStatus ? 1 : 0,
+			company_slug: experience.companySlug,
+			skill: await decodeSkill(experience.skill),
+			basic_update_list: basicUpdateList,
+			document: decodeS3URL(experience.certificate),
+			rating: await getRating(experience.id),
+			added_by: checkInvitation
+			employment_status: await getEmploymentStatus(experience.id),
+			totalRating: await getExperienceRating(experience.id),
+			status: experience.status,
+			on_explore: showOnExplore,
+			on_immediate: onImmediate,
+			on_notice: onNotice,
+		};
+	})
+	);
+
+	return data;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+								
+	
+						
+		
+				
+			

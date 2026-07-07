@@ -1,8 +1,8 @@
 
-import { and, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import { cybUserExperience } from '../db/schema';
+import { cybUserExperience, cybUserUpdateExperience } from '../db/schema';
 
 type Employment = InferSelectModel<typeof cybUserExperience>
 type NewEmployment = InferInsertModel<typeof cybUserExperience>
@@ -119,6 +119,14 @@ class employmentRepositery {
 			.where(and(eq(cybUserExperience.company, companyId), eq(cybUserExperience.isDeleted, 0)));
 		return result.count;
 	}
+
+	async getExperienceUpdateList(exprienceId: number) {
+		const condition = [eq(cybUserUpdateExperience.experienceId, exprienceId)]
+		const [result] = await db.select().from(cybUserUpdateExperience).where(and(...condition)).orderBy(asc(cybUserUpdateExperience.type))
+		return result
+	}
+
+
 }
 
 export default new employmentRepositery();

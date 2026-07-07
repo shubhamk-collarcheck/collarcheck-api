@@ -6,6 +6,7 @@ import {
 	cybSkill, cybGalleries
 } from '../db/schema';
 import { boolean } from 'drizzle-orm/gel-core';
+import { isEmpty } from './helpers';
 
 
 const s3Prefix = process.env.S3_PREFIX || '';
@@ -37,6 +38,13 @@ export const decodeGallery = async (companyId: number | null) => {
 
 
 
+export const decodeS3URL = (key: string | null): string => {
+	if (isEmpty(key)) {
+		return ""
+	}
+	return `https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+}
 
 
 

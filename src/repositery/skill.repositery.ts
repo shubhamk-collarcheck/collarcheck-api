@@ -39,6 +39,7 @@ class skillRepositery {
 		const inserted = await db.insert(cybSkill).values(data);
 		return inserted as unknown as Skill[];
 	}
+
 }
 
 export default new skillRepositery();
