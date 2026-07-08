@@ -61,9 +61,9 @@ export async function allExperience(req: Request, res: Response, next: NextFunct
 
 export async function detailExperience(req: Request, res: Response, next: NextFunction) {
 	try {
-		const auth = req.auth as AuthUser
-		const { params } = req.validated as { params: CommonIdParams }
-		const result = await experienceDetailService(params.id, auth.user_id, auth.user_type ?? USER_TYPE.EMPLOYEE)
+		const { user_type, user_id } = req.auth as AuthUser
+		const { params } = req.validated as CommonIdParams
+		const result = await experienceDetailService(params.id, user_id, user_type ?? USER_TYPE.EMPLOYEE)
 
 		return res.status(200).json({
 			status: true,
