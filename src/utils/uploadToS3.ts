@@ -51,6 +51,6 @@ export const uploadToS3 = multer({
 	fileFilter: (req, file, cb) => sanitizeFile(file, cb),
 	limits: {
 		fileSize: 1024 * 1024 * 2, // 2MB
-		files: 1
+		files: 5
 	}
 })

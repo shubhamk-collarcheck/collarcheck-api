@@ -46,6 +46,11 @@ export const decodeS3URL = (key: string | null): string => {
 
 }
 
+export const decodeCertificateURLs = (value: string | null): string[] => {
+	if (isEmpty(value)) return [];
+	return value!.split(",").map(key => decodeS3URL(key));
+}
+
 
 
 

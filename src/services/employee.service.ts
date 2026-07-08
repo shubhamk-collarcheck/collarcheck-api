@@ -18,7 +18,7 @@ import type { NewDepartment } from "../types/department.types";
 import type { NewSkill } from "../types/skill.types";
 import db from "../db";
 import { cybDepartment, cybDesignation, cybSkill, cybUser } from "../db/schema";
-import { decodeS3URL, decodeSkill } from "../utils/decoders";
+import { decodeCertificateURLs, decodeS3URL, decodeSkill } from "../utils/decoders";
 
 
 type ResolveResult<T> = {
@@ -176,7 +176,7 @@ export async function employmentTransaction(user_id: number, data: EmploymentBod
 
 
 
-export async function employmentUpdateService(user_id: number, employment_id: number, data: EmploymentBody, file?: Express.MulterS3.File) {
+export async function employmentUpdateService(user_id: number, employment_id: number, data: EmploymentBody, files?: Express.MulterS3.File[]) {
 	const exist = await employmentRepositery.findById(employment_id);
 
 	if (!exist) {
@@ -210,8 +210,8 @@ export async function employmentUpdateService(user_id: number, employment_id: nu
 		workedTillDate: isStillWorking ? null : data.worked_till_date!,
 	};
 
-	if (file)
-		save.certificate = file.location;
+	if (files && files.length > 0)
+		save.certificate = files.map(f => f.key).join(",");
 
 
 	if (exist.approved !== 1) {
@@ -227,7 +227,7 @@ export async function employmentUpdateService(user_id: number, employment_id: nu
 	return employmentRepositery.update(employment_id, save);
 }
 
-export async function employmentCreateService(user_id: number, data: EmploymentBody, file?: Express.MulterS3.File) {
+export async function employmentCreateService(user_id: number, data: EmploymentBody, files?: Express.MulterS3.File[]) {
 	const isStillWorking = data.still_working || data.worked_till_date === "present";
 
 	if (!isStillWorking) {
@@ -251,7 +251,7 @@ export async function employmentCreateService(user_id: number, data: EmploymentB
 		skill: JSON.stringify(skillIds),
 		description: data.description,
 		employmentType: data.employment_type,
-		certificate: file?.location ?? null,
+		certificate: files && files.length > 0 ? files.map(f => f.key).join(",") : null,
 		stillWorking: isStillWorking ? 1 : 0,
 		workedTillDate: isStillWorking ? null : data.worked_till_date,
 		salary: data.salary,
@@ -394,7 +394,7 @@ export async function allExperienceService(user_id: number) {
 			company_slug: experience.companySlug,
 			skill,
 			basic_update_list: updateListMap.get(experience.id) ?? null,
-			document: decodeS3URL(experience.certificate),
+			document: decodeCertificateURLs(experience.certificate),
 			rating: ratingMap.get(experience.id) ?? [],
 			added_by: invitedCompanyIds.has(experience.company!),
 			employment_status: employmentStatusMap.get(experience.id) ?? 'pending',
@@ -442,7 +442,7 @@ export async function experienceDetailService(experience_id: number, user_id: nu
 		rating,
 		employmentStatus,
 		companyLogo,
-		document: decodeS3URL(detail.certificate),
+		document: decodeCertificateURLs(detail.certificate),
 	};
 }
 

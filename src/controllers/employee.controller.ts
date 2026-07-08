@@ -19,7 +19,7 @@ export async function addExperience(req: Request, res: Response, next: NextFunct
 	try {
 		const { user_id } = req.auth as AuthUser;
 		const { body, params } = req.validated as EmploymentRequestBody;
-		const result = await employmentCreateService(user_id, body, req.file as Express.MulterS3.File);
+		const result = await employmentCreateService(user_id, body, req.files as Express.MulterS3.File[]);
 
 		return res.status(201).json({ message: "successful", done: result });
 
@@ -33,7 +33,7 @@ export async function updateExperience(req: Request, res: Response, next: NextFu
 
 		const { user_id } = req.auth as AuthUser;
 		const { body, params } = req.validated as EmploymentRequestBody;
-		const result = await employmentUpdateService(user_id, params.employment_id!, body, req.file as Express.MulterS3.File);
+		const result = await employmentUpdateService(user_id, params.employment_id!, body, req.files as Express.MulterS3.File[]);
 
 		return res.status(201).json({ message: "successful", done: result });
 
