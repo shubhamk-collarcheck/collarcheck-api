@@ -2,7 +2,7 @@ import usersRepositery, { USER_PREFIX, USER_TYPE } from "../repositery/users.rep
 import designationRepositery from "../repositery/designation.repositery";
 import departmentRepositery from "../repositery/department.repositery";
 import skillRepositery from "../repositery/skill.repositery";
-import employmentRepositery from "../repositery/employment.repositery"
+import employmentRepositery from "../repositery/employee.repositery"
 import companyRepositery from "../repositery/company.repositery"
 import reviewRepositery from "../repositery/review.repositery"
 import { isBlank, isEmptyArray, getS3Url } from "../utils/helpers";
@@ -18,7 +18,7 @@ import type { NewDepartment } from "../types/department.types";
 import type { NewSkill } from "../types/skill.types";
 import db from "../db";
 import { cybDepartment, cybDesignation, cybSkill, cybUser } from "../db/schema";
-import { decodeS3URL } from "../utils/decoders";
+import { decodeS3URL, decodeSkill } from "../utils/decoders";
 
 
 type ResolveResult<T> = {
@@ -407,6 +407,64 @@ export async function allExperienceService(user_id: number) {
 	});
 
 	return data;
+}
+
+export async function experienceDetailService(experience_id: number, user_id: number, user_type: number) {
+	const detail = await employmentRepositery.getExperienceDetail(experience_id);
+
+	if (!detail) {
+		throw new BadRequestError("Invalid Experience!");
+	}
+
+	if (user_type === 1) {
+		if (user_id !== detail.userId) {
+			throw new BadRequestError("Access Denied!");
+		}
+	} else {
+		if (user_id !== detail.company) {
+			throw new BadRequestError("Access Denied!");
+		}
+	}
+
+	const [skill, rating, employmentStatus] = await Promise.all([
+		decodeSkill(detail.skill),
+		reviewRepositery.getRating(experience_id),
+		reviewRepositery.getEmploymentStatus(experience_id),
+	]);
+
+	const companyLogo = detail.companyProfile
+		? decodeS3URL(detail.companyProfile)
+		: (detail.companySocialImage ?? "");
+
+	return {
+		id: detail.id,
+		company_logo: companyLogo,
+		company: detail.companyName,
+		company_id: detail.company,
+		user_id: detail.userId,
+		name: `${detail.fname ?? ""} ${detail.lname ?? ""}`.trim(),
+		salary: detail.salary,
+		employment_type: detail.employmentType,
+		employment_name: detail.employementName,
+		designation: detail.designationName,
+		designationId: detail.designation,
+		departmentId: detail.department,
+		hired: detail.hired,
+		joining_date: detail.joiningDate,
+		worked_till_date: detail.workedTillDate,
+		still_working: detail.stillWorking ?? 0,
+		approved: detail.approved,
+		description: detail.description,
+		salary_inhand: detail.salaryInhand,
+		salary_mode: detail.salaryMode,
+		department: detail.departmentName,
+		skill,
+		document: decodeS3URL(detail.certificate),
+		rating,
+		employment_status: employmentStatus,
+		claim_status: detail.claimStatus ? 1 : 0,
+		added_by: detail.invitedBy === user_id,
+	};
 }
 
 async function batchSkillNames(experienceList: any[]) {

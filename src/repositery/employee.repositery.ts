@@ -1,8 +1,9 @@
 
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import { cybUserExperience, cybUserUpdateExperience } from '../db/schema';
+import { cybUserExperience, cybUserUpdateExperience, cybUser, cybEmployementType, cybDesignation, cybDepartment, cybCompanyInvite } from '../db/schema';
 import { isEmptyArray } from '../utils/helpers';
 
 type Employment = InferSelectModel<typeof cybUserExperience>
@@ -143,6 +144,75 @@ class employmentRepositery {
 			}
 		}
 		return map;
+	}
+
+	async getExperienceDetail(id: number) {
+		const companyUser = alias(cybUser, 'company');
+		const employeeUser = alias(cybUser, 'employee');
+
+		const [result] = await db
+			.select({
+				id: cybUserExperience.id,
+				user: cybUserExperience.user,
+				company: cybUserExperience.company,
+				employmentType: cybUserExperience.employmentType,
+				designation: cybUserExperience.designation,
+				workEmail: cybUserExperience.workEmail,
+				workEmailDate: cybUserExperience.workEmailDate,
+				salary: cybUserExperience.salary,
+				salaryInhand: cybUserExperience.salaryInhand,
+				salaryMode: cybUserExperience.salaryMode,
+				joiningDate: cybUserExperience.joiningDate,
+				workedTillDate: cybUserExperience.workedTillDate,
+				department: cybUserExperience.department,
+				stillWorking: cybUserExperience.stillWorking,
+				skill: cybUserExperience.skill,
+				description: cybUserExperience.description,
+				approved: cybUserExperience.approved,
+				lastReview: cybUserExperience.lastReview,
+				status: cybUserExperience.status,
+				hired: cybUserExperience.hired,
+				state: cybUserExperience.state,
+				city: cybUserExperience.city,
+				addedBy: cybUserExperience.addedBy,
+				createdBy: cybUserExperience.createdBy,
+				createDate: cybUserExperience.createDate,
+				modifyDate: cybUserExperience.modifyDate,
+				expiry: cybUserExperience.expiry,
+				certificate: cybUserExperience.certificate,
+				isDeleted: cybUserExperience.isDeleted,
+				companyId: companyUser.id,
+				companyName: companyUser.fname,
+				companyEmail: companyUser.email,
+				companySlug: companyUser.slug,
+				claimStatus: companyUser.claimStatus,
+				companyProfile: companyUser.profile,
+				companySocialImage: companyUser.socialImage,
+				companyPhone: companyUser.phone,
+				userPhone: employeeUser.phone,
+				email: employeeUser.email,
+				fname: employeeUser.fname,
+				lname: employeeUser.lname,
+				userId: employeeUser.id,
+				fullName: employeeUser.fullName,
+				userSlug: employeeUser.slug,
+				userProfile: employeeUser.profile,
+				userSocialImage: employeeUser.socialImage,
+				employementName: cybEmployementType.name,
+				designationName: cybDesignation.name,
+				departmentName: cybDepartment.name,
+				invitedBy: cybCompanyInvite.addedBy,
+			})
+			.from(cybUserExperience)
+			.leftJoin(companyUser, eq(cybUserExperience.company, companyUser.id))
+			.leftJoin(employeeUser, eq(cybUserExperience.user, employeeUser.id))
+			.leftJoin(cybEmployementType, eq(cybUserExperience.employmentType, cybEmployementType.id))
+			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
+			.leftJoin(cybDepartment, eq(cybUserExperience.department, cybDepartment.id))
+			.leftJoin(cybCompanyInvite, eq(cybUserExperience.company, cybCompanyInvite.company))
+			.where(and(eq(cybUserExperience.id, id), eq(cybUserExperience.isDeleted, 0)));
+
+		return result;
 	}
 
 

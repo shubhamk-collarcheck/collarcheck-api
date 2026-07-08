@@ -1,10 +1,9 @@
 import { NextFunction, Request, Response } from "express";
-import { allExperienceService, employmentCreateService, employmentUpdateService } from "../services/employee.service";
-import { isBlank, isEmpty, TypedRequest } from "../utils/helpers";
+import { allExperienceService, employmentCreateService, employmentUpdateService, experienceDetailService } from "../services/employee.service";
 import { EmploymentRequestBody } from "../types/employee.types";
-import { z } from "zod";
 import { AuthUser } from "../types/express";
-import usersRepositery from "../repositery/users.repositery";
+import { USER_TYPE } from "../repositery/users.repositery";
+import { CommonIdParams } from "../utils/validation";
 
 
 export async function updloadResume(req: Request, res: Response, next: NextFunction) {
@@ -54,6 +53,23 @@ export async function allExperience(req: Request, res: Response, next: NextFunct
 			data: result
 		})
 
+	} catch (err) {
+		next(err)
+	}
+}
+
+
+export async function detailExperience(req: Request, res: Response, next: NextFunction) {
+	try {
+		const auth = req.auth as AuthUser
+		const { params } = req.validated as { params: CommonIdParams }
+		const result = await experienceDetailService(params.id, auth.user_id, auth.user_type ?? USER_TYPE.EMPLOYEE)
+
+		return res.status(200).json({
+			status: true,
+			message: 'Employement History',
+			data: result
+		})
 	} catch (err) {
 		next(err)
 	}
