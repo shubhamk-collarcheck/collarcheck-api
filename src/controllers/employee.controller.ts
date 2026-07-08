@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { employmentCreateService, employmentUpdateService } from "../services/employee.service";
+import { allExperienceService, employmentCreateService, employmentUpdateService } from "../services/employee.service";
 import { isBlank, isEmpty, TypedRequest } from "../utils/helpers";
 import { EmploymentRequestBody } from "../types/employee.types";
 import { z } from "zod";
@@ -47,6 +47,12 @@ export async function updateExperience(req: Request, res: Response, next: NextFu
 export async function allExperience(req: Request, res: Response, next: NextFunction) {
 	try {
 		const { user_id } = req.auth as AuthUser
+		const result = await allExperienceService(user_id);
+		return res.status(201).json({
+			status: true,
+			message: 'Employement History',
+			data: result
+		})
 
 	} catch (err) {
 		next(err)

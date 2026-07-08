@@ -11,7 +11,7 @@ const employRouter = Router()
 
 employRouter.post("/add-employment", Authorization, uploadToS3.single("file"), validateData(employmentRequestSchema), addExperience)
 employRouter.post("/add-employment/:employment_id", Authorization, uploadToS3.single("file"), validateData(employmentRequestSchema), updateExperience)
-employRouter.post("/all-employement", Authorization, allExperience)
+employRouter.get("/all-employement", Authorization, allExperience)
 
 
 

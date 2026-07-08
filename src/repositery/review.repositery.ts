@@ -1,9 +1,11 @@
 
 
-import { and, asc, eq, sql, desc, inArray } from 'drizzle-orm';
+import { and, asc, eq, sql, desc, inArray, ne } from 'drizzle-orm';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import { cybUserExperience, cybUserUpdateExperience, cybUserExperienceRating, cybDesignation, cybUser, cybUserExperienceRatingHistory, cybSkillRatingHistory, cybSkill } from '../db/schema';
+import { getS3Url, isEmptyArray, isEmptyObject } from '../utils/helpers';
+import skillRepositery from './skill.repositery';
 
 const s3Prefix = process.env.S3_PREFIX || '';
 
@@ -12,6 +14,78 @@ type NewEmployment = InferInsertModel<typeof cybUserExperience>
 
 
 class reviewRepositery {
+	async getRating(experinceId: number) {
+		const experienceList = await db
+			.select({
+				id: cybUserExperienceRating.id,
+				experience: cybUserExperienceRating.experience,
+				company: cybUserExperienceRating.company,
+				rating: cybUserExperienceRating.rating,
+				review: cybUserExperienceRating.review,
+				doc: cybUserExperienceRating.doc,
+				link: cybUserExperienceRating.link,
+				addedBy: cybUserExperienceRating.addedBy,
+				status: cybUserExperienceRating.status,
+				approved: cybUserExperienceRating.approved,
+				expiry: cybUserExperienceRating.expiry,
+				showReview: cybUserExperienceRating.showReview,
+				isDeleted: cybUserExperienceRating.isDeleted,
+				showHome: cybUserExperienceRating.showHome,
+				createDate: cybUserExperienceRating.createDate,
+				modifyDate: cybUserExperienceRating.modifyDate,
+			})
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.status, 1),
+				eq(cybUserExperienceRating.experience, experinceId),
+			))
+			.orderBy(desc(cybUserExperienceRating.id));
+
+		if (isEmptyArray(experienceList)) return [];
+
+		const ratingIds = [...new Set(experienceList.map(r => r.id))];
+
+		const historyMap: Record<number, any[]> = await this.getRatingHistory(ratingIds) as Record<number, any[]>;
+		const skillMap = await skillRepositery.getReviewsWithSkills(ratingIds, 0);
+
+		const allExperienceList: Record<string, any>[] = [];
+
+		for (const rval of experienceList) {
+			const history = historyMap[rval.id] ?? [];
+			const skill_rating = skillMap[rval.id] ?? [];
+
+			let doc: string | string[] | null = null;
+			if (rval.doc) {
+				try {
+					const paths = JSON.parse(rval.doc);
+					if (Array.isArray(paths)) {
+						doc = paths.map((path: string) => getS3Url(path));
+					}
+				} catch {
+					doc = rval.doc;
+				}
+			}
+
+			const arr: Record<string, any> = {
+				id: rval.id,
+				approved: rval.approved,
+				status: rval.approved === 1 ? 'complete' : 'pending',
+				doc: doc,
+				date: rval.modifyDate,
+				link: rval.link,
+				show_home: rval.showHome,
+				show_review: rval.showReview,
+				history: history,
+				skill_rating: skill_rating,
+				rating: rval.rating,
+				review: rval.review,
+			};
+
+			allExperienceList.push(arr);
+		}
+
+		return allExperienceList;
+	}
 	async getAllExperienceRating(experinceId?: number, approved?: number, notApproved?: number) {
 		const conditions = [
 			eq(cybUserExperienceRating.status, 1),
@@ -30,7 +104,7 @@ class reviewRepositery {
 		}
 
 		if (notApproved) {
-			conditions.push(sql`${cybUserExperienceRating.approved} <> 2`);
+			conditions.push(ne(cybUserExperienceRating.approved, 2));
 		}
 
 		const result = await db
@@ -74,12 +148,13 @@ class reviewRepositery {
 		const allReviewList = await this.getAllExperienceRating(experienceId, 1);
 
 		if (allReviewList && allReviewList.length > 0) {
-			for (const value of allReviewList) {
-				const history = await this.getRatingHistory(value.id);
-				if (history && history.length > 0) {
-					totalRating += history[0].rating;
+			for (const Review of allReviewList) {
+				const history = await this.getRatingHistory(Review.id);
+				if (!isEmptyObject(history)) {
+					//todo
+					// totalRating += history[0].rating!;
 				} else {
-					totalRating += value.rating;
+					totalRating += Review.rating;
 				}
 				noOfRecords++;
 			}
@@ -91,14 +166,8 @@ class reviewRepositery {
 	async getSkillRatingByHistoryId(historyId: number) {
 		return await db
 			.select({
-				id: cybSkillRatingHistory.id,
-				reviewHistoryId: cybSkillRatingHistory.reviewHistoryId,
 				skillId: cybSkillRatingHistory.skillId,
 				rating: cybSkillRatingHistory.rating,
-				status: cybSkillRatingHistory.status,
-				isDeleted: cybSkillRatingHistory.isDeleted,
-				createDate: cybSkillRatingHistory.createDate,
-				modifyDate: cybSkillRatingHistory.modifyDate,
 				skillName: cybSkill.name,
 			})
 			.from(cybSkillRatingHistory)
@@ -118,14 +187,10 @@ class reviewRepositery {
 
 		const ids = Array.isArray(ratingId) ? ratingId : [ratingId];
 
-		const results = await db
-			.select()
-			.from(cybUserExperienceRatingHistory)
-			.where(and(
-				inArray(cybUserExperienceRatingHistory.ratingId, ids),
+		const results = await db.select().from(cybUserExperienceRatingHistory)
+			.where(and(inArray(cybUserExperienceRatingHistory.ratingId, ids),
 				eq(cybUserExperienceRatingHistory.isDeleted, 0),
-				eq(cybUserExperienceRatingHistory.status, 1)
-			))
+				eq(cybUserExperienceRatingHistory.status, 1)))
 			.orderBy(desc(cybUserExperienceRatingHistory.id));
 
 		for (const h of results) {
@@ -133,7 +198,7 @@ class reviewRepositery {
 				try {
 					const paths = JSON.parse(h.doc);
 					if (Array.isArray(paths)) {
-						(h as any).doc = paths.map((path: string) => s3Prefix + path);
+						(h as any).doc = paths.map((path: string) => getS3Url(path));
 					}
 				} catch {
 					// doc is not JSON, leave as-is

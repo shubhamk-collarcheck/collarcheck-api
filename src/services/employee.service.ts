@@ -304,7 +304,8 @@ export async function allExperienceService(user_id: number) {
 		// making assumption
 		const checkInvitation = await companyRepositery.checkInvitationSend(experience.company!, user_id)
 		const employmentStatus = await reviewRepositery.getEmploymentStatus(experience.id)
-
+		const totalRating = await reviewRepositery.getExperienceRating(experience.id)
+		const rating = await reviewRepositery.getRating(experience.id)
 		return {
 			id: experience.id,
 			company_logo: decodeS3URL(experience.profile),
@@ -326,10 +327,10 @@ export async function allExperienceService(user_id: number) {
 			skill: await decodeSkill(experience.skill),
 			basic_update_list: basicUpdateList,
 			document: decodeS3URL(experience.certificate),
-			rating: await getRating(experience.id),
-			added_by: checkInvitation
-			employment_status: await getEmploymentStatus(experience.id),
-			totalRating: await getExperienceRating(experience.id),
+			rating: rating,
+			added_by: checkInvitation,
+			employment_status: employmentStatus,
+			totalRating: totalRating,
 			status: experience.status,
 			on_explore: showOnExplore,
 			on_immediate: onImmediate,
@@ -605,10 +606,10 @@ export async function allExperienceService(user_id: number) {
 
 
 
-	
-								
-	
-						
-		
-				
-			
+
+
+
+
+
+
+
