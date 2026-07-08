@@ -23,6 +23,17 @@ class companyRepositery {
 		}
 		return false
 	}
+
+	async checkInvitationSendByCompanyIds(companyIds: number[], userId: number): Promise<Set<number>> {
+		if (isEmptyArray(companyIds)) return new Set();
+		const invites = await db.select({ company: cybCompanyInvite.company })
+			.from(cybCompanyInvite)
+			.where(and(
+				inArray(cybCompanyInvite.company, companyIds),
+				eq(cybCompanyInvite.addedBy, userId),
+			));
+		return new Set(invites.map(i => i.company!));
+	}
 }
 
 

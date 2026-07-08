@@ -1,5 +1,5 @@
 
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import { cybSkill, cybSkillRating } from '../db/schema';
@@ -38,6 +38,19 @@ class skillRepositery {
 		if (isEmptyArray(data)) return [];
 		const inserted = await db.insert(cybSkill).values(data);
 		return inserted as unknown as Skill[];
+	}
+
+	async getSkillNamesByIds(ids: number[]): Promise<Map<number, string>> {
+		if (isEmptyArray(ids)) return new Map();
+		const skills = await db.select({ id: cybSkill.id, name: cybSkill.name })
+			.from(cybSkill)
+			.where(and(eq(cybSkill.status, 1), inArray(cybSkill.id, ids)))
+			.orderBy(asc(cybSkill.name));
+		const map = new Map<number, string>();
+		for (const s of skills) {
+			if (s.name) map.set(s.id, s.name);
+		}
+		return map;
 	}
 
 	async getReviewsWithSkills(reviewIds: number | number[], showHome: number = 0) {

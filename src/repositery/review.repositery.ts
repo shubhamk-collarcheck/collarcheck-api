@@ -239,6 +239,89 @@ class reviewRepositery {
 			return 'pending';
 		}
 	}
+
+	async getEmploymentStatusByExperienceIds(ids: number[]): Promise<Map<number, string>> {
+		if (isEmptyArray(ids)) return new Map();
+		const rows = await db
+			.select({
+				experience: cybUserExperienceRating.experience,
+				addedBy: cybUserExperienceRating.addedBy,
+			})
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.status, 1),
+				inArray(cybUserExperienceRating.experience, ids),
+			))
+			.orderBy(desc(cybUserExperienceRating.id));
+
+		const map = new Map<number, string>();
+		for (const row of rows) {
+			const expId = row.experience!;
+			if (!map.has(expId)) {
+				map.set(expId, row.addedBy === 1 ? 'complete' : 'pending');
+			}
+		}
+		return map;
+	}
+
+	async getTotalRatingByExperienceIds(ids: number[]): Promise<Map<number, { rating: number; noofrecord: number }>> {
+		if (isEmptyArray(ids)) return new Map();
+		const rows = await db
+			.select({
+				experience: cybUserExperienceRating.experience,
+				rating: cybUserExperienceRating.rating,
+				approved: cybUserExperienceRating.approved,
+			})
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.status, 1),
+				inArray(cybUserExperienceRating.experience, ids),
+			))
+			.orderBy(desc(cybUserExperienceRating.id));
+
+		const expRatings = new Map<number, { rating: number; noofrecord: number }>();
+		const grouped = new Map<number, { rating: number; approved: number | null }[]>();
+		for (const row of rows) {
+			const expId = row.experience!;
+			if (!grouped.has(expId)) grouped.set(expId, []);
+			grouped.get(expId)!.push({ rating: row.rating, approved: row.approved });
+		}
+		for (const [expId, ratings] of grouped) {
+			const approved = ratings.filter(r => r.approved === 1);
+			const total = approved.reduce((sum, r) => sum + r.rating, 0);
+			expRatings.set(expId, { rating: Math.round(total), noofrecord: approved.length });
+		}
+		return expRatings;
+	}
+
+	async getRatingsByExperienceIds(experienceIds: number[]) {
+		if (isEmptyArray(experienceIds)) return [];
+		return await db
+			.select({
+				id: cybUserExperienceRating.id,
+				experience: cybUserExperienceRating.experience,
+				company: cybUserExperienceRating.company,
+				rating: cybUserExperienceRating.rating,
+				review: cybUserExperienceRating.review,
+				doc: cybUserExperienceRating.doc,
+				link: cybUserExperienceRating.link,
+				addedBy: cybUserExperienceRating.addedBy,
+				status: cybUserExperienceRating.status,
+				approved: cybUserExperienceRating.approved,
+				expiry: cybUserExperienceRating.expiry,
+				showReview: cybUserExperienceRating.showReview,
+				isDeleted: cybUserExperienceRating.isDeleted,
+				showHome: cybUserExperienceRating.showHome,
+				createDate: cybUserExperienceRating.createDate,
+				modifyDate: cybUserExperienceRating.modifyDate,
+			})
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.status, 1),
+				inArray(cybUserExperienceRating.experience, experienceIds),
+			))
+			.orderBy(desc(cybUserExperienceRating.id));
+	}
 }
 
 

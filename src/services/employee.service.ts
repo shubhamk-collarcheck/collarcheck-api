@@ -5,12 +5,11 @@ import skillRepositery from "../repositery/skill.repositery";
 import employmentRepositery from "../repositery/employment.repositery"
 import companyRepositery from "../repositery/company.repositery"
 import reviewRepositery from "../repositery/review.repositery"
-import { isBlank, isEmptyArray } from "../utils/helpers";
+import { isBlank, isEmptyArray, getS3Url } from "../utils/helpers";
 import { urlTitle } from "../utils/generator";
 import { BadRequestError } from "../middlewares/errorHandler";
 
 import { EmploymentBody, EmploymentInsert } from "../types/employee.types";
-import { ComposeTransform } from "node:stream";
 
 
 import type { NewUser } from "../types/user.types";
@@ -19,7 +18,7 @@ import type { NewDepartment } from "../types/department.types";
 import type { NewSkill } from "../types/skill.types";
 import db from "../db";
 import { cybDepartment, cybDesignation, cybSkill, cybUser } from "../db/schema";
-import { decodeS3URL, decodeSkill } from "../utils/decoders";
+import { decodeS3URL } from "../utils/decoders";
 
 
 type ResolveResult<T> = {
@@ -287,25 +286,94 @@ export async function employmentCreateService(user_id: number, data: EmploymentB
 export async function allExperienceService(user_id: number) {
 	const experienceList = await usersRepositery.getUserExperience(user_id);
 
-	const data = await Promise.all(experienceList.map(async (experience) => {
+	if (experienceList.length === 0) return [];
+
+	const experienceIds = experienceList.map(e => e.id);
+	const companyIds = [...new Set(experienceList.map(e => e.company!).filter(Boolean))];
+
+	const [updateListMap, invitedCompanyIds, employmentStatusMap, totalRatingMap, allRatings, skillNameMap] = await Promise.all([
+		employmentRepositery.getExperienceUpdateListByExperienceIds(experienceIds),
+		companyRepositery.checkInvitationSendByCompanyIds(companyIds, user_id),
+		reviewRepositery.getEmploymentStatusByExperienceIds(experienceIds),
+		reviewRepositery.getTotalRatingByExperienceIds(experienceIds),
+		reviewRepositery.getRatingsByExperienceIds(experienceIds),
+		batchSkillNames(experienceList),
+	]);
+
+	// Enrich ratings with history and skills
+	const ratingIds = allRatings.map(r => r.id);
+	const [historyMap, skillRatingMap] = await Promise.all([
+		ratingIds.length > 0
+			? reviewRepositery.getRatingHistory(ratingIds) as Promise<Record<number, any[]>>
+			: Promise.resolve({} as Record<number, any[]>),
+		ratingIds.length > 0
+			? skillRepositery.getReviewsWithSkills(ratingIds, 0)
+			: Promise.resolve({} as Record<number, any[]>),
+	]);
+
+	const ratingsByExperience = new Map<number, typeof allRatings>();
+	for (const rating of allRatings) {
+		const expId = rating.experience!;
+		if (!ratingsByExperience.has(expId)) {
+			ratingsByExperience.set(expId, []);
+		}
+		ratingsByExperience.get(expId)!.push(rating);
+	}
+
+	const ratingMap = new Map<number, Record<string, any>[]>();
+	for (const [expId, ratings] of ratingsByExperience) {
+		const enriched = ratings.map(r => {
+			const history = historyMap[r.id] ?? [];
+			const skills = skillRatingMap[r.id] ?? [];
+			let doc: string | string[] | null = null;
+			if (r.doc) {
+				try {
+					const paths = JSON.parse(r.doc);
+					if (Array.isArray(paths)) {
+						doc = paths.map((path: string) => getS3Url(path));
+					}
+				} catch {
+					doc = r.doc;
+				}
+			}
+			return {
+				id: r.id,
+				approved: r.approved,
+				status: r.approved === 1 ? 'complete' : 'pending',
+				doc,
+				date: r.modifyDate,
+				link: r.link,
+				show_home: r.showHome,
+				show_review: r.showReview,
+				history,
+				skill_rating: skills,
+				rating: r.rating,
+				review: r.review,
+			};
+		});
+		ratingMap.set(expId, enriched);
+	}
+
+	const data = experienceList.map((experience) => {
 		const onExplore = experience.onExplore ? 1 : 0;
 
 		let showOnExplore = 0;
-		// todo
-		// if (onExplore === 1) {
-		// 	showOnExplore = (await showExploring(experience.user, user_id)) ? 1 : 0;
-		// }
-
 
 		const onImmediate = showOnExplore === 1 ? (experience.onImmediate ? 1 : 0) : 0;
 		const onNotice = showOnExplore === 1 ? (experience.onNotice ? 1 : 0) : 0;
 
-		const basicUpdateList = await employmentRepositery.getExperienceUpdateList(experience.id)
-		// making assumption
-		const checkInvitation = await companyRepositery.checkInvitationSend(experience.company!, user_id)
-		const employmentStatus = await reviewRepositery.getEmploymentStatus(experience.id)
-		const totalRating = await reviewRepositery.getExperienceRating(experience.id)
-		const rating = await reviewRepositery.getRating(experience.id)
+		let skill: { id: number; name: string }[] = [];
+		if (experience.skill) {
+			try {
+				const decoded = JSON.parse(experience.skill);
+				if (Array.isArray(decoded)) {
+					skill = decoded.map(Number).filter(Boolean)
+						.map((id: number) => ({ id, name: skillNameMap.get(id) ?? '' }))
+						.filter(s => s.name);
+				}
+			} catch { }
+		}
+
 		return {
 			id: experience.id,
 			company_logo: decodeS3URL(experience.profile),
@@ -319,27 +387,43 @@ export async function allExperienceService(user_id: number) {
 			still_working: experience.stillWorking ?? 0,
 			approved: experience.approved,
 			description: experience.description,
-			salary_inhand: experience.salary,
+			salary_inhand: experience.salaryInhand,
 			salary_mode: experience.salaryMode,
 			department: experience.departmentName,
 			claim_status: experience.claimStatus ? 1 : 0,
 			company_slug: experience.companySlug,
-			skill: await decodeSkill(experience.skill),
-			basic_update_list: basicUpdateList,
+			skill,
+			basic_update_list: updateListMap.get(experience.id) ?? null,
 			document: decodeS3URL(experience.certificate),
-			rating: rating,
-			added_by: checkInvitation,
-			employment_status: employmentStatus,
-			totalRating: totalRating,
+			rating: ratingMap.get(experience.id) ?? [],
+			added_by: invitedCompanyIds.has(experience.company!),
+			employment_status: employmentStatusMap.get(experience.id) ?? 'pending',
+			totalRating: totalRatingMap.get(experience.id) ?? { rating: 0, noofrecord: 0 },
 			status: experience.status,
 			on_explore: showOnExplore,
 			on_immediate: onImmediate,
 			on_notice: onNotice,
 		};
-	})
-	);
+	});
 
 	return data;
+}
+
+async function batchSkillNames(experienceList: any[]) {
+	const allSkillIds = new Set<number>();
+	for (const exp of experienceList) {
+		if (exp.skill) {
+			try {
+				const decoded = JSON.parse(exp.skill);
+				if (Array.isArray(decoded)) {
+					for (const id of decoded.map(Number).filter(Boolean)) {
+						allSkillIds.add(id);
+					}
+				}
+			} catch { }
+		}
+	}
+	return skillRepositery.getSkillNamesByIds([...allSkillIds]);
 }
 
 

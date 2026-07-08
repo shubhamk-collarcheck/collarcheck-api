@@ -1,8 +1,9 @@
 
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import { cybUserExperience, cybUserUpdateExperience } from '../db/schema';
+import { isEmptyArray } from '../utils/helpers';
 
 type Employment = InferSelectModel<typeof cybUserExperience>
 type NewEmployment = InferInsertModel<typeof cybUserExperience>
@@ -124,6 +125,24 @@ class employmentRepositery {
 		const condition = [eq(cybUserUpdateExperience.experienceId, exprienceId)]
 		const [result] = await db.select().from(cybUserUpdateExperience).where(and(...condition)).orderBy(asc(cybUserUpdateExperience.type))
 		return result
+	}
+
+	async getExperienceUpdateListByExperienceIds(experienceIds: number[]) {
+		if (isEmptyArray(experienceIds)) return new Map();
+		const rows = await db.select()
+			.from(cybUserUpdateExperience)
+			.where(and(
+				inArray(cybUserUpdateExperience.experienceId, experienceIds),
+				eq(cybUserUpdateExperience.isDeleted, 0),
+			))
+			.orderBy(asc(cybUserUpdateExperience.type));
+		const map = new Map<number, any>();
+		for (const row of rows) {
+			if (!map.has(row.experienceId!)) {
+				map.set(row.experienceId!, row);
+			}
+		}
+		return map;
 	}
 
 
