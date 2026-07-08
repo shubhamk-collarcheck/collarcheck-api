@@ -446,6 +446,10 @@ export async function experienceDetailService(experience_id: number, user_id: nu
 	};
 }
 
+export async function deleteExperienceService(id: number, userId: number, type?: string) {
+	return employmentRepositery.deleteExperience(id, userId, type);
+}
+
 async function batchSkillNames(experienceList: any[]) {
 	const allSkillIds = new Set<number>();
 	for (const exp of experienceList) {

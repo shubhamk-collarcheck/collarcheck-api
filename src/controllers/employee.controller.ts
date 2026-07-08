@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { allExperienceService, employmentCreateService, employmentUpdateService, experienceDetailService } from "../services/employee.service";
+import { allExperienceService, deleteExperienceService, employmentCreateService, employmentUpdateService, experienceDetailService } from "../services/employee.service";
 import { EmploymentRequestBody } from "../types/employee.types";
 import { AuthUser } from "../types/express";
 import { USER_TYPE } from "../repositery/users.repositery";
@@ -99,6 +99,18 @@ export async function detailExperience(req: Request, res: Response, next: NextFu
 				added_by: detail.invitedBy === user_id,
 			}
 		})
+	} catch (err) {
+		next(err)
+	}
+}
+
+export async function deleteExperience(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { user_id } = req.auth as AuthUser
+		const { params } = req.validated as CommonIdParams
+		const type = req.query.type as string | undefined
+		const result = await deleteExperienceService(params.id, user_id, type)
+		return res.status(result.status ? 200 : 400).json(result)
 	} catch (err) {
 		next(err)
 	}

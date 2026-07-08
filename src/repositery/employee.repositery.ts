@@ -1,9 +1,9 @@
 
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import { cybUserExperience, cybUserUpdateExperience, cybUser, cybEmployementType, cybDesignation, cybDepartment, cybCompanyInvite } from '../db/schema';
+import { cybUserExperience, cybUserUpdateExperience, cybUser, cybEmployementType, cybDesignation, cybDepartment, cybCompanyInvite, cybUserExperienceRating, cybUserExperienceRatingHistory } from '../db/schema';
 import { isEmptyArray } from '../utils/helpers';
 
 type Employment = InferSelectModel<typeof cybUserExperience>
@@ -94,8 +94,86 @@ class employmentRepositery {
 		return this.findById(id);
 	}
 
-	async delete(id: number): Promise<void> {
-		await db.update(cybUserExperience).set({ isDeleted: 1 }).where(eq(cybUserExperience.id, id));
+	async deleteExperience(id: number, userId: number, type?: string) {
+		const [experience] = await db.select()
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.id, id),
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.isDeleted, 0),
+			));
+
+		if (!experience) {
+			return { status: false, message: 'User Experience not valid!' };
+		}
+
+		if (type === 'reject') {
+			await db.update(cybUserExperience)
+				.set({ isDeleted: 0, approved: 2, status: 1 })
+				.where(eq(cybUserExperience.id, id));
+			return { status: true, message: 'Reject Successfully' };
+		}
+
+		if (experience.approved === 1 && experience.status === 1) {
+			return { status: false, message: "Approved Experience can't be deleted!" };
+		}
+
+		const ratings = await db.select({ id: cybUserExperienceRating.id })
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.experience, id),
+				eq(cybUserExperienceRating.isDeleted, 0),
+			));
+
+		const ratingIds = ratings.map(r => r.id);
+		if (ratingIds.length > 0) {
+			await db.update(cybUserExperienceRatingHistory)
+				.set({ isDeleted: 1 })
+				.where(inArray(cybUserExperienceRatingHistory.ratingId, ratingIds));
+		}
+
+		await db.update(cybUserExperienceRating)
+			.set({ isDeleted: 1 })
+			.where(eq(cybUserExperienceRating.experience, id));
+
+		await db.update(cybUserExperience)
+			.set({ isDeleted: 1 })
+			.where(eq(cybUserExperience.id, id));
+
+		const [currUser] = await db.select({
+			currentCompany: cybUser.currentCompany,
+			currentPossition: cybUser.currentPossition,
+		}).from(cybUser).where(and(
+			eq(cybUser.id, userId),
+			eq(cybUser.isDeleted, 0),
+			eq(cybUser.status, 1),
+		));
+
+		if (currUser && experience.company === currUser.currentCompany) {
+			await db.update(cybUser)
+				.set({ currentCompany: null, currentPossition: null })
+				.where(eq(cybUser.id, userId));
+		}
+
+		const otherEmployment = await db.select()
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUserExperience.stillWorking, 1),
+				ne(cybUserExperience.id, id),
+			));
+
+		if (otherEmployment.length === 1) {
+			await db.update(cybUser)
+				.set({
+					currentCompany: otherEmployment[0].company,
+					currentPossition: otherEmployment[0].designation,
+				})
+				.where(eq(cybUser.id, userId));
+		}
+
+		return { status: true, message: 'Deleted Successfully' };
 	}
 
 	async approve(id: number): Promise<Employment | undefined> {

@@ -1,7 +1,7 @@
 
 import { Router } from "express";
 import { Authorization } from "../middlewares/Authorization"
-import { addExperience, allExperience, detailExperience, updateExperience } from "../controllers/employee.controller";
+import { addExperience, allExperience, deleteExperience, detailExperience, updateExperience } from "../controllers/employee.controller";
 import { validateData } from "../middlewares/validation.middleware";
 import { employmentRequestSchema } from "../types/employee.types";
 import { uploadToS3 } from "../utils/uploadToS3";
@@ -14,6 +14,7 @@ employRouter.post("/add-employment", Authorization, uploadToS3.single("file"), v
 employRouter.post("/add-employment/:employment_id", Authorization, uploadToS3.single("file"), validateData(employmentRequestSchema), updateExperience)
 employRouter.get("/all-employement", Authorization, allExperience)
 employRouter.get("/employement-detail/:id", Authorization, validateData(commonIdParamsSchema), detailExperience)
+employRouter.delete("/delete-employement/:id", Authorization, validateData(commonIdParamsSchema), deleteExperience)
 
 
 
