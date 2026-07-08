@@ -437,33 +437,12 @@ export async function experienceDetailService(experience_id: number, user_id: nu
 		: (detail.companySocialImage ?? "");
 
 	return {
-		id: detail.id,
-		company_logo: companyLogo,
-		company: detail.companyName,
-		company_id: detail.company,
-		user_id: detail.userId,
-		name: `${detail.fname ?? ""} ${detail.lname ?? ""}`.trim(),
-		salary: detail.salary,
-		employment_type: detail.employmentType,
-		employment_name: detail.employementName,
-		designation: detail.designationName,
-		designationId: detail.designation,
-		departmentId: detail.department,
-		hired: detail.hired,
-		joining_date: detail.joiningDate,
-		worked_till_date: detail.workedTillDate,
-		still_working: detail.stillWorking ?? 0,
-		approved: detail.approved,
-		description: detail.description,
-		salary_inhand: detail.salaryInhand,
-		salary_mode: detail.salaryMode,
-		department: detail.departmentName,
+		detail,
 		skill,
-		document: decodeS3URL(detail.certificate),
 		rating,
-		employment_status: employmentStatus,
-		claim_status: detail.claimStatus ? 1 : 0,
-		added_by: detail.invitedBy === user_id,
+		employmentStatus,
+		companyLogo,
+		document: decodeS3URL(detail.certificate),
 	};
 }
 
