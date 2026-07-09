@@ -13,7 +13,7 @@ import {
 } from '../db/schema';
 
 import { decodeSkill, decodeGallery } from "../utils/decoders"
-import { job_collaborator_list } from './Collaborator.service';
+import { job_collaborator_list } from './collaborator.service';
 import { isEmptyArray, isEmptyObject } from '../utils/helpers';
 
 const s3Prefix = process.env.S3_PREFIX || '';

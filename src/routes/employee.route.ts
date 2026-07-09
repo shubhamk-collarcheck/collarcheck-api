@@ -9,6 +9,8 @@ import { commonIdParamsSchema } from "../utils/validation";
 import { addEducation, allEducationList, deleteEducation, educationDetail, updateEducation } from "../controllers/education.controller";
 import { educationParamsSchema, educationRequestSchema } from "../types/education.types";
 import { educationUpload } from "../utils/educationUpload";
+import { addSkill, allSkill, deleteSkill } from "../controllers/skill.controller";
+import { skillRequestSchema } from "../types/skill.types";
 
 
 const employRouter = Router()
@@ -28,6 +30,8 @@ employRouter.post("/add-education", Authorization, educationUpload.array("docume
 employRouter.post("/add-education/:id", Authorization, educationUpload.array("document"), validateData(educationRequestSchema), updateEducation)
 employRouter.delete("/delete-education/:id", Authorization, validateData(commonIdParamsSchema), deleteEducation)
 
-
+employRouter.get("/all-skill", Authorization, allSkill)
+employRouter.delete("/delete-skill/:id", Authorization, validateData(commonIdParamsSchema), deleteSkill)
+employRouter.post("/add-skill", Authorization, validateData(skillRequestSchema), addSkill)
 
 export default employRouter;

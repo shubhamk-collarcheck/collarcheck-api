@@ -4,7 +4,7 @@ import { cybApplication, cybBenefits, cybCities, cybCompanyBenefits, cybCompanyJ
 import { get_user_detail } from './users.service';
 
 import { SearchJobFilter } from "../types/job.types"
-import { job_collaborator_list } from './Collaborator.service';
+import { job_collaborator_list } from './collaborator.service';
 import { decodeSkill, decodeGallery } from '../utils/decoders';
 
 
