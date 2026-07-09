@@ -23,6 +23,18 @@ class portfolioRepositery {
 		return record;
 	}
 
+	async findByIdAndUser(id: number, userId: number) {
+		const [record] = await db.select()
+			.from(cybUserProtfolio)
+			.where(and(
+				eq(cybUserProtfolio.id, id),
+				eq(cybUserProtfolio.user, userId),
+				eq(cybUserProtfolio.status, 1),
+				eq(cybUserProtfolio.isDeleted, 0),
+			));
+		return record;
+	}
+
 	async create(data: NewPortfolio) {
 		const [result] = await db.insert(cybUserProtfolio).values(data).$returningId();
 		return result;
@@ -38,7 +50,6 @@ class portfolioRepositery {
 			.where(and(
 				eq(cybUserProtfolio.user, userId),
 				eq(cybUserProtfolio.id, id),
-				eq(cybUserProtfolio.isDeleted, 0),
 			));
 
 		if (!record) return false;
@@ -46,7 +57,7 @@ class portfolioRepositery {
 		await db.update(cybUserProtfolio)
 			.set({ isDeleted: 1 })
 			.where(eq(cybUserProtfolio.id, id));
-	return true;
+		return true;
 	}
 }
 

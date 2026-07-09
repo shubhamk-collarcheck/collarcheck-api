@@ -3,6 +3,36 @@ import portfolioRepositery from "../repositery/portfolio.repositery";
 import { BadRequestError } from "../middlewares/errorHandler";
 import { PORTFOLIO_TYPE, type PortfolioRequestBody } from "../types/portfolio.types";
 
+const s3Prefix = process.env.S3_PREFIX || '';
+
+function extractYouTubeId(youtube: string | null): string | null {
+	if (!youtube) return null;
+	const match = youtube.match(/[?&]v=([^&]+)/);
+	return match ? match[1] : youtube;
+}
+
+function mapPortfolioItem(item: any, extractYoutube = false) {
+	const base: any = {
+		id: item.id,
+		type: item.type,
+		title: item.title,
+		description: item.description,
+	};
+
+	if (item.type === PORTFOLIO_TYPE.IMAGE) {
+		base.image = item.image ? `${s3Prefix}${item.image}` : null;
+	} else if (item.type === PORTFOLIO_TYPE.VIDEO) {
+		base.video = item.video ? `${s3Prefix}${item.video}` : null;
+		base.youtube = extractYoutube ? extractYouTubeId(item.youtube) : item.youtube;
+	} else if (item.type === PORTFOLIO_TYPE.URL) {
+		base.url = item.url;
+	} else if (item.type === PORTFOLIO_TYPE.PDF) {
+		base.pdf = item.pdf ? `${s3Prefix}${item.pdf}` : null;
+	}
+
+	return base;
+}
+
 export async function addPortfolioService(userId: number, data: PortfolioRequestBody, file?: Express.MulterS3.File) {
 	const now = new Date().toISOString().replace("T", " ").split(".")[0];
 
@@ -109,4 +139,25 @@ export async function updatePortfolioService(
 
 	await portfolioRepositery.update(portfolioId, saveData);
 	return "Successfully Updated!";
+}
+
+export async function allPortfolioListService(userId: number) {
+	const items = await portfolioRepositery.getAllByUserId(userId);
+	return items.map(item => mapPortfolioItem(item, true));
+}
+
+export async function portfolioDetailService(userId: number, id: number) {
+	const item = await portfolioRepositery.findByIdAndUser(id, userId);
+	if (!item) {
+		throw new BadRequestError("No record found!");
+	}
+	return mapPortfolioItem(item, false);
+}
+
+export async function deletePortfolioService(userId: number, id: number) {
+	const deleted = await portfolioRepositery.deleteByUserAndId(userId, id);
+	if (!deleted) {
+		throw new BadRequestError("Try again something went wrong");
+	}
+	return "Deleted Sucessfully";
 }
