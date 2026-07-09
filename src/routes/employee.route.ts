@@ -11,6 +11,8 @@ import { educationParamsSchema, educationRequestSchema } from "../types/educatio
 import { educationUpload } from "../utils/educationUpload";
 import { addSkill, allSkill, deleteSkill } from "../controllers/skill.controller";
 import { skillRequestSchema } from "../types/skill.types";
+import { portfolioRequestSchema, portfolioUpdateRequestSchema } from "../types/portfolio.types";
+import { addPortfolio, updatePortfolio } from "../controllers/portfolio.controller";
 
 
 const employRouter = Router()
@@ -33,5 +35,12 @@ employRouter.delete("/delete-education/:id", Authorization, validateData(commonI
 employRouter.get("/all-skill", Authorization, allSkill)
 employRouter.delete("/delete-skill/:id", Authorization, validateData(commonIdParamsSchema), deleteSkill)
 employRouter.post("/add-skill", Authorization, validateData(skillRequestSchema), addSkill)
+
+employRouter.post("/add-portfolio", Authorization, uploadToS3.single("file"), validateData(portfolioRequestSchema), addPortfolio)
+employRouter.post("/add-portfolio/:id", Authorization, uploadToS3.single("file"), validateData(portfolioUpdateRequestSchema), updatePortfolio)
+
+
+
+
 
 export default employRouter;
