@@ -13,6 +13,8 @@ import { addSkill, allSkill, deleteSkill } from "../controllers/skill.controller
 import { skillRequestSchema } from "../types/skill.types";
 import { portfolioRequestSchema, portfolioUpdateRequestSchema } from "../types/portfolio.types";
 import { addPortfolio, allPortfolioList, deletePortfolio, portfolioDetail, updatePortfolio } from "../controllers/portfolio.controller";
+import { certificateRequestSchema, certificateUpdateRequestSchema } from "../types/certificate.types";
+import { addCertificate, allCertificateList, certificateDetail, deleteCertificate, updateCertificate } from "../controllers/certificate.controller";
 
 
 const employRouter = Router()
@@ -41,6 +43,12 @@ employRouter.post("/add-portfolio/:id", Authorization, uploadToS3.single("file")
 employRouter.get("/all-portfolio", Authorization, allPortfolioList)
 employRouter.get("/portfolio-detail/:id", Authorization, validateData(commonIdParamsSchema), portfolioDetail)
 employRouter.delete("/delete-portfolio/:id", Authorization, validateData(commonIdParamsSchema), deletePortfolio)
+
+employRouter.get("/all-certificate", Authorization, allCertificateList)
+employRouter.get("/certificate-detail/:id", Authorization, validateData(commonIdParamsSchema), certificateDetail)
+employRouter.post("/add-certificate", Authorization, educationUpload.array("document"), validateData(certificateRequestSchema), addCertificate)
+employRouter.post("/add-certificate/:id", Authorization, educationUpload.array("document"), validateData(certificateUpdateRequestSchema), updateCertificate)
+employRouter.delete("/delete-certificate/:id", Authorization, validateData(commonIdParamsSchema), deleteCertificate)
 
 
 
