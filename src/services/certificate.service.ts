@@ -106,7 +106,6 @@ export async function createCertificateService(
 ) {
 	const { institutionId, courseId } = await certificateTransaction(userId, data);
 
-	const now = new Date().toISOString().replace("T", " ").split(".")[0];
 
 	let certificateArr: string[] = [];
 	if (files && files.length > 0) {
@@ -119,16 +118,14 @@ export async function createCertificateService(
 
 	const save = {
 		user: userId,
-		university: institutionId,
-		course: courseId,
+		university: String(institutionId),
+		course: String(courseId),
 		startDate: formatDate(data.start_date),
 		endDate: formatDate(data.end_date),
 		certificateId: data.certificate_id || null,
 		url: data.url || null,
 		ongoing: data.ongoing ? 1 : 0,
 		certificate,
-		createDate: now,
-		modifyDate: now,
 		status: 1,
 		isDeleted: 0,
 	};
@@ -169,8 +166,8 @@ export async function updateCertificateService(
 	const certificate = certificateArr.length > 0 ? certificateArr.join(",") + "," : null;
 
 	const save = {
-		university: institutionId,
-		course: courseId,
+		university: String(institutionId),
+		course: String(courseId),
 		startDate: formatDate(data.start_date),
 		endDate: formatDate(data.end_date),
 		certificateId: data.certificate_id || null,
