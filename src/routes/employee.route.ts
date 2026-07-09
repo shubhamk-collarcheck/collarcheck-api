@@ -15,6 +15,10 @@ import { portfolioRequestSchema, portfolioUpdateRequestSchema } from "../types/p
 import { addPortfolio, allPortfolioList, deletePortfolio, portfolioDetail, updatePortfolio } from "../controllers/portfolio.controller";
 import { certificateRequestSchema, certificateUpdateRequestSchema } from "../types/certificate.types";
 import { addCertificate, allCertificateList, certificateDetail, deleteCertificate, updateCertificate } from "../controllers/certificate.controller";
+import { documentRequestSchema, documentDeleteRequestSchema } from "../types/document.types";
+import { addDocument, allDocumentList, deleteDocument, documentDetail } from "../controllers/document.controller";
+import { languageRequestSchema, languageDeleteRequestSchema } from "../types/language.types";
+import { addLanguage, allLanguageList, deleteLanguage, languageDetail } from "../controllers/language.controller";
 
 
 const employRouter = Router()
@@ -49,6 +53,16 @@ employRouter.get("/certificate-detail/:id", Authorization, validateData(commonId
 employRouter.post("/add-certificate", Authorization, educationUpload.array("document"), validateData(certificateRequestSchema), addCertificate)
 employRouter.post("/add-certificate/:id", Authorization, educationUpload.array("document"), validateData(certificateUpdateRequestSchema), updateCertificate)
 employRouter.delete("/delete-certificate/:id", Authorization, validateData(commonIdParamsSchema), deleteCertificate)
+
+employRouter.post("/add-document", Authorization, educationUpload.array("document"), validateData(documentRequestSchema), addDocument)
+employRouter.get("/all-document", Authorization, allDocumentList)
+employRouter.get("/document-detail/:id", Authorization, validateData(commonIdParamsSchema), documentDetail)
+employRouter.delete("/delete-document/:id", Authorization, validateData(commonIdParamsSchema), deleteDocument)
+
+employRouter.post("/add-language", Authorization, validateData(languageRequestSchema), addLanguage)
+employRouter.get("/all-language", Authorization, allLanguageList)
+employRouter.get("/language-detail/:id", Authorization, validateData(commonIdParamsSchema), languageDetail)
+employRouter.delete("/delete-language/:id", Authorization, validateData(commonIdParamsSchema), deleteLanguage)
 
 
 
