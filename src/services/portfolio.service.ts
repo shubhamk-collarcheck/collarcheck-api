@@ -96,7 +96,7 @@ export async function updatePortfolioService(
 		throw new BadRequestError("Portfolio not found");
 	}
 
-	const now = new Date().toISOString().replace("T", " ").split(".")[0);
+	const now = new Date().toISOString().replace("T", " ").split(".")[0];
 
 	const saveData: any = {
 		title: data.title,
