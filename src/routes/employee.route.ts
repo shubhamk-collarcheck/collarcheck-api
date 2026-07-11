@@ -19,6 +19,8 @@ import { documentRequestSchema, documentDeleteRequestSchema } from "../types/doc
 import { addDocument, allDocumentList, deleteDocument, documentDetail } from "../controllers/document.controller";
 import { languageRequestSchema, languageDeleteRequestSchema } from "../types/language.types";
 import { addLanguage, allLanguageList, deleteLanguage, languageDetail } from "../controllers/language.controller";
+import { reviewRequestSchema, reviewUpdateRequestSchema, reviewRemoveDocumentQuerySchema, showHomeReviewRequestSchema, changeEmploymentBasicRequestSchema, editUserRequestSchema } from "../types/profile-review.types";
+import { currentCompany, addReview, updateReview, deleteReview, reviewRemoveDocument, showHomeReview, editUser, changeEmploymentBasic } from "../controllers/profile-review.controller";
 
 
 const employRouter = Router()
@@ -63,6 +65,16 @@ employRouter.post("/add-language", Authorization, validateData(languageRequestSc
 employRouter.get("/all-language", Authorization, allLanguageList)
 employRouter.get("/language-detail/:id", Authorization, validateData(commonIdParamsSchema), languageDetail)
 employRouter.delete("/delete-language/:id", Authorization, validateData(commonIdParamsSchema), deleteLanguage)
+
+employRouter.get("/currentCompany", Authorization, currentCompany)
+employRouter.post("/sendCompanyInvite", Authorization)
+employRouter.post("/add-review", Authorization, educationUpload.array("document"), validateData(reviewRequestSchema), addReview)
+employRouter.post("/add-review/:id", Authorization, educationUpload.array("document"), validateData(reviewUpdateRequestSchema), updateReview)
+employRouter.delete("/deleteReview/:id", Authorization, validateData(commonIdParamsSchema), deleteReview)
+employRouter.get("/reviewRemoveDocument", Authorization, validateData(reviewRemoveDocumentQuerySchema), reviewRemoveDocument)
+employRouter.put("/show-home-review/:id", Authorization, validateData(showHomeReviewRequestSchema), showHomeReview)
+employRouter.post("/edit-user", Authorization, educationUpload.array("document"), validateData(editUserRequestSchema), editUser)
+employRouter.post("/changeEmploymentBasic", Authorization, validateData(changeEmploymentBasicRequestSchema), changeEmploymentBasic)
 
 
 
