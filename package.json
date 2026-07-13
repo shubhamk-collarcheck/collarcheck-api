@@ -7,6 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "tsc",
     "dev": "nodemon --watch 'src/**/*.ts' --exec ts-node src/server.ts",
+    "worker": "ts-node src/worker/index.ts",
     "start": "node dist/server.js",
     "lint": "eslint . --ext .ts"
   },
@@ -32,6 +33,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1079.0",
+    "@aws-sdk/client-sqs": "^3.1085.0",
     "@libsql/client": "^0.17.3",
     "@types/jsonwebtoken": "^9.0.10",
     "body-parser": "^2.3.0",

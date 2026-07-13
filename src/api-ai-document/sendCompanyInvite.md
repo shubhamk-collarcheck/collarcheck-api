@@ -1,100 +1,177 @@
 
-# Employee Send Company Invite
+# Employee Send Company Invite API Endpoint
 
 ## Overview
 
-Endpoint for an employee to send an invitation to a company's contact person via email. Creates or updates a `company_invite` record.
+Endpoint for an employee to send an invitation to a company's contact person via email. Creates or updates a `company_invite` record and sends an email notification via AWS SQS.
 
 ---
 
-## Authentication
+## Routes
 
-- **Filter:** `Authenticate` (CodeIgniter 4 filter applied to route group `wapi`)
-- **Header:** `Authorization: Bearer <jwt_token>`
-- **JWT decode:** Extract `uid` claim → look up `user` table WHERE `id = uid`, `status = 1`, `is_deleted = 0`
-- **Optional override:** Send `X-Company` header with a different user ID to act on behalf of that user
-- **Injected request property:** `$this->request->id` → the acting user ID (the employee sending the invite)
+| Method   | Path                                       | Controller Method                                | Description                    |
+|----------|--------------------------------------------|--------------------------------------------------|--------------------------------|
+| `POST`   | `/wapi/employee/sendCompanyInvite`         | `sendCompanyInvite`                              | Send invite to a company       |
 
 ---
 
-## Route
+## File Structure
 
-| Method | Path                                  | Controller Method                | Description              |
-|--------|---------------------------------------|----------------------------------|--------------------------|
-| `POST` | `/wapi/employee/sendCompanyInvite`    | `IndividualApi::sendCompanyInvite` | Send invite to a company |
-
----
-
-## Common Response Envelope
-
-Returns `Content-Type: application/json`:
-
-| Key        | Type    | Description                            |
-|------------|---------|----------------------------------------|
-| `status`   | boolean | `true` for success, `false` for errors |
-| `messages` | string  | Human-readable status/error message    |
-
----
-
-## Database Table: `company_invite`
-
-| Column          | Type         | Notes                                      |
-|-----------------|--------------|--------------------------------------------|
-| `id`            | int (PK)     | auto-increment                             |
-| `company`       | int          | FK to `user.id` (company)                  |
-| `contact_person`| varchar(?)   | Name of contact person at company          |
-| `email`         | varchar(?)   | Email of contact person                    |
-| `phone`         | varchar(?)   | Phone of contact person                    |
-| `website`       | varchar(?)   | Company website                            |
-| `added_by`      | int          | FK to `user.id` (employee who sent invite) |
-| `create_date`   | datetime     |                                            |
-
----
-
-## Request Format
-
-`application/x-www-form-urlencoded` or `multipart/form-data`
-
-### Fields
-
-| Field            | Required         | Type   | Description                                |
-|------------------|------------------|--------|--------------------------------------------|
-| `company`        | **Yes**          | int    | Company user ID                            |
-| `email`          | Conditional      | string | Email of contact person (or phone required)|
-| `phone`          | Conditional      | string | Phone of contact person (or email required)|
-| `contact_person` | No               | string | Name of contact person                     |
-| `website`        | No               | string | Company website                            |
-
-### Validation Logic
-
-1. If **both** `email` and `phone` are empty → return error: `"Either Email or Phone is required"`
-2. If `email` matches email regex (`/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/`) → validate as valid email
-3. Otherwise → validate `phone` as required
-
----
-
-## Query Logic (Upsert)
-
-```sql
--- 1. Check if invite already exists for this employee + company
-SELECT * FROM company_invite WHERE added_by = :authUserId AND company = :companyId
-
--- 2a. If exists → UPDATE
-UPDATE company_invite
-SET company = :companyId, contact_person = :contactPerson, email = :email,
-    phone = :phone, website = :website, added_by = :authUserId, create_date = NOW()
-WHERE id = :existingId
-
--- 2b. If not → INSERT
-INSERT INTO company_invite (company, contact_person, email, phone, website, added_by, create_date)
-VALUES (:companyId, :contactPerson, :email, :phone, :website, :authUserId, NOW())
+```
+src/
+├── types/company-invite.types.ts           # Zod schemas
+├── repositery/company-invite.repositery.ts # Database queries
+├── services/company-invite.service.ts      # Business logic + SQS integration
+├── controllers/company-invite.controller.ts # Request handler
+├── routes/employee.route.ts               # Route registration
+└── utils/sqs.ts                           # AWS SQS utility
 ```
 
 ---
 
-## Response Examples
+## Zod Validation Schemas
 
-### Success (Invite Sent)
+### companyInviteBodySchema
+
+```typescript
+z.object({
+  company: z.coerce.number().int().positive("Company ID is required"),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  contact_person: z.string().optional(),
+  website: z.string().optional(),
+}).refine(
+  (data) => data.email || data.phone,
+  { message: "Either Email or Phone is required" }
+).refine(
+  (data) => {
+    if (data.email && data.email.length > 0) {
+      return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(data.email);
+    }
+    return true;
+  },
+  { message: "The email field must contain a valid email address.", path: ["email"] }
+)
+```
+
+### companyInviteRequestSchema
+
+```typescript
+z.object({ body: companyInviteBodySchema })
+```
+
+---
+
+## Middleware
+
+- **Body Parser:** `express.json()`
+- **Auth:** `Authorization` middleware extracts `uid` from JWT → `req.auth.user_id`
+- **Validation:** `validateData(companyInviteRequestSchema)`
+
+---
+
+## Database Table: `cyb_company_invite`
+
+| Column           | Type         | Notes                                              |
+|------------------|-------------|----------------------------------------------------|
+| `id`             | int (PK)    | auto-increment                                     |
+| `fname`          | varchar     | First name                                         |
+| `lname`          | varchar     | Last name                                          |
+| `phone`          | varchar     | Phone of contact person                            |
+| `email`          | varchar     | Email of contact person                            |
+| `profile`        | varchar     | Profile image                                      |
+| `contact_person` | varchar     | Name of contact person at company                  |
+| `website`        | varchar     | Company website                                    |
+| `company`        | int         | FK to `cyb_user.id` (company)                      |
+| `added_by`       | int         | FK to `cyb_user.id` (employee who sent invite)     |
+| `status`         | int         | `1` = active                                       |
+| `is_deleted`     | int         | `0` = active, `1` = soft-deleted                   |
+| `create_date`    | varchar     |                                                    |
+| `modify_date`    | varchar     |                                                    |
+
+---
+
+## Repository Methods
+
+```typescript
+findByUserAndCompany(userId: number, companyId: number)
+  → SELECT * FROM cyb_company_invite
+    WHERE added_by = :userId AND company = :companyId AND status = 1 AND is_deleted = 0
+    LIMIT 1
+
+create(data)
+  → INSERT INTO cyb_company_invite (...) VALUES (...)
+
+update(id, data)
+  → UPDATE cyb_company_invite SET ... WHERE id = :id
+```
+
+---
+
+## Service Methods
+
+### createCompanyInviteService(userId, data)
+
+1. Check if invite already exists for this employee + company via `findByUserAndCompany`
+2. Get employee name for email template
+3. **Upsert logic:**
+   - If exists → UPDATE existing record
+   - If not → INSERT new record
+4. Send email via AWS SQS (if email provided):
+   - Queue message type: `SEND_EMAIL`
+   - Template ID: `50`
+   - Includes encrypted invite URL
+5. Return success message
+
+### SQS Message Format
+
+```json
+{
+  "type": "SEND_EMAIL",
+  "payload": {
+    "mail": {
+      "email": "contact@company.com",
+      "template": 50,
+      "vars": {
+        "invite_url": "https://app.collarcheck.com/signup?invite=<encrypted>",
+        "employee_name": "John Doe"
+      }
+    },
+    "trigger": {
+      "user_id": 123,
+      "type": "company_invite",
+      "status": 1
+    }
+  }
+}
+```
+
+---
+
+## Controller Methods
+
+### sendCompanyInvite
+
+```typescript
+async (req, res) => {
+  const { user_id } = req.auth as AuthUser
+  const { body } = req.validated as CompanyInviteRequest
+
+  const messages = await createCompanyInviteService(user_id, body)
+
+  return res.status(200).json({
+    status: true,
+    messages,
+  })
+}
+```
+
+---
+
+## Response Mapping
+
+### Success Response
+
 ```json
 {
   "status": true,
@@ -103,6 +180,7 @@ VALUES (:companyId, :contactPerson, :email, :phone, :website, :authUserId, NOW()
 ```
 
 ### Validation Error (Both Empty)
+
 ```json
 {
   "status": false,
@@ -111,6 +189,7 @@ VALUES (:companyId, :contactPerson, :email, :phone, :website, :authUserId, NOW()
 ```
 
 ### Validation Error (Bad Email)
+
 ```json
 {
   "status": false,
@@ -118,15 +197,8 @@ VALUES (:companyId, :contactPerson, :email, :phone, :website, :authUserId, NOW()
 }
 ```
 
-### Exception
-```json
-{
-  "status": false,
-  "messages": "Access denied"
-}
-```
+### Exception Response
 
-### Fallback Failure
 ```json
 {
   "status": false,
@@ -136,9 +208,50 @@ VALUES (:companyId, :contactPerson, :email, :phone, :website, :authUserId, NOW()
 
 ---
 
-## Implementation Notes for Cross-Language Porting
+## Implementation Notes
 
-1. **Upsert pattern:** The same employee cannot send duplicate invites to the same company. If a record exists, it updates instead of inserting. The check is on `added_by + company` unique pair.
-2. **At least one contact method required:** Email or phone is mandatory — the endpoint rejects requests where both are empty.
-3. **Email vs phone validation:** If the `email` field matches a basic email regex, it validates as a proper email. Otherwise, it treats the input as a phone and validates that field instead.
-4. **Side effects:** This endpoint sends an email to the invitee with a signup link (`getenv('REACT_SITE') . 'signup?invite=' . encrypt_url($result)`) via SQS queue (`SEND_EMAIL`, template 50). You may want to handle this separately.
+1. **Upsert pattern:** Same employee cannot send duplicate invites to the same company. If a record exists, it updates instead of inserting
+2. **At least one contact method required:** Email or phone is mandatory
+3. **Email validation:** Uses regex `/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/`
+4. **SQS integration:** Sends email via AWS SQS with template 50
+5. **Invite URL format:** `${REACT_SITE}signup?invite=${encryptUrl(inviteId)}`
+6. **Error handling:** SQS errors are logged but don't fail the request
+
+---
+
+## Environment Variables Required
+
+```
+AWS_KEY=your_access_key
+AWS_SECRET=your_secret_key
+AWS_REGION=ap-south-1
+AWS_SQS_URL=https://sqs.ap-south-1.amazonaws.com/xxxxx/collarcheck-queue.fifo
+REACT_SITE=https://app.collarcheck.com/
+```
+
+---
+
+## Example Request
+
+### Send Company Invite
+
+```bash
+curl -X POST http://localhost:3000/wapi/employee/sendCompanyInvite \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "company": 42,
+    "email": "hr@company.com",
+    "contact_person": "HR Manager",
+    "website": "https://company.com"
+  }'
+```
+
+### Success Response
+
+```json
+{
+  "status": true,
+  "messages": "Company invite send!"
+}
+```

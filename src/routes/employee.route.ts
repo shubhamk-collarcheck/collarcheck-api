@@ -21,6 +21,8 @@ import { languageRequestSchema, languageDeleteRequestSchema } from "../types/lan
 import { addLanguage, allLanguageList, deleteLanguage, languageDetail } from "../controllers/language.controller";
 import { reviewRequestSchema, reviewUpdateRequestSchema, reviewRemoveDocumentQuerySchema, showHomeReviewRequestSchema, changeEmploymentBasicRequestSchema, editUserRequestSchema } from "../types/profile-review.types";
 import { currentCompany, addReview, updateReview, deleteReview, reviewRemoveDocument, showHomeReview, editUser, changeEmploymentBasic } from "../controllers/profile-review.controller";
+import { companyInviteRequestSchema } from "../types/company-invite.types";
+import { sendCompanyInvite } from "../controllers/company-invite.controller";
 
 
 const employRouter = Router()
@@ -67,7 +69,7 @@ employRouter.get("/language-detail/:id", Authorization, validateData(commonIdPar
 employRouter.delete("/delete-language/:id", Authorization, validateData(commonIdParamsSchema), deleteLanguage)
 
 employRouter.get("/currentCompany", Authorization, currentCompany)
-employRouter.post("/sendCompanyInvite", Authorization)
+employRouter.post("/sendCompanyInvite", Authorization, validateData(companyInviteRequestSchema), sendCompanyInvite)
 employRouter.post("/add-review", Authorization, educationUpload.array("document"), validateData(reviewRequestSchema), addReview)
 employRouter.post("/add-review/:id", Authorization, educationUpload.array("document"), validateData(reviewUpdateRequestSchema), updateReview)
 employRouter.delete("/deleteReview/:id", Authorization, validateData(commonIdParamsSchema), deleteReview)
