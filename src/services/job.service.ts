@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, getTableColumns, inArray, like, ne, or, sql, SQL } from 'drizzle-orm';
 import db from '../db';
-import { cybApplication, cybBenefits, cybCities, cybCompanyBenefits, cybCompanyJob, cybCountry, cybCourses, cybDepartment, cybDesignation, cybIndustries, cybJobExperiences, cybJobMode, cybRoleTypes, cybSalary, cybSkill, cybState, cybUser, cybUserDomains, cybUserEducation, cybUserExperience, cybUserSkill, cybVerifyDocument } from '../db/schema';
+import { cybApplication, cybBenefits, cybCities, cybCompanyBenefits, cybCompanyJob, cybCountry, cybCourses, cybDepartment, cybDesignation, cybIndustries, cybJobExperiences, cybJobMeta, cybJobMode, cybRoleTypes, cybSalary, cybSkill, cybState, cybUser, cybUserDomains, cybUserEducation, cybUserExperience, cybUserSkill, cybVerifyDocument } from '../db/schema';
 import { get_user_detail } from './users.service';
 
 import { SearchJobFilter } from "../types/job.types"
@@ -485,6 +485,118 @@ export const get_search_job_list = async (filter: SearchJobFilter = {}) => {
 	return rows;
 };
 
+
+export const allJobService = async (filters: Record<string, any>) => {
+	const {
+		keyword, state, designation, department, industry, employment_type, skill,
+		company, urgent, vacancy, job_mode, experience, role_type, job_description,
+		posted_date, closing_date, starRating, yearExperience, id_not_in,
+		job_slug, limit = 16, offset = 0,
+	} = filters;
+
+	const searchFilter: SearchJobFilter = {
+		keyword,
+		state,
+		designation,
+		department,
+		industry,
+		job_mode,
+		experience,
+		role_type,
+		company,
+		urgent,
+		vacancy,
+		id_not_in,
+		posted_date,
+		closing_date,
+		limit,
+		offset,
+	};
+
+	if (job_slug) {
+		const [meta] = await db.select().from(cybJobMeta).where(eq(cybJobMeta.jobSlug, job_slug)).limit(1);
+		if (meta) {
+			const countryIds = meta.countryId ? String(meta.countryId).split(',').map(Number).filter(Boolean) : [];
+			const stateIds = meta.stateId ? String(meta.stateId).split(',').map(Number).filter(Boolean) : [];
+			const cityIds = meta.cityId ? String(meta.cityId).split(',').map(Number).filter(Boolean) : [];
+			const designationIds = meta.designationId ? String(meta.designationId).split(',').map(Number).filter(Boolean) : [];
+			const departmentIds = meta.departmentId ? String(meta.departmentId).split(',').map(Number).filter(Boolean) : [];
+
+			if (stateIds.length > 0) searchFilter.stateArr = stateIds.map(id => ({ id }));
+			if (cityIds.length > 0) searchFilter.citiesArr = cityIds.map(id => ({ id }));
+			if (designationIds.length > 0) searchFilter.designationArr = designationIds.map(id => ({ id }));
+			if (departmentIds.length > 0) searchFilter.departmentArr = departmentIds.map(id => ({ id }));
+		}
+	}
+
+	if (skill) {
+		const skillIds = String(skill).split(',').map(Number).filter(Boolean);
+		if (skillIds.length > 0) {
+			searchFilter.skillArray = skillIds.map(id => ({ id }));
+		}
+	}
+
+	if (starRating) {
+		const minRating = (starRating - 1) * 20 + 1;
+		const maxRating = starRating * 20;
+		searchFilter.starRating = starRating;
+	}
+
+	const rows = await get_search_job_list(searchFilter);
+
+	if (!Array.isArray(rows)) {
+		return { alljobList: [], totalJobs: 0, filterApply: 0, filterName: {}, metadata: {} };
+	}
+
+	const jobIds = rows.map((r: any) => r.id);
+	if (jobIds.length === 0) {
+		return { alljobList: [], totalJobs: 0, filterApply: 0, filterName: {}, metadata: {} };
+	}
+
+	const jobDetails = await get_jobs_detail_by_ids(jobIds);
+
+	const totalConditions = [eq(cybCompanyJob.status, 1), eq(cybCompanyJob.isDeleted, 0), eq(cybUser.isDeleted, 0)];
+	const [countResult] = await db.select({ count: sql<number>`count(*)` })
+		.from(cybCompanyJob)
+		.leftJoin(cybUser, eq(cybCompanyJob.company, cybUser.id))
+		.where(and(...totalConditions));
+
+	const filterApply = Object.keys(filters).filter(k => filters[k] !== undefined && filters[k] !== '').length > 0 ? 1 : 0;
+
+	const filterName: Record<string, any> = {};
+	if (designation) {
+		const [des] = await db.select({ id: cybDesignation.id, name: cybDesignation.name }).from(cybDesignation).where(eq(cybDesignation.id, designation)).limit(1);
+		if (des) filterName.designation = des;
+	}
+	if (department) {
+		const [dep] = await db.select({ id: cybDepartment.id, name: cybDepartment.name }).from(cybDepartment).where(eq(cybDepartment.id, department)).limit(1);
+		if (dep) filterName.department = dep;
+	}
+	if (industry) {
+		const [ind] = await db.select({ id: cybIndustries.id, name: cybIndustries.name }).from(cybIndustries).where(eq(cybIndustries.id, industry)).limit(1);
+		if (ind) filterName.industry = ind;
+	}
+	if (experience) {
+		const [exp] = await db.select({ id: cybJobExperiences.id, name: cybJobExperiences.name }).from(cybJobExperiences).where(eq(cybJobExperiences.id, experience)).limit(1);
+		if (exp) filterName.experience = exp;
+	}
+	if (role_type) {
+		const [rt] = await db.select({ id: cybRoleTypes.id, name: cybRoleTypes.name }).from(cybRoleTypes).where(eq(cybRoleTypes.id, role_type)).limit(1);
+		if (rt) filterName.role_type = rt;
+	}
+	if (state) {
+		const [st] = await db.select({ id: cybState.id, name: cybState.name }).from(cybState).where(eq(cybState.id, state)).limit(1);
+		if (st) filterName.state = st;
+	}
+
+	return {
+		alljobList: jobDetails,
+		totalJobs: countResult?.count || 0,
+		filterApply,
+		filterName,
+		metadata: { limit, offset },
+	};
+};
 
 
 

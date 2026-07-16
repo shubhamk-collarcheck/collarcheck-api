@@ -3,7 +3,8 @@ import {
 	getAllCities, getCityById, getAllStates, countryListController, allturnover, allcompanysize, noticePeriodList, languageList, industryList, salaryList, benefitList, roleTypeList,
 	jobExperienceList, accomodationList, courseList, courseTypeList, educationDataList, tagList,
 	alldesignation, allSkill, jobTypeList, allDepartment, allCourseType, allEmploymentType,
-	allWorkType, employeeFilterDataList, jobDataList, job_detail
+	allWorkType, employeeFilterDataList, jobDataList, job_detail, allJob, searchSuggestion,
+	globalSearch, ratingFilter, starRatingEmployees, inviteDetail, addSuggestion, userProfile
 } from '../controllers/general.controller';
 import { validateData } from '../middlewares/validation.middleware';
 import { jobDetailSchema } from '../validators/job.validator';
@@ -19,6 +20,11 @@ import {
 	verificationStatus, claimCompany,
 } from '../controllers/company-employee-request.controller';
 import { uploadToS3 } from '../utils/uploadToS3';
+import {
+	allJobQuerySchema, jobFilterDataListQuerySchema, globalSearchQuerySchema, searchSuggestionParamsSchema,
+	ratingFilterQuerySchema, starRatingParamsSchema, inviteDetailParamsSchema, addSuggestionSchema,
+	userProfileParamsSchema,
+} from '../types/general.types';
 
 const generalRoute = Router();
 
@@ -48,6 +54,15 @@ generalRoute.get("/courseTypeList", courseTypeList)
 generalRoute.get("/educationDataList", educationDataList)
 generalRoute.get("/all-designation", alldesignation)
 generalRoute.get("/job-detail/:slug", validateData(jobDetailSchema), job_detail)
+
+generalRoute.get("/all-job", validateData(allJobQuerySchema), allJob)
+generalRoute.get("/globalSearch", validateData(globalSearchQuerySchema), globalSearch)
+generalRoute.get("/suggestion/:usertype/:keyword", validateData(searchSuggestionParamsSchema), searchSuggestion)
+generalRoute.get("/ratingFilter", validateData(ratingFilterQuerySchema), ratingFilter)
+generalRoute.get("/starRatingEmployies/:star", validateData(starRatingParamsSchema), starRatingEmployees)
+generalRoute.get("/inviteDetail/:token", validateData(inviteDetailParamsSchema), inviteDetail)
+generalRoute.get("/user-profile/:slug", validateData(userProfileParamsSchema), userProfile)
+generalRoute.post("/add-suggestion", validateData(addSuggestionSchema), addSuggestion)
 
 generalRoute.put("/markViewed/:id", Authorization, validateData(markViewedParamsSchema), markViewed)
 

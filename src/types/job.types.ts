@@ -16,12 +16,18 @@ export interface SearchJobFilter {
 	company?: number;
 	id_not_in?: number;
 	posted_date?: number;
-	stateArr?: { id: number }[],
-	citiesArr?: { id: number }[],
-	designationArr?: { id: number }[],
+	closing_date?: string;
+	starRating?: number;
+	yearExperience?: number;
+	stateArr?: { id: number }[];
+	citiesArr?: { id: number }[];
+	designationArr?: { id: number }[];
 	departmentArr?: { id: number }[];
 	skillArray?: { id: number }[];
 	job_id?: number[];
+	skill?: number;
+	employment_type?: number;
+	job_description?: string;
 	random?: boolean;
 	limit?: number;
 	offset?: number;

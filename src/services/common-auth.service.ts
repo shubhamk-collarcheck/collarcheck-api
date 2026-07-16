@@ -346,3 +346,116 @@ export async function peopleListService(userId: number) {
 		},
 	};
 }
+
+// ====== 6. Public User Profile ======
+
+export async function publicUserProfileService(slug: string) {
+	const targetUser = await commonAuthRepositery.findUserBySlug(slug);
+	if (!targetUser) {
+		return null;
+	}
+
+	const targetId = targetUser.id;
+	const isCompany = targetUser.userType === 2;
+
+	if (isCompany) {
+		return { status: false, messages: "Use company profile endpoint" };
+	}
+
+	const userDetail = await commonAuthRepositery.getUserDetail(targetId);
+	if (!userDetail) {
+		return null;
+	}
+
+	const experienceIds = await commonAuthRepositery.getExperienceIds(targetId, false);
+
+	const [educationList, skills, languages, certificates] = await Promise.all([
+		commonAuthRepositery.getEducationList(targetId),
+		commonAuthRepositery.getUserSkills(targetId),
+		commonAuthRepositery.getUserLanguages(targetId),
+		commonAuthRepositery.getCertificates(targetId),
+	]);
+
+	const experiences = await Promise.all(
+		experienceIds.map((id) => commonAuthRepositery.getExperienceDetail(id))
+	);
+
+	const [followerCount, followingCount, ratingScore] = await Promise.all([
+		commonAuthRepositery.getFollowerCount(targetId),
+		commonAuthRepositery.getFollowingCount(targetId),
+		commonAuthRepositery.getOverallProfileScore(targetId),
+	]);
+
+	const stillWorking = experiences.find((e) => e?.stillWorking === 1);
+
+	return {
+		status: true,
+		data: {
+			id: userDetail.id,
+			individual_id: userDetail.individualId,
+			name: userDetail.fullName || `${userDetail.fname} ${userDetail.lname}`.trim(),
+			profile: userDetail.profile ? `${s3Prefix}${userDetail.profile}` : (userDetail.socialImage || ''),
+			slug: userDetail.slug,
+			state_name: userDetail.stateName,
+			city_name: userDetail.cityName,
+			country_name: userDetail.countryName,
+			profile_description: userDetail.profileDescription,
+			linkdin: userDetail.linkdin,
+			youtube: userDetail.youtube,
+			instagram: userDetail.instagram,
+			facebook: userDetail.facebook,
+			twitter: userDetail.twitter,
+			gender_name: userDetail.genderName,
+			work_status_name: userDetail.workTypeName,
+			industry_name: userDetail.industryName,
+			accomodation_name: userDetail.accomodationName,
+			notice_period_name: userDetail.noticePeriodName,
+			employement: experiences.map((e) => ({
+				id: e?.id,
+				company_name: e?.companyName,
+				designation_name: e?.designationName,
+				department_name: e?.departmentName,
+				employment_type_name: e?.employmentTypeName,
+				joining_date: e?.joiningDate,
+				worked_till_date: e?.workedTillDate,
+				still_working: e?.stillWorking,
+				company_id: e?.company,
+				company_slug: e?.companySlug,
+				approved: e?.approved,
+				company_profile: e?.companyProfile ? `${s3Prefix}${e?.companyProfile}` : (e?.companySocialImage || ''),
+			})),
+			education: educationList.map((ed) => ({
+				id: ed.id,
+				university: ed.university,
+				course_type: ed.courseType,
+				course: ed.course,
+				starting_date: ed.startingDate,
+				ending_date: ed.endingDate,
+				country: ed.country,
+				ishighest: ed.ishighest,
+			})),
+			skill: skills.map((s) => ({
+				id: s.id,
+				skill: s.skillName,
+				rating: s.rating,
+			})),
+			language: languages.map((l) => ({
+				id: l.id,
+				name: l.languageName,
+				verbal: l.verbal,
+				written: l.written,
+			})),
+			certificate: certificates.map((c) => ({
+				id: c.id,
+				course: c.course,
+				document: c.certificate ? [`${s3Prefix}${c.certificate}`] : [],
+			})),
+			similarUsers: [],
+			similarCompanies: [],
+			settings: {},
+			totalRating: ratingScore,
+			userRating: ratingScore,
+			followData: { follower: followerCount, following: followingCount },
+		},
+	};
+}

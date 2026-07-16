@@ -1,8 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, like } from 'drizzle-orm';
 import db from '../db';
-import { cybCompanyJob } from '../db/schema';
-
+import { cybCompanyJob, cybSkill } from '../db/schema';
 
 import { isEmptyObject } from '../utils/helpers';
 import {
@@ -14,11 +13,17 @@ import {
 	allSkillService, jobTypeService, allDepartmentService, allCourseTypeService,
 	allEmploymentTypeService,
 	allWorkTypeService, employeeFilterDataListService,
-	jobDataListService
-
+	jobDataListService, jobFilterDataListService, ratingFilterService,
+	starRatingEmployeesService, inviteDetailService, globalSearchService,
+	addSuggestionService,
 } from '../services/general.service';
-import { get_job_detail_service, get_search_job_list, get_jobs_detail_by_ids } from '../services/job.service';
-import { get_company_detail } from "../services/users.service"
+import { get_job_detail_service, get_search_job_list, get_jobs_detail_by_ids, allJobService } from '../services/job.service';
+import { get_company_detail } from '../services/users.service';
+import { publicUserProfileService } from '../services/common-auth.service';
+import {
+	AllJobQuery, JobFilterDataListQuery, GlobalSearchQuery, SearchSuggestionParams,
+	RatingFilterQuery, StarRatingParams, InviteDetailParams, AddSuggestionBody, UserProfileParams,
+} from '../types/general.types';
 
 
 
@@ -334,6 +339,130 @@ export const job_detail = async (req: Request, res: Response, next: NextFunction
 				company: companyData,
 			},
 		});
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const allJob = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { query } = req.validated as AllJobQuery;
+		const data = await allJobService(query);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const jobFilterDataList = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { query } = req.validated as JobFilterDataListQuery;
+		const data = await jobFilterDataListService(query.slug, query.type);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const searchSuggestion = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { params } = req.validated as SearchSuggestionParams;
+		const data: any[] = [];
+
+		if (params.usertype === 'jobs') {
+			const skills = await db.select({ id: cybSkill.id, name: cybSkill.name })
+				.from(cybSkill)
+				.where(and(eq(cybSkill.status, 1), like(cybSkill.name, '%' + params.keyword + '%')))
+				.limit(5);
+			for (const s of skills) {
+				data.push({ id: s.id, name: s.name, type: 'skill' });
+			}
+		}
+
+		return res.status(200).json({ status: true, data });
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const globalSearch = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { query } = req.validated as GlobalSearchQuery;
+		const keyword = query.keyword || '';
+		const limit = query.limit || 6;
+		const offset = query.offset || 0;
+
+		const data = await globalSearchService(keyword, query.type, limit, offset, query);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const ratingFilter = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { query } = req.validated as RatingFilterQuery;
+		const data = await ratingFilterService(query.employment, query.order);
+		return res.status(200).json({ status: true, data });
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const starRatingEmployees = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { params } = req.validated as StarRatingParams;
+		const data = await starRatingEmployeesService(params.star);
+		return res.status(200).json(data);
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const inviteDetail = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { params } = req.validated as InviteDetailParams;
+		const data = await inviteDetailService(params.token);
+
+		if (!data) {
+			return res.status(404).json({ status: false, message: 'Invite not found' });
+		}
+
+		return res.status(200).json({ status: true, data });
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const addSuggestion = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { body } = req.validated as AddSuggestionBody;
+		const result = await addSuggestionService(body.name, body.phone, body.description);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+
+export const userProfile = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { params } = req.validated as UserProfileParams;
+		const data = await publicUserProfileService(params.slug);
+
+		if (!data) {
+			return res.status(404).json({ status: false, message: 'User not found' });
+		}
+
+		return res.status(200).json(data);
 	} catch (error) {
 		next(error);
 	}
