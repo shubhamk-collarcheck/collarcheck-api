@@ -3,7 +3,7 @@ import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
-import { cybUserExperience, cybUserUpdateExperience, cybUser, cybEmployementType, cybDesignation, cybDepartment, cybCompanyInvite, cybUserExperienceRating, cybUserExperienceRatingHistory } from '../db/schema';
+import { cybUserExperience, cybUserUpdateExperience, cybUser, cybEmployementType, cybDesignation, cybDepartment, cybCompanyInvite, cybUserExperienceRating, cybUserExperienceRatingHistory, cybSkillRating } from '../db/schema';
 import { isEmptyArray } from '../utils/helpers';
 
 type Employment = InferSelectModel<typeof cybUserExperience>
@@ -291,6 +291,65 @@ class employmentRepositery {
 			.where(and(eq(cybUserExperience.id, id), eq(cybUserExperience.isDeleted, 0)));
 
 		return result;
+	}
+
+	async getAllEmploymentScore(userId: number, companyId: number): Promise<number> {
+		const companyUser = alias(cybUser, 'companyUser');
+		const [result] = await db
+			.select({
+				avgRating: sql<number>`COALESCE(AVG(${cybUserExperienceRating.rating}), 0)`,
+			})
+			.from(cybUserExperienceRating)
+			.leftJoin(cybUserExperience, eq(cybUserExperienceRating.experience, cybUserExperience.id))
+			.leftJoin(companyUser, eq(cybUserExperience.company, companyUser.id))
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperienceRating.status, 1),
+				eq(cybUserExperienceRating.approved, 1),
+				eq(cybUserExperienceRating.isDeleted, 0),
+				eq(cybUserExperience.isDeleted, 0),
+			));
+		return Math.round(result?.avgRating || 0);
+	}
+
+	async getAverageRatingBySkill(experienceId: number): Promise<number> {
+		const [result] = await db
+			.select({
+				avgRating: sql<string>`COALESCE(CAST(AVG(${cybSkillRating.rating}) AS DECIMAL(10,1)), 0)`,
+			})
+			.from(cybSkillRating)
+			.leftJoin(cybUserExperienceRating, eq(cybSkillRating.reviewId, cybUserExperienceRating.id))
+			.where(and(
+				eq(cybSkillRating.experienceId, experienceId),
+				eq(cybSkillRating.status, 1),
+				eq(cybSkillRating.isDeleted, 0),
+				eq(cybUserExperienceRating.status, 1),
+				eq(cybUserExperienceRating.approved, 1),
+			));
+		return Number(result?.avgRating || 0);
+	}
+
+	async getVerificationProcessDetails(experienceId: number): Promise<Record<string, boolean>> {
+		const ratings = await db
+			.select({
+				addedBy: cybUserExperienceRating.addedBy,
+				approved: cybUserExperienceRating.approved,
+			})
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.experience, experienceId),
+				eq(cybUserExperienceRating.status, 1),
+				eq(cybUserExperienceRating.isDeleted, 0),
+			));
+
+		const hasCompanyApproved = ratings.some(r => r.addedBy === 1 && r.approved === 1);
+		const hasSelfAdded = ratings.some(r => r.addedBy === 0 || r.addedBy === null);
+
+		return {
+			level1: hasSelfAdded,
+			level2: hasCompanyApproved,
+		};
 	}
 
 

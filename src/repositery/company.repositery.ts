@@ -32,6 +32,18 @@ class companyRepositery {
 			));
 		return new Set(invites.map(i => i.company!));
 	}
+
+	async userApproveCompanyList(userId: number): Promise<Set<number>> {
+		const rows = await db.select({ company: cybUserExperience.company })
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.approved, 1),
+				eq(cybUserExperience.status, 1),
+				eq(cybUserExperience.isDeleted, 0),
+			));
+		return new Set(rows.map(r => r.company!).filter(Boolean));
+	}
 	async findUserById(id: number) {
 		const [user] = await db.select()
 			.from(cybUser)

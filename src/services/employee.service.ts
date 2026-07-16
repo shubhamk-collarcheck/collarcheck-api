@@ -409,6 +409,198 @@ export async function allExperienceService(user_id: number) {
 	return data;
 }
 
+export async function allEmployementNewService(user_id: number) {
+	const experienceList = await usersRepositery.getUserExperience(user_id);
+
+	if (experienceList.length === 0) return [];
+
+	const experienceIds = experienceList.map(e => e.id);
+	const companyIds = [...new Set(experienceList.map(e => e.company!).filter(Boolean))];
+
+	const [updateListMap, invitedCompanyIds, employmentStatusMap, totalRatingMap, allRatings, skillNameMap, approvedCompanyIds] = await Promise.all([
+		employmentRepositery.getExperienceUpdateListByExperienceIds(experienceIds),
+		companyRepositery.checkInvitationSendByCompanyIds(companyIds, user_id),
+		reviewRepositery.getEmploymentStatusByExperienceIds(experienceIds),
+		reviewRepositery.getTotalRatingByExperienceIds(experienceIds),
+		reviewRepositery.getRatingsByExperienceIds(experienceIds),
+		batchSkillNames(experienceList),
+		companyRepositery.userApproveCompanyList(user_id),
+	]);
+
+	const ratingIds = allRatings.map(r => r.id);
+	const [historyMap, skillRatingMap] = await Promise.all([
+		ratingIds.length > 0
+			? reviewRepositery.getRatingHistory(ratingIds) as Promise<Record<number, any[]>>
+			: Promise.resolve({} as Record<number, any[]>),
+		ratingIds.length > 0
+			? skillRepositery.getReviewsWithSkills(ratingIds, 0)
+			: Promise.resolve({} as Record<number, any[]>),
+	]);
+
+	const ratingsByExperience = new Map<number, typeof allRatings>();
+	for (const rating of allRatings) {
+		const expId = rating.experience!;
+		if (!ratingsByExperience.has(expId)) {
+			ratingsByExperience.set(expId, []);
+		}
+		ratingsByExperience.get(expId)!.push(rating);
+	}
+
+	const ratingMap = new Map<number, Record<string, any>[]>();
+	for (const [expId, ratings] of ratingsByExperience) {
+		const enriched = ratings.map(r => {
+			const history = historyMap[r.id] ?? [];
+			const skills = skillRatingMap[r.id] ?? [];
+			let doc: string | string[] | null = null;
+			if (r.doc) {
+				try {
+					const paths = JSON.parse(r.doc);
+					if (Array.isArray(paths)) {
+						doc = paths.map((path: string) => getS3Url(path));
+					}
+				} catch {
+					doc = r.doc;
+				}
+			}
+			return {
+				id: r.id,
+				approved: r.approved,
+				status: r.approved === 1 ? 'complete' : 'pending',
+				doc,
+				date: r.modifyDate,
+				link: r.link,
+				show_home: r.showHome,
+				show_review: r.showReview,
+				history,
+				skill_rating: skills,
+				rating: r.rating,
+				review: r.review,
+			};
+		});
+		ratingMap.set(expId, enriched);
+	}
+
+	const groupedByCompany = new Map<number, typeof experienceList>();
+	for (const exp of experienceList) {
+		const companyId = exp.company!;
+		if (!groupedByCompany.has(companyId)) {
+			groupedByCompany.set(companyId, []);
+		}
+		groupedByCompany.get(companyId)!.push(exp);
+	}
+
+	const data: any[] = [];
+
+	for (const [companyId, experiences] of groupedByCompany) {
+		const firstExp = experiences[0];
+
+		const isVerified = (firstExp.emailVerified === 1 || firstExp.phoneVerified === 1);
+
+		let totalExperienceMonths = 0;
+		for (const exp of experiences) {
+			totalExperienceMonths += calculateExperienceMonths(exp.joiningDate, exp.workedTillDate, exp.stillWorking === 1);
+		}
+
+		let employmentScore = 0;
+		const scoreResult = await employmentRepositery.getAllEmploymentScore(user_id, companyId);
+		employmentScore = scoreResult;
+
+		const lists = await Promise.all(experiences.map(async (exp) => {
+			let skill: { id: number; name: string }[] = [];
+			if (exp.skill) {
+				try {
+					const decoded = JSON.parse(exp.skill);
+					if (Array.isArray(decoded)) {
+						skill = decoded.map(Number).filter(Boolean)
+							.map((id: number) => ({ id, name: skillNameMap.get(id) ?? '' }))
+							.filter(s => s.name);
+					}
+				} catch { }
+			}
+
+			const designationScore = await employmentRepositery.getAverageRatingBySkill(exp.id);
+			const verificationProcess = await employmentRepositery.getVerificationProcessDetails(exp.id);
+
+			return {
+				id: exp.id,
+				haveSalary: !!exp.salary,
+				haveDocument: !!exp.certificate,
+				haveReview: (ratingMap.get(exp.id) ?? []).length > 0,
+				work_email: exp.workEmail,
+				employment_type: exp.employementName,
+				designation: exp.designationName,
+				joining_date: exp.joiningDate,
+				worked_till_date: exp.workedTillDate,
+				still_working: exp.stillWorking ?? 0,
+				approved: exp.approved,
+				description: exp.description,
+				salary: exp.salary,
+				salary_inhand: exp.salaryInhand,
+				salary_mode: exp.salaryMode,
+				department: exp.departmentName,
+				claim_status: exp.claimStatus ? 1 : 0,
+				company_slug: exp.companySlug,
+				skill,
+				document: decodeCertificateURLs(exp.certificate),
+				added_by: invitedCompanyIds.has(companyId),
+				employment_status: employmentStatusMap.get(exp.id) ?? 'pending',
+				basic_update_list: updateListMap.get(exp.id) ?? null,
+				designation_score: designationScore,
+				rating: ratingMap.get(exp.id) ?? [],
+				totalRating: totalRatingMap.get(exp.id) ?? { rating: 0, noofrecord: 0 },
+				status: exp.status,
+				verificationProcess,
+			};
+		}));
+
+		const earliestJoiningDate = experiences.reduce((min, exp) => {
+			if (!min) return exp.joiningDate;
+			return exp.joiningDate && exp.joiningDate < min ? exp.joiningDate : min;
+		}, experiences[0].joiningDate);
+
+		const latestWorkedTill = experiences.reduce((max, exp) => {
+			if (exp.stillWorking === 1) return '';
+			if (!max) return exp.workedTillDate;
+			return exp.workedTillDate && exp.workedTillDate > max ? exp.workedTillDate : max;
+		}, experiences[0].workedTillDate);
+
+		data.push({
+			id: firstExp.company,
+			company_logo: decodeS3URL(firstExp.profile),
+			company: firstExp.companyName,
+			company_id: companyId,
+			individual_id: firstExp.individualId,
+			is_verified: isVerified,
+			joining_date: earliestJoiningDate,
+			worked_till_date: latestWorkedTill,
+			claim_status: firstExp.claimStatus ? 1 : 0,
+			added_by: invitedCompanyIds.has(companyId),
+			approved: firstExp.approved,
+			status: firstExp.status,
+			company_slug: firstExp.companySlug,
+			user_slug: firstExp.companySlug,
+			hired: firstExp.hired,
+			sendReminder: approvedCompanyIds.has(companyId),
+			employmentScore,
+			totalExperienceMonths,
+			still_working: experiences.some(e => e.stillWorking === 1) ? 1 : 0,
+			lists,
+		});
+	}
+
+	return data;
+}
+
+function calculateExperienceMonths(joiningDate: string | null, workedTillDate: string | null, stillWorking: boolean): number {
+	if (!joiningDate) return 0;
+
+	const start = new Date(joiningDate);
+	const end = stillWorking ? new Date() : (workedTillDate ? new Date(workedTillDate) : new Date());
+
+	const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+	return Math.max(0, months);
+}
+
 export async function experienceDetailService(experience_id: number, user_id: number, user_type: number) {
 	const detail = await employmentRepositery.getExperienceDetail(experience_id);
 

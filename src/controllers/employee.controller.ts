@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { allExperienceService, deleteExperienceService, employmentCreateService, employmentUpdateService, experienceDetailService } from "../services/employee.service";
+import { allExperienceService, allEmployementNewService, deleteExperienceService, employmentCreateService, employmentUpdateService, experienceDetailService } from "../services/employee.service";
 import { EmploymentRequestBody } from "../types/employee.types";
 import { AuthUser } from "../types/express";
 import { USER_TYPE } from "../repositery/users.repositery";
@@ -53,6 +53,20 @@ export async function allExperience(req: Request, res: Response, next: NextFunct
 			data: result
 		})
 
+	} catch (err) {
+		next(err)
+	}
+}
+
+export async function allEmployementNew(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { user_id } = req.auth as AuthUser
+		const result = await allEmployementNewService(user_id);
+		return res.status(200).json({
+			status: true,
+			message: 'Employement History',
+			data: result
+		})
 	} catch (err) {
 		next(err)
 	}
