@@ -23,6 +23,10 @@ import { reviewRequestSchema, reviewUpdateRequestSchema, reviewRemoveDocumentQue
 import { currentCompany, addReview, updateReview, deleteReview, reviewRemoveDocument, showHomeReview, editUser, changeEmploymentBasic } from "../controllers/profile-review.controller";
 import { companyInviteRequestSchema } from "../types/company-invite.types";
 import { sendCompanyInvite } from "../controllers/company-invite.controller";
+import { applyJobSchema, approvedEmploymentSchema, approvedViewRequestSchema, viewRequestIdSchema, paginationQuerySchema, checkCurrentCompanySchema } from "../types/job-dashboard.types";
+import { applyJob, applyJobList, profilePercentage, approvedEmployment, allViewRequest, approvedVeiwRequest, rejectVeiwRequest, deleteViewRequest, checkCurrentCompany, dashboard, appliedjob, removeResume } from "../controllers/job-dashboard.controller";
+import { saveExploringSchema, allCompanyQuerySchema, editProfileSchema } from "../types/misc.types";
+import { sidebarCount, leaveReminderExperience, saveExploring, cvDetails, editProfile, allCompany, userDetail } from "../controllers/misc.controller";
 
 
 const employRouter = Router()
@@ -78,7 +82,26 @@ employRouter.put("/show-home-review/:id", Authorization, validateData(showHomeRe
 employRouter.post("/edit-user", Authorization, educationUpload.array("document"), validateData(editUserRequestSchema), editUser)
 employRouter.post("/changeEmploymentBasic", Authorization, validateData(changeEmploymentBasicRequestSchema), changeEmploymentBasic)
 
+employRouter.post("/apply-job", Authorization, validateData(applyJobSchema), applyJob)
+employRouter.get("/applyJobList", Authorization, applyJobList)
+employRouter.get("/appliedjob", Authorization, validateData(paginationQuerySchema), appliedjob)
+employRouter.get("/ProfilePercentage", Authorization, profilePercentage)
+employRouter.put("/approvedEmployment/:id", Authorization, validateData(approvedEmploymentSchema), approvedEmployment)
+employRouter.get("/AllViewRequest", Authorization, validateData(paginationQuerySchema), allViewRequest)
+employRouter.post("/approvedVeiwRequest", Authorization, validateData(approvedViewRequestSchema), approvedVeiwRequest)
+employRouter.put("/rejectVeiwRequest/:id", Authorization, validateData(viewRequestIdSchema), rejectVeiwRequest)
+employRouter.delete("/deleteViewRequest/:id", Authorization, validateData(viewRequestIdSchema), deleteViewRequest)
+employRouter.get("/checkCurrentCompany", Authorization, validateData(checkCurrentCompanySchema), checkCurrentCompany)
+employRouter.get("/dashboard", Authorization, dashboard)
+employRouter.delete("/remove-resume", Authorization, removeResume)
 
+employRouter.get("/sidebar-count", Authorization, sidebarCount)
+employRouter.post("/leave-reminder-experience", Authorization, leaveReminderExperience)
+employRouter.post("/save-exploring", Authorization, validateData(saveExploringSchema), saveExploring)
+employRouter.get("/cv-details", Authorization, cvDetails)
+employRouter.post("/edit-profile", Authorization, validateData(editProfileSchema), editProfile)
+employRouter.get("/all-company", Authorization, validateData(allCompanyQuerySchema), allCompany)
+employRouter.get("/user-detail", Authorization, userDetail)
 
 
 

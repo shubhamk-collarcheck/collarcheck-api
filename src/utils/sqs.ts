@@ -35,8 +35,7 @@ export async function sendSQSMessage(message: SQSMessage): Promise<boolean> {
 	const command = new SendMessageCommand({
 		QueueUrl: queueUrl,
 		MessageBody: JSON.stringify(message),
-		MessageDeduplicationId: `${Date.now()}-${Math.random().toString(36).substring(7)}`,
-		MessageGroupId: "collarcheck-main",
+		// No MessageGroupId / MessageDeduplicationId — standard queue, not FIFO
 	});
 
 	try {
@@ -47,7 +46,6 @@ export async function sendSQSMessage(message: SQSMessage): Promise<boolean> {
 		throw error;
 	}
 }
-
 
 export async function sendEmailViaSQS(
 	email: string,
@@ -66,6 +64,5 @@ export async function sendEmailViaSQS(
 			...(trigger && { trigger }),
 		},
 	};
-
 	return sendSQSMessage(message);
 }
