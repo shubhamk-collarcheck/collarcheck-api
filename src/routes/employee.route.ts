@@ -30,9 +30,42 @@ import { sidebarCount, leaveReminderExperience, saveExploring, cvDetails, editPr
 import { removeNotificationBodySchema, allUserQuerySchema } from "../types/general.types";
 import { removeNotificationByBody } from "../controllers/general.controller";
 import { allUser } from "../controllers/misc.controller";
+import {
+	employeeRegisterSchema,
+	employeeSignupSchema,
+	finalSignupSchema,
+	uploadResumeSchema,
+} from "../types/login.types";
+import {
+	employeeRegister,
+	employeeSignup,
+	finalSignup,
+	uploadResume,
+} from "../controllers/login.controller";
+import { resumeUpload } from "../utils/resumeUpload";
 
 
 const employRouter = Router()
+
+// Login / registration (public; final-signup + upload-resume use body user_id)
+employRouter.post("/register", validateData(employeeRegisterSchema), employeeRegister);
+employRouter.post("/signup", validateData(employeeSignupSchema), employeeSignup);
+employRouter.post(
+	"/final-signup",
+	educationUpload.fields([
+		{ name: "resume", maxCount: 1 },
+		{ name: "profile", maxCount: 1 },
+		{ name: "document", maxCount: 5 },
+	]),
+	validateData(finalSignupSchema),
+	finalSignup
+);
+employRouter.post(
+	"/upload-resume",
+	resumeUpload.single("resume"),
+	validateData(uploadResumeSchema),
+	uploadResume
+);
 
 employRouter.post("/add-employement", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), addExperience)
 employRouter.post("/add-employement/:employment_id", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), updateExperience)

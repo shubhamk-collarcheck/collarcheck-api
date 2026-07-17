@@ -41,7 +41,13 @@ import {
 	inviteCompany, employmentRequest, revokeDeleteAccount,
 } from "../controllers/company-employee-request.controller";
 
+import { companyRegisterSchema } from "../types/login.types";
+import { companyRegister } from "../controllers/login.controller";
+
 const companyRouter = Router();
+
+// Company form register (JWT required)
+companyRouter.post("/register", Authorization, validateData(companyRegisterSchema), companyRegister);
 
 companyRouter.post("/sendUserProfileViewRequest", Authorization, validateData(sendUserProfileViewRequestSchema), sendUserProfileViewRequest);
 

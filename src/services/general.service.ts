@@ -9,7 +9,7 @@ import {
 	cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation,
 	cybSkill, cybJobMode, cybDepartment, cybEmployementType, cybWorkType, cybUser,
 	cybUserSkill, cybUserExperience, cybCompanyJob, cybJobMeta, cybCompanyBenefits,
-	cybUserExperienceRating, cybCompanyInvite, cybSuggestion,
+	cybUserExperienceRating, cybCompanyInvite, cybSuggestion, cybUserLoginHistory,
 } from '../db/schema';
 import { get_empoyee_designation_service, get_industry_list_service, get_state_by_employees_service, get_state_by_id_service, get_employee_department_service, get_skill_list_service, get_course_list_service, get_user_skill_service, get_user_experience_skill_service } from './job.service';
 import { allEmploymentType } from '../controllers/general.controller';
@@ -1128,6 +1128,27 @@ export const clearAllNotificationService = async (userId: number) => {
 		message: "All notifications cleared",
 		cleared_count: clearedCount,
 	};
+};
+
+// ====== Logout (GET /wapi/logout) ======
+
+export const logoutService = async (
+	userId: number,
+	meta?: { ip?: string; userAgent?: string }
+) => {
+	const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+	await db.update(cybUser)
+		.set({ token: null, modifyDate: now })
+		.where(eq(cybUser.id, userId));
+
+	await db.insert(cybUserLoginHistory).values({
+		userId,
+		ipAddress: meta?.ip || null,
+		userAgent: meta?.userAgent || "",
+		logoutAt: now,
+	});
+
+	return { status: true, message: "Logged out successfully" };
 };
 
 // ====== Unfollow (Endpoint #16) ======

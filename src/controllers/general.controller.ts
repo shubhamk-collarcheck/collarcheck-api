@@ -19,7 +19,7 @@ import {
 	verifyAuthTokenService, docListService, allMessageListGeneralService,
 	allNotificationService, verificationStatusGeneralService, followDataListGeneralService,
 	saveDocumentService, allReadNotificationService, chatMessageReadGeneralService,
-	removeNotificationService, clearAllNotificationService, unfollowService,
+	removeNotificationService, clearAllNotificationService, logoutService, unfollowService,
 	removeFollowerService, multiUnfollowService, multiRemoveFollowerService,
 	followUserService, acceptFollowService, rejectFollowService,
 	multiAcceptFollowService, multiRejectFollowService,
@@ -615,6 +615,21 @@ export const clearAllNotification = async (req: Request, res: Response, next: Ne
 		const { user_id } = req.auth as AuthUser;
 		const data = await clearAllNotificationService(user_id);
 		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Logout (GET /wapi/logout) ======
+
+export const logout = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const result = await logoutService(user_id, {
+			ip: req.ip,
+			userAgent: req.headers["user-agent"],
+		});
+		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
 	}

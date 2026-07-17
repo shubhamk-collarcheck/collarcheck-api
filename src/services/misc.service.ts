@@ -213,68 +213,15 @@ export async function allCompanyService(keyword: string, limit: number, offset: 
 // ====== 9. User Detail ======
 
 export async function userDetailService(userId: number, token: string) {
-	const user = await miscRepositery.findUserById(userId);
-	if (!user) {
+	const { getStatistics } = await import("./login.service");
+	const data = await getStatistics(userId, token);
+	if (!data) {
 		return { status: false, messages: "User not found" };
 	}
-
-	const companyUser = user.userType === 2
-		? await miscRepositery.findUserById(user.currentCompany || 0)
-		: null;
-
 	return {
 		status: true,
 		messages: "Success!",
-		data: {
-			id: user.id,
-			loginauth: token,
-			individual_id: user.individualId,
-			profile: user.profile ? `${s3Prefix}${user.profile}` : (user.socialImage || ''),
-			profile_type: user.userType,
-			fname: user.fname,
-			lname: user.lname,
-			email: user.email,
-			phone: user.phone,
-			second_phone: user.secondPhone,
-			work_status: user.workStatus,
-			current_position: user.currentPossition,
-			current_company: user.currentCompany,
-			profile_description: user.profileDescription,
-			linkdin: user.linkdin,
-			phone_verified: user.phoneVerified,
-			email_verified: user.emailVerified,
-			slug: user.slug,
-			dob: user.dob,
-			gender: user.gender,
-			country: user.country,
-			city: user.city,
-			state: user.state,
-			industry: user.industry,
-			on_explore: user.onExplore,
-			on_immediate: user.onImmediate,
-			on_notice: user.onNotice,
-			notice_period: user.noticePeriod,
-			expected_salary: user.expectedSalary,
-			expected_inhand: user.expectedInhand,
-			expected_mode: user.expectedMode,
-			accomodation_name: null,
-			present_address: user.presentAddress,
-			country_name: null,
-			city_name: null,
-			state_name: null,
-			industry_name: null,
-			work_status_name: null,
-			current_company_name: companyUser?.fname || null,
-			still_working_position: null,
-			still_working_company_name: companyUser?.fname || null,
-			reminderExperience: false,
-			reminderExperienceList: [],
-			cvPop: user.cvPop === 1,
-			followCount: 0,
-			account_deletion: false,
-			manual_verify: false,
-			noticeEmployments: [],
-		},
+		data,
 	};
 }
 

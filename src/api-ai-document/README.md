@@ -74,6 +74,7 @@ src/worker/           → SQS consumers
 | `/wapi/auth` | `auth.route.ts` |
 | `/wapi/company` | `company.route.ts` |
 | `/wapi` | `root.route.ts` (people-list, company-list, multi-*, logout, claim-company, …) |
+| `/wapi/login` | `login.route.ts` (via `root.route.ts`) |
 
 ## PHP path compatibility (keep these spellings)
 
@@ -95,9 +96,19 @@ src/worker/           → SQS consumers
 - Use **403** + `{ status: false, message }` only for menu permission (when enforced)
 - Preserve legacy message strings / typos when clients match them
 
+## Login & registration (public)
+
+See [login-registration-endpoints.md](./login-registration-endpoints.md) — **implemented** under:
+
+| Path | Route file |
+|------|------------|
+| `POST /wapi/login`, `/login/*` | `login.route.ts` (mounted from `root.route.ts`) |
+| `POST /wapi/employee/register`, `signup`, `final-signup`, `upload-resume` | `employee.route.ts` |
+| `POST /wapi/company/register` | `company.route.ts` |
+
 ## Not ported yet (out of scope in these docs)
 
-- OTP / email OTP (`sendOtp`, `verifyOtp`, `sendEmailOtp`, `verifyEmailOtp`)
+- Authenticated OTP / email OTP (`sendOtp`, `verifyOtp`, `sendEmailOtp`, `verifyEmailOtp` under general/user)
 - KYC: `verifyDocument`, `verifyAadhar`, `verifyGst`, `verifyDigilocker`
 - Pre-registration: `verify-document-before-registration`, `verify-gst-before-registration`
 
