@@ -1,3 +1,5 @@
+import { ConflictError, NotFoundError, BadRequestError } from '../middlewares/errorHandler';
+import generalRepositery from '../repositery/general.repositery';
 import { and, asc, desc, eq, inArray, sql, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
@@ -900,3 +902,286 @@ export const globalSearchService = async (
 
 	return results;
 }
+
+
+// ====== Verify Auth Token (Endpoint #1) ======
+
+export const verifyAuthTokenService = async (userId: number) => {
+	const user = await generalRepositery.getUserById(userId);
+	if (!user) {
+		throw new NotFoundError("User not found");
+	}
+
+	return {
+		id: user.id,
+		email: user.email,
+		phone: user.phone,
+		full_name: user.fullName,
+		avatar_url: user.profile ? `${s3Prefix}${user.profile}` : (user.socialImage || ''),
+		role: user.userType === 2 ? 'company' : 'user',
+		is_verified: (user.emailVerified || user.phoneVerified) ? true : false,
+		created_at: user.createDate,
+	};
+};
+
+// ====== Doc List (Endpoint #2) ======
+
+export const docListService = async (userId: number, page: number) => {
+	return generalRepositery.getDocumentList(userId, page, 20);
+};
+
+// ====== All Message List (Endpoint #3) ======
+
+export const allMessageListGeneralService = async (userId: number) => {
+	const threads = await generalRepositery.getMessageThreads(userId);
+
+	const conversations = await Promise.all(
+		threads.map(async (thread) => {
+			const otherUserId = thread.sender === userId ? thread.receiver : thread.sender;
+			const otherUser = await generalRepositery.getUserBasicInfo(otherUserId);
+			const lastMessage = await generalRepositery.getLastMessage(thread.id);
+			const unreadCount = await generalRepositery.getUnreadCount(thread.id, userId);
+
+			return {
+				connection_id: thread.id,
+				other_user: {
+					id: otherUser?.id || otherUserId,
+					full_name: otherUser?.fullName || '',
+					avatar_url: otherUser?.profile ? `${s3Prefix}${otherUser.profile}` : (otherUser?.socialImage || ''),
+				},
+				last_message: lastMessage ? {
+					id: lastMessage.id,
+					content: lastMessage.message || '',
+					sender_id: lastMessage.sender,
+					is_read: lastMessage.isViewed === 1,
+					created_at: lastMessage.createDate,
+				} : null,
+				unread_count: unreadCount,
+			};
+		})
+	);
+
+	return { conversations };
+};
+
+// ====== All Notification (Endpoint #4) ======
+
+export const allNotificationService = async (userId: number) => {
+	const notifications = await generalRepositery.getNotifications(userId);
+	const unreadCount = await generalRepositery.getUnreadNotificationCount(userId);
+
+	return {
+		notifications: notifications.map(n => ({
+			id: n.id,
+			type: n.type,
+			message: n.message,
+			is_read: n.isViewed === 1,
+			related_entity_id: n.sender,
+			related_entity_type: n.redirect || 'general',
+			created_at: n.createDate,
+		})),
+		unread_count: unreadCount,
+	};
+};
+
+// ====== Verification Status (Endpoint #5) ======
+
+export const verificationStatusGeneralService = async (userId: number) => {
+	const user = await generalRepositery.getVerificationStatus(userId);
+	if (!user) {
+		throw new NotFoundError("User not found");
+	}
+
+	const phoneVerified = user.phoneVerified === 1;
+	const emailVerified = user.emailVerified === 1;
+
+	const pendingItems: string[] = [];
+	if (!phoneVerified) pendingItems.push("phone_verification");
+	if (!emailVerified) pendingItems.push("email_verification");
+
+	let overallStatus: string;
+	if (phoneVerified && emailVerified) {
+		overallStatus = "complete";
+	} else if (phoneVerified || emailVerified) {
+		overallStatus = "partial";
+	} else {
+		overallStatus = "incomplete";
+	}
+
+	return {
+		phone_verified: phoneVerified,
+		email_verified: emailVerified,
+		identity_verified: false,
+		documents_verified: false,
+		business_verified: false,
+		overall_status: overallStatus,
+		pending_items: pendingItems,
+	};
+};
+
+// ====== Follow Data List (Endpoint #6) ======
+
+export const followDataListGeneralService = async (userId: number) => {
+	const { followers, following } = await generalRepositery.getFollowData(userId);
+
+	return {
+		followers: followers.map(f => ({
+			id: f.followerId,
+			full_name: f.fullName || `${f.fname || ''} ${f.lname || ''}`.trim(),
+			avatar_url: f.profile ? `${s3Prefix}${f.profile}` : (f.socialImage || ''),
+			followed_at: f.createDate,
+		})),
+		following: following.map(f => ({
+			id: f.followedId,
+			full_name: f.fullName || `${f.fname || ''} ${f.lname || ''}`.trim(),
+			avatar_url: f.profile ? `${s3Prefix}${f.profile}` : (f.socialImage || ''),
+			followed_at: f.createDate,
+		})),
+		followers_count: followers.length,
+		following_count: following.length,
+	};
+};
+
+// ====== Save Document (Endpoint #8) ======
+
+export const saveDocumentService = async (userId: number, data: {
+	id?: number | null;
+	title?: string;
+	description?: string;
+	type?: string;
+	docnumber?: string;
+	file_url?: string;
+}) => {
+	if (data.id) {
+		const existing = await generalRepositery.findDocumentById(data.id);
+		if (!existing) {
+			throw new NotFoundError("Document not found");
+		}
+
+		await generalRepositery.updateDocument(data.id, {
+			docnumber: data.docnumber || existing.docnumber || undefined,
+			doc: data.file_url || existing.doc || undefined,
+		});
+
+		const updated = await generalRepositery.findDocumentById(data.id);
+		return updated;
+	}
+
+	const docId = await generalRepositery.createDocument({
+		user: userId,
+		docnumber: data.docnumber,
+		doc: data.file_url,
+	});
+
+	return generalRepositery.findDocumentById(docId);
+};
+
+// ====== All Read Notification (Endpoint #11) ======
+
+export const allReadNotificationService = async (userId: number) => {
+	const updatedCount = await generalRepositery.markAllNotificationsRead(userId);
+	return {
+		message: "All notifications marked as read",
+		updated_count: updatedCount,
+	};
+};
+
+// ====== Chat Message Read (Endpoint #12) ======
+
+export const chatMessageReadGeneralService = async (userId: number, messageId: number) => {
+	const message = await generalRepositery.findMessageHistoryById(messageId);
+	if (!message) {
+		throw new NotFoundError("Message not found");
+	}
+
+	await generalRepositery.markMessageRead(messageId, userId);
+
+	return {
+		message: "Message marked as read",
+		message_id: messageId,
+		is_read: true,
+	};
+};
+
+// ====== Remove Notification (Endpoints #13, #15) ======
+
+export const removeNotificationService = async (userId: number, notificationId: number) => {
+	const notification = await generalRepositery.findNotificationById(notificationId);
+	if (!notification) {
+		throw new NotFoundError("Notification not found");
+	}
+
+	await generalRepositery.clearNotification(userId, notificationId);
+
+	return {
+		message: "Notification removed",
+		notification_id: notificationId,
+	};
+};
+
+// ====== Clear All Notification (Endpoint #14) ======
+
+export const clearAllNotificationService = async (userId: number) => {
+	const clearedCount = await generalRepositery.clearAllNotifications(userId);
+
+	return {
+		message: "All notifications cleared",
+		cleared_count: clearedCount,
+	};
+};
+
+// ====== Unfollow (Endpoint #16) ======
+
+export const unfollowService = async (userId: number, targetUserId: number) => {
+	const follow = await generalRepositery.findFollowRelationship(userId, targetUserId);
+	if (!follow) {
+		throw new NotFoundError("Follow relationship not found");
+	}
+
+	await generalRepositery.softDeleteFollow(userId, targetUserId);
+
+	return {
+		message: "Unfollowed successfully",
+		unfollowed_user_id: targetUserId,
+	};
+};
+
+// ====== Remove Follower (Endpoint #17) ======
+
+export const removeFollowerService = async (userId: number, followerId: number) => {
+	const follow = await generalRepositery.findFollowerRelationship(followerId, userId);
+	if (!follow) {
+		throw new NotFoundError("Follow relationship not found");
+	}
+
+	await generalRepositery.softDeleteFollow(followerId, userId);
+
+	return {
+		message: "Follower removed",
+		removed_follower_id: followerId,
+	};
+};
+
+// ====== Multi Unfollow (Endpoint #18) ======
+
+export const multiUnfollowService = async (userId: number, userIds: number[]) => {
+	const unfollowedCount = await generalRepositery.multiUnfollow(userId, userIds);
+
+	return {
+		message: "Multiple users unfollowed",
+		unfollowed_count: unfollowedCount,
+		unfollowed_user_ids: userIds,
+	};
+};
+
+// ====== Multi Remove Follower (Endpoint #19) ======
+
+export const multiRemoveFollowerService = async (userId: number, userIds: number[]) => {
+	const removedCount = await generalRepositery.multiRemoveFollower(userId, userIds);
+
+	return {
+		message: "Multiple followers removed",
+		removed_count: removedCount,
+		removed_follower_ids: userIds,
+	};
+};

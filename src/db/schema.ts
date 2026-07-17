@@ -178,6 +178,13 @@ export const cybCities = mysqlTable("cyb_cities", {
 		index("cities_index").on(table.state, table.status),
 	]);
 
+export const cybClearNotification = mysqlTable("cyb_clear_notification", {
+	id: int().autoincrement().primaryKey().notNull(),
+	userId: int("user_id").notNull(),
+	notificationId: int("notification_id").notNull(),
+	clearedAt: datetime("cleared_at", { mode: 'string' }),
+});
+
 export const cybClaimCompanyEnquires = mysqlTable("cyb_claim_company_enquires", {
 	id: int().autoincrement().primaryKey().notNull(),
 	contactPerson: varchar("contact_person", { length: 80 }).notNull(),

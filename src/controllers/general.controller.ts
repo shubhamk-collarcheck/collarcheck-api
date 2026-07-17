@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { and, eq, like } from 'drizzle-orm';
 import db from '../db';
 import { cybCompanyJob, cybSkill } from '../db/schema';
-
+import { AuthUser } from '../types/express';
 import { isEmptyObject } from '../utils/helpers';
 import {
 	getCitiesService, getCitiesByIdService, getStatesService, getCountriesService,
@@ -16,6 +16,11 @@ import {
 	jobDataListService, jobFilterDataListService, ratingFilterService,
 	starRatingEmployeesService, inviteDetailService, globalSearchService,
 	addSuggestionService,
+	verifyAuthTokenService, docListService, allMessageListGeneralService,
+	allNotificationService, verificationStatusGeneralService, followDataListGeneralService,
+	saveDocumentService, allReadNotificationService, chatMessageReadGeneralService,
+	removeNotificationService, clearAllNotificationService, unfollowService,
+	removeFollowerService, multiUnfollowService, multiRemoveFollowerService,
 } from '../services/general.service';
 import { get_job_detail_service, get_search_job_list, get_jobs_detail_by_ids, allJobService } from '../services/job.service';
 import { get_company_detail } from '../services/users.service';
@@ -23,6 +28,10 @@ import { publicUserProfileService } from '../services/common-auth.service';
 import {
 	AllJobQuery, JobFilterDataListQuery, GlobalSearchQuery, SearchSuggestionParams,
 	RatingFilterQuery, StarRatingParams, InviteDetailParams, AddSuggestionBody, UserProfileParams,
+	CityQuery, CityByIdParams, StateQuery, PeriodListQuery, JobDetailQuery,
+	DocListParams, SaveDocumentBody, ChatMessageReadIdParams, RemoveNotificationBody,
+	RemoveNotificationParams, UnfollowParams, RemoveFollowerParams,
+	MultiUnfollowBody, MultiRemoveFollowerBody,
 } from '../types/general.types';
 
 
@@ -31,8 +40,8 @@ import {
 
 export const getAllCities = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const state = Number(req.query.state);
-		const data = await getCitiesService(state);
+		const { query } = req.validated as CityQuery;
+		const data = await getCitiesService(query.state);
 		return res.status(200).json({ status: true, message: '', data });
 	} catch (error) {
 		next(error);
@@ -41,8 +50,8 @@ export const getAllCities = async (req: Request, res: Response, next: NextFuncti
 
 export const getCityById = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const stateId = Number(req.params.stateId);
-		const data = await getCitiesByIdService(stateId);
+		const { params } = req.validated as CityByIdParams;
+		const data = await getCitiesByIdService(params.stateId);
 		return res.status(200).json({ status: true, message: '', data });
 	} catch (error) {
 		next(error);
@@ -51,8 +60,8 @@ export const getCityById = async (req: Request, res: Response, next: NextFunctio
 
 export const getAllStates = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const country = Number(req.query.country);
-		const data = await getStatesService(country);
+		const { query } = req.validated as StateQuery;
+		const data = await getStatesService(query.country);
 		return res.status(200).json({ status: true, message: 'States fetched successfully', data });
 	} catch (error) {
 		next(error);
@@ -79,8 +88,8 @@ export const allturnover = async (req: Request, res: Response, next: NextFunctio
 
 export const noticePeriodList = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const type = String(req.query.type || '');
-		const data = await getNoticePeriodService(type);
+		const { query } = req.validated as PeriodListQuery;
+		const data = await getNoticePeriodService(query.type || '');
 		return res.status(200).json({ status: true, message: 'Lists', data });
 	} catch (error) {
 		next(error);
@@ -294,11 +303,11 @@ export const jobDataList = async (req: Request, res: Response, next: NextFunctio
 
 export const job_detail = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const slug = req.params.slug as string;
-		const userId = req.query.userId ? Number(req.query.userId) : false;
-		const status = req.query.status ? String(req.query.status) : false;
-		const companyview = req.query.companyview === "true" || req.query.companyview === "1";
-		const jobDetailData = await get_job_detail_service(slug, userId, status, companyview);
+		const { params, query } = req.validated as JobDetailQuery;
+		const userId = query.userId ? query.userId : false;
+		const status = query.status ? query.status : false;
+		const companyview = query.companyview === "true" || query.companyview === "1" || query.companyview === true;
+		const jobDetailData = await get_job_detail_service(params.slug, userId, status, companyview);
 		if (!jobDetailData) {
 			return res.status(400).json({
 				status: false, message: 'Job not found', data: []
@@ -467,4 +476,206 @@ export const userProfile = async (req: Request, res: Response, next: NextFunctio
 		next(error);
 	}
 }
+
+
+// ====== Verify Auth Token (Endpoint #1) ======
+
+export const verifyAuthToken = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const data = await verifyAuthTokenService(user_id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Doc List (Endpoint #2) ======
+
+export const allDocList = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { params } = req.validated as DocListParams;
+		const data = await docListService(user_id, params.id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== All Message List (Endpoint #3) ======
+
+export const allMessageListGeneral = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const data = await allMessageListGeneralService(user_id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== All Notification (Endpoint #4) ======
+
+export const allNotification = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const data = await allNotificationService(user_id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Verification Status (Endpoint #5) ======
+
+export const verificationStatusGeneral = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const data = await verificationStatusGeneralService(user_id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Follow Data List (Endpoint #6) ======
+
+export const followDataListGeneral = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const data = await followDataListGeneralService(user_id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Save Document (Endpoint #8) ======
+
+export const saveDocument = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { body } = req.validated as SaveDocumentBody;
+		const data = await saveDocumentService(user_id, body);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== All Read Notification (Endpoint #11) ======
+
+export const allReadNotification = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const data = await allReadNotificationService(user_id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Chat Message Read (Endpoint #12) ======
+
+export const chatMessageReadGeneral = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { params } = req.validated as ChatMessageReadIdParams;
+		const data = await chatMessageReadGeneralService(user_id, params.id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Remove Notification by Body (Endpoint #13) ======
+
+export const removeNotificationByBody = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { body } = req.validated as RemoveNotificationBody;
+		const data = await removeNotificationService(user_id, body.id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Clear All Notification (Endpoint #14) ======
+
+export const clearAllNotification = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const data = await clearAllNotificationService(user_id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Remove Notification by Params (Endpoint #15) ======
+
+export const removeNotificationByParams = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { params } = req.validated as RemoveNotificationParams;
+		const data = await removeNotificationService(user_id, params.id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Unfollow (Endpoint #16) ======
+
+export const unfollow = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { params } = req.validated as UnfollowParams;
+		const data = await unfollowService(user_id, params.id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Remove Follower (Endpoint #17) ======
+
+export const removeFollower = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { params } = req.validated as RemoveFollowerParams;
+		const data = await removeFollowerService(user_id, params.id);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Multi Unfollow (Endpoint #18) ======
+
+export const multiUnfollow = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { body } = req.validated as MultiUnfollowBody;
+		const data = await multiUnfollowService(user_id, body.user_ids);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Multi Remove Follower (Endpoint #19) ======
+
+export const multiRemoveFollower = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { body } = req.validated as MultiRemoveFollowerBody;
+		const data = await multiRemoveFollowerService(user_id, body.user_ids);
+		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
 
