@@ -20,11 +20,14 @@ Seven REST endpoints for managing employee documents and languages. All endpoint
 
 ### Language Routes
 
+> **Path note:** Node paths match PHP legacy names (`add_language`, `allLanguage`, `language/:id`).
+
 | Method   | Path                                       | Controller Method                                | Description                    |
 |----------|--------------------------------------------|--------------------------------------------------|--------------------------------|
-| `POST`   | `/wapi/employee/add-language`              | `addLanguage`                                    | Create/update language         |
-| `GET`    | `/wapi/employee/all-language`              | `allLanguageList`                                | List all languages             |
-| `DELETE` | `/wapi/employee/delete-language/:id`       | `deleteLanguage`                                 | Hard-delete language           |
+| `POST`   | `/wapi/employee/add_language`              | `addLanguage`                                    | Create/update language         |
+| `GET`    | `/wapi/employee/allLanguage`               | `allLanguageList`                                | List all languages             |
+| `GET`    | `/wapi/employee/language-detail/:id`       | `languageDetail`                                 | Single language detail         |
+| `DELETE` | `/wapi/employee/language/:id`              | `deleteLanguage`                                 | Delete language                |
 
 ---
 
@@ -527,7 +530,7 @@ curl -X POST http://localhost:3000/wapi/employee/add-document \
 ### Add Language
 
 ```bash
-curl -X POST http://localhost:3000/wapi/employee/add-language \
+curl -X POST http://localhost:3000/wapi/employee/add_language \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{

@@ -9,13 +9,16 @@ Five REST endpoints for managing employee employment experience (CRUD: Create/Up
 
 ## Routes
 
+> **Path note:** Node uses PHP spelling `employement` (not `experience` / `employment`).
+
 | Method   | Path                                       | Controller Method                                | Description                    |
 |----------|--------------------------------------------|--------------------------------------------------|--------------------------------|
-| `GET`    | `/wapi/employee/all-experience`            | `allExperience`                                  | List all experiences           |
-| `POST`   | `/wapi/employee/add-experience`            | `addExperience`                                  | Create new experience          |
-| `POST`   | `/wapi/employee/add-experience/:id`        | `addExperience`                                  | Update existing experience     |
-| `GET`    | `/wapi/employee/experience-detail/:id`     | `detailExperience`                               | Get single experience detail   |
-| `DELETE` | `/wapi/employee/delete-experience/:id`     | `deleteExperience`                               | Soft-delete experience         |
+| `GET`    | `/wapi/employee/all-employement`           | `allExperience`                                  | List all experiences           |
+| `GET`    | `/wapi/employee/allEmployementNew`         | `allEmployementNew`                              | Alternate list payload         |
+| `POST`   | `/wapi/employee/add-employement`           | `addExperience`                                  | Create new experience          |
+| `POST`   | `/wapi/employee/add-employement/:id`       | `updateExperience`                               | Update existing experience     |
+| `GET`    | `/wapi/employee/employement-detail/:id`    | `detailExperience`                               | Get single experience detail   |
+| `DELETE` | `/wapi/employee/delete-employement/:id`    | `deleteExperience`                               | Soft-delete experience         |
 
 ---
 
@@ -395,7 +398,7 @@ Same as List, plus additional fields:
 ### Add Experience (with file upload)
 
 ```bash
-curl -X POST http://localhost:3000/wapi/employee/add-experience \
+curl -X POST http://localhost:3000/wapi/employee/add-employement \
   -H "Authorization: Bearer <token>" \
   -H "Content-Type: application/json" \
   -d '{

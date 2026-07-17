@@ -28,8 +28,35 @@ All endpoints (except where noted) require a JWT token in the `Authorization` he
 ## Base URL
 
 ```
-/api
+/wapi
 ```
+
+> **Node note:** All paths below are under `/wapi` (not `/api`). Example: `GET /wapi/general/verify-authtoken`.
+
+---
+
+
+
+## Node implementation status
+
+Most general/auth/notification/follow endpoints in this doc are implemented under:
+
+| Area | Route mount | Route file |
+|------|-------------|------------|
+| General lists + social | `/wapi/general` | `src/routes/general.route.ts` |
+| Root multi + logout + company-list | `/wapi` | `src/routes/root.route.ts` |
+| User phone/email | `/wapi/user` | `src/routes/user.route.ts` |
+
+**Aligned with PHP (path/method):**
+- `GET /wapi/logout` (not POST)
+- `DELETE /wapi/notifications/clear-all-notification`
+- `POST /wapi/multi-unfollow` (body `user_ids`)
+- `POST /wapi/general/multi-remove-follower`
+- `DELETE /wapi/employee/removeNotification` (body id)
+- `DELETE /wapi/removeNotification/:id`
+- `POST /wapi/claim-company` (root, not under general)
+
+**Still out of scope here:** OTP / email OTP / KYC (verifyAadhar, verifyGst, verifyDigilocker, etc.).
 
 ---
 
@@ -67,7 +94,7 @@ All endpoints wrap responses in a consistent envelope:
 
 ## GET Endpoints
 
-### 1. `GET /api/general/verify-authtoken`
+### 1. `GET /wapi/general/verify-authtoken`
 
 **Function:** `verifyAuthToken`
 
@@ -75,7 +102,7 @@ All endpoints wrap responses in a consistent envelope:
 
 **Request:**
 ```
-GET /api/general/verify-authtoken
+GET /wapi/general/verify-authtoken
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -112,7 +139,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 2. `GET /api/general/doc-list/:id`
+### 2. `GET /wapi/general/doc-list/:id`
 
 **Function:** `allDocList`
 
@@ -120,7 +147,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-GET /api/general/doc-list/2
+GET /wapi/general/doc-list/2
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 - Path Parameter: `id` (numeric) — page number or user/category ID
@@ -175,7 +202,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 3. `GET /api/general/all-message`
+### 3. `GET /wapi/general/all-message`
 
 **Function:** `allMessageList`
 
@@ -183,7 +210,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-GET /api/general/all-message
+GET /wapi/general/all-message
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -237,7 +264,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 4. `GET /api/general/all-notification`
+### 4. `GET /wapi/general/all-notification`
 
 **Function:** `allNotification`
 
@@ -245,7 +272,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-GET /api/general/all-notification
+GET /wapi/general/all-notification
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -295,7 +322,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 5. `GET /api/general/verificationStatus`
+### 5. `GET /wapi/general/verificationStatus`
 
 **Function:** `verificationStatus`
 
@@ -303,7 +330,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-GET /api/general/verificationStatus
+GET /wapi/general/verificationStatus
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -331,7 +358,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 6. `GET /api/general/followDataList`
+### 6. `GET /wapi/general/followDataList`
 
 **Function:** `followDataList`
 
@@ -339,7 +366,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-GET /api/general/followDataList
+GET /wapi/general/followDataList
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -383,7 +410,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ## POST Endpoints
 
-### 7. `POST /api/logout`
+### 7. `GET /wapi/logout`
 
 **Function:** `logout`
 
@@ -391,7 +418,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-POST /api/logout
+GET /wapi/logout
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
@@ -417,7 +444,7 @@ Content-Type: application/json
 
 ---
 
-### 8. `POST /api/general/saveDocument`
+### 8. `POST /wapi/general/saveDocument`
 
 **Function:** `saveDocument`
 
@@ -425,7 +452,7 @@ Content-Type: application/json
 
 **Request:**
 ```
-POST /api/general/saveDocument
+POST /wapi/general/saveDocument
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
@@ -483,7 +510,7 @@ Content-Type: application/json
 
 ---
 
-### 9. `POST /api/user/updatePhone`
+### 9. `POST /wapi/user/updatePhone`
 
 **Function:** `updatePhone`
 
@@ -491,7 +518,7 @@ Content-Type: application/json
 
 **Request:**
 ```
-POST /api/user/updatePhone
+POST /wapi/user/updatePhone
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
@@ -540,7 +567,7 @@ Content-Type: application/json
 
 ---
 
-### 10. `POST /api/user/updateEmail`
+### 10. `POST /wapi/user/updateEmail`
 
 **Function:** `updateEmail`
 
@@ -548,7 +575,7 @@ Content-Type: application/json
 
 **Request:**
 ```
-POST /api/user/updateEmail
+POST /wapi/user/updateEmail
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
@@ -598,7 +625,7 @@ Content-Type: application/json
 
 ## PUT Endpoints
 
-### 11. `PUT /api/general/allReadNotification`
+### 11. `PUT /wapi/general/allReadNotification`
 
 **Function:** `allReadNotification`
 
@@ -606,7 +633,7 @@ Content-Type: application/json
 
 **Request:**
 ```
-PUT /api/general/allReadNotification
+PUT /wapi/general/allReadNotification
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -627,7 +654,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 12. `PUT /api/general/chatMessageRead/:id`
+### 12. `PUT /wapi/general/chatMessageRead/:id`
 
 **Function:** `chatMessageRead`
 
@@ -635,7 +662,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-PUT /api/general/chatMessageRead/9001
+PUT /wapi/general/chatMessageRead/9001
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 - Path Parameter: `id` (numeric) — message ID
@@ -670,7 +697,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ## DELETE Endpoints
 
-### 13. `DELETE /api/employee/removeNotification`
+### 13. `DELETE /wapi/employee/removeNotification`
 
 **Function:** `removeNotification`
 
@@ -678,7 +705,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-DELETE /api/employee/removeNotification
+DELETE /wapi/employee/removeNotification
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
@@ -714,7 +741,7 @@ Content-Type: application/json
 
 ---
 
-### 14. `DELETE /api/notifications/clear-all-notification`
+### 14. `DELETE /wapi/notifications/clear-all-notification`
 
 **Function:** `clearAllNotification`
 
@@ -722,7 +749,7 @@ Content-Type: application/json
 
 **Request:**
 ```
-DELETE /api/notifications/clear-all-notification
+DELETE /wapi/notifications/clear-all-notification
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 
@@ -744,7 +771,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 15. `DELETE /api/removeNotification/:id`
+### 15. `DELETE /wapi/removeNotification/:id`
 
 **Function:** `removeNotification`
 
@@ -752,7 +779,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-DELETE /api/removeNotification/5001
+DELETE /wapi/removeNotification/5001
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 - Path Parameter: `id` (numeric) — notification ID
@@ -783,7 +810,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 16. `DELETE /api/general/unfollow/:id`
+### 16. `DELETE /wapi/general/unfollow/:id`
 
 **Function:** `unfollow`
 
@@ -791,7 +818,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-DELETE /api/general/unfollow/103
+DELETE /wapi/general/unfollow/103
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 - Path Parameter: `id` (numeric) — user ID to unfollow
@@ -823,7 +850,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 17. `DELETE /api/general/removeFollower/:id`
+### 17. `DELETE /wapi/general/removeFollower/:id`
 
 **Function:** `removeFollower`
 
@@ -831,7 +858,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-DELETE /api/general/removeFollower/104
+DELETE /wapi/general/removeFollower/104
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 - Path Parameter: `id` (numeric) — follower user ID to remove
@@ -863,7 +890,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ---
 
-### 18. `DELETE /api/multi-unfollow`
+### 18. `POST /wapi/multi-unfollow`
 
 **Function:** `multi_unfollow`
 
@@ -871,7 +898,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 **Request:**
 ```
-DELETE /api/multi-unfollow
+POST /wapi/multi-unfollow
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 
@@ -900,7 +927,7 @@ Content-Type: application/json
 
 ---
 
-### 19. `DELETE /api/general/multi-remove-follower`
+### 19. `DELETE /wapi/general/multi-remove-follower`
 
 **Function:** `multi_remove_follower`
 
@@ -908,7 +935,7 @@ Content-Type: application/json
 
 **Request:**
 ```
-DELETE /api/general/multi-remove-follower
+DELETE /wapi/general/multi-remove-follower
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 Content-Type: application/json
 

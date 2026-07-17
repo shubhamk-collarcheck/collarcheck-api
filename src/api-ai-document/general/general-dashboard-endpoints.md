@@ -64,7 +64,9 @@
 | GET | `general/ratingFilter` | `ratingFilter` | Filter reviews by employment |
 | GET | `general/starRatingEmployies/:star` | `starRatingEmployees` | Star-rated employees |
 | GET | `general/user-profile/:slug` | `userProfile` | Public user profile by slug |
-| GET | `people-list-signup` | `peopleList` | People list for signup flow (route: `/wapi/people-list` via `root.route.ts`) |
+| GET | `people-list-signup` | `peopleListSignup` | Public people list (`/wapi/people-list-signup`, query `user_id`) |
+| GET | `people-list` | `peopleList` | Auth people list (`/wapi/people-list`) |
+| GET | `general/skill/:id` | `skillByCategory` | Skills by `cyb_skill.category` |
 
 ### Misc
 
@@ -72,10 +74,10 @@
 |--------|-------|---------|-------------|
 | POST | `general/add-suggestion` | `addSuggestion` | Submit a suggestion (inserts into `cyb_suggestion`) |
 | GET | `general/inviteDetail/:token` | `inviteDetail` | Fetch invite details from `cyb_company_invite` |
-| GET | `general/verify-document-before-registration` | — | **NOT IMPLEMENTED** |
-| GET | `general/verify-gst-before-registration` | — | **NOT IMPLEMENTED** |
+| GET | `general/verify-document-before-registration` | — | **NOT IMPLEMENTED** (OTP/KYC scope) |
+| GET | `general/verify-gst-before-registration` | — | **NOT IMPLEMENTED** (OTP/KYC scope) |
 
-> **Note:** `general/skill/:num` (skills filtered by `category`) is **skipped** — the `cyb_skill` table has no `category`/`department` column.
+> **Note:** `general/skill/:id` is implemented; Drizzle schema includes optional `category` on `cyb_skill`.
 
 ---
 
@@ -402,11 +404,16 @@ Public user profile by slug. Returns full profile with employment history (appro
 
 ## 38. GET `people-list-signup`
 
-**Controller:** `peopleList` — `src/controllers/common-auth.controller.ts` (service: `peopleListService` in `src/services/common-auth.service.ts`; route: `/wapi/people-list` via `src/routes/root.route.ts`)
+**Controller:** `peopleListSignup` — `src/controllers/common-auth.controller.ts` (service: `peopleListService`; routes in `src/routes/root.route.ts`)
+
+| Route | Auth |
+|-------|------|
+| `GET /wapi/people-list-signup` | Public — requires query `user_id` |
+| `GET /wapi/people-list` | JWT — uses auth user id |
 
 People list for signup/exploring flow. Reads `user_details.exploring_details` (JSON array of IDs) to get selected users/companies, then returns available users/companies not yet selected.
 
-**Query Params:** `user_id` (optional, else uses auth ID)
+**Query Params:** `user_id` (**required** for public signup route)
 
 **Response:**
 ```json

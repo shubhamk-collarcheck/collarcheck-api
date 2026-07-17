@@ -7,15 +7,20 @@
 
 ## Routes Summary
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| GET | `company/getSetting` | `IndividualApi::getSetting` | Get company account settings |
-| POST | `company/saveSetting` | `IndividualApi::saveSetting` | Save/update company account settings |
-| POST | `company/edit-user` | `CompanyApi::editCompany` | Edit company profile (multi-step) |
-| GET | `company/all-connection` | `CompanyApi::allConnection` | List current + past employees |
-| GET | `company/all-employement` | `CompanyApi::companyWiseEmploymentDetails` | Employment verification list |
-| PUT | `company/update-employement/(:num)` | `CompanyApi::updateEmployement/$1` | Approve employment request |
-| GET | `company/all-wishlist` | `CompanyApi::allWishlist` | Company's wishlisted users |
+| Method | Route | Handler | Node | Description |
+|--------|-------|---------|------|-------------|
+| GET | `company/getSetting` | `IndividualApi::getSetting` | Yes | Get company account settings |
+| POST | `company/saveSetting` | `IndividualApi::saveSetting` | Yes | Save/update company account settings |
+| POST | `company/edit-user` | `CompanyApi::editCompany` | Yes | Edit company profile (multi-step) |
+| GET | `company/all-connection` | `CompanyApi::allConnection` | Yes | List current + past employees |
+| POST | `company/add-connection` | `CompanyApi::addConnection` | **Yes** | Add connection (`company.route.ts`) |
+| GET | `company/all-employement` | `CompanyApi::companyWiseEmploymentDetails` | Yes | Employment verification list |
+| PUT | `company/update-employement/(:num)` | `CompanyApi::updateEmployement/$1` | Yes | Approve employment request |
+| GET | `company/all-wishlist` | `CompanyApi::allWishlist` | Yes | Company's wishlisted users |
+| POST | `company/add-wishlist` | `CompanyApi::addWishlist` | **Yes** | Add user to wishlist |
+| DELETE | `company/delete-wishlist/(:num)` | `CompanyApi::deleteWishlist/$1` | **Yes** | Soft-delete wishlist row |
+
+See also [remaining-misc-crud-endpoints.md](../remaining-misc-crud-endpoints.md) for write contracts (#2–#4).
 
 ---
 

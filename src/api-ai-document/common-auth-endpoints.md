@@ -7,13 +7,17 @@
 
 ## Routes Summary
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| GET | `user/getSetting` | `IndividualApi::getSetting` | Get user account settings |
-| POST | `user/saveSetting` | `IndividualApi::saveSetting` | Save/update account settings |
-| GET | `auth/user-profile/(:any)` | `IndividualApi::authUserprofile/$1` | Full user profile (auth-gated view) |
-| POST | `company/sendUserProfileViewRequest` | `CompanyApi::sendUserProfileViewRequest` | Request salary/profile view access |
-| GET | `people-list` | `ModuleController::people_list` | Exploring people picker list |
+| Method | Route | Handler | Node | Description |
+|--------|-------|---------|------|-------------|
+| GET | `user/getSetting` | `IndividualApi::getSetting` | Yes | Get user account settings |
+| POST | `user/saveSetting` | `IndividualApi::saveSetting` | Yes | Save/update account settings |
+| POST | `user/updatePhone` | `GeneralApi::updatePhone` | Yes | Update phone |
+| POST | `user/updateEmail` | `GeneralApi::updateEmail` | Yes | Update email |
+| GET | `auth/user-profile/(:any)` | `IndividualApi::authUserprofile/$1` | Yes | Full user profile (auth-gated view) |
+| GET | `auth/company-profile/(:any)` | `CompanyApi::companyDetail/$1` | **Yes** | Auth company profile by slug |
+| POST | `company/sendUserProfileViewRequest` | `CompanyApi::sendUserProfileViewRequest` | Yes | Request salary/profile view access |
+| GET | `people-list` | `ModuleController::people_list` | Yes | Exploring people picker list (JWT) |
+| GET | `people-list-signup` | `ModuleController::people_list` | **Yes** | Same payload, public + `user_id` query |
 
 ---
 
@@ -391,15 +395,17 @@ This endpoint triggers **3 notifications** via SQS queues:
 
 ---
 
-## 5. GET `people-list`
+## 5. GET `people-list` / `people-list-signup`
 
-### Route
+### Routes
 ```
-GET /wapi/people-list
+GET /wapi/people-list              # JWT
+GET /wapi/people-list-signup       # public, requires ?user_id=
 ```
 
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+- `people-list`: JWT required. Acting user from token.
+- `people-list-signup`: no JWT; query `user_id` required (else `{ status: false, message: "ID is missing" }`).
 
 ### DB Queries
 ```

@@ -8,7 +8,9 @@ AI porting guide for **CRUD-only** endpoints. Goal: a new stack (Node/Express, N
 **Auth:** `Authorization: Bearer <jwt>` unless marked Public  
 **Acting user:** JWT `id` → request user. Header `X-Company: {companyId}` swaps acting id to company; original user in `user_id`.
 
-> **Out of scope:** globalSearch, OTP, email OTP, KYC/verifyDocument/Aadhaar/GST/Digilocker. Handle separately.
+> **Out of scope:** OTP, email OTP, KYC/verifyDocument/Aadhaar/GST/Digilocker (still separate). `globalSearch` already exists under `general/globalSearch`.
+>
+> **Node status (2026-07):** All **19** routes below are implemented. See [Node file map](#node-file-map).
 
 ---
 
@@ -61,36 +63,50 @@ Most handlers always return HTTP 200 with `status: false` for validation/busines
 
 ## Routes Summary
 
-| # | Method | Route | Auth | Impl | CRUD |
-|---|--------|-------|------|------|------|
-| 1 | GET | `employee/all-user` | JWT | Missing | R |
-| 2 | POST | `company/add-connection` | JWT | Missing | C |
-| 3 | POST | `company/add-wishlist` | JWT | Missing | C |
-| 4 | DELETE | `company/delete-wishlist/:id` | JWT | Missing | D |
-| 5 | POST | `company/add-document` | JWT | Missing (`addDocument_old` ref) | C |
-| 6 | GET | `company-list` | JWT | Yes | R |
-| 7 | GET | `auth/company-profile/:slug` | JWT | Yes | R |
-| 8 | GET | `general/company-profile/:slug` | Public | Yes | R |
-| 9 | GET | `people-list-signup` | Public | Yes | R |
-| 10 | DELETE | `general/delete-message/:id` | Legacy token | Yes | D |
-| 11 | POST | `general/send-message` | JWT | Yes | C |
-| 12 | POST | `general/follow` | JWT | Yes | C |
-| 13 | PUT | `general/acceptfollow/:id` | JWT | Yes | U |
-| 14 | DELETE | `general/rejectfollow/:id` | JWT | Yes | D |
-| 15 | POST | `multi-acceptfollow` | JWT | Yes | U |
-| 16 | POST | `multi-rejectfollow` | JWT | Yes | D |
-| 17 | POST | `multi-deleteViewRequest` | JWT | Yes | D |
-| 18 | POST | `multi-approvedVeiwRequest` | JWT | Yes | U |
-| 19 | GET | `general/skill/:id` | Public | Yes | R |
+| # | Method | Route | Auth | Impl | CRUD | Node route file |
+|---|--------|-------|------|------|------|-----------------|
+| 1 | GET | `employee/all-user` | JWT | **Yes** | R | `employee.route.ts` |
+| 2 | POST | `company/add-connection` | JWT | **Yes** | C | `company.route.ts` |
+| 3 | POST | `company/add-wishlist` | JWT | **Yes** | C | `company.route.ts` |
+| 4 | DELETE | `company/delete-wishlist/:id` | JWT | **Yes** | D | `company.route.ts` |
+| 5 | POST | `company/add-document` | JWT | **Yes** | C | `company.route.ts` |
+| 6 | GET | `company-list` | JWT | **Yes** | R | `root.route.ts` |
+| 7 | GET | `auth/company-profile/:slug` | JWT | **Yes** | R | `auth.route.ts` |
+| 8 | GET | `general/company-profile/:slug` | Public | **Yes** | R | `general.route.ts` |
+| 9 | GET | `people-list-signup` | Public | **Yes** | R | `root.route.ts` |
+| 10 | DELETE | `general/delete-message/:id` | JWT | **Yes** | D | `general.route.ts` |
+| 11 | POST | `general/send-message` | JWT | **Yes** | C | `general.route.ts` (alias of company message) |
+| 12 | POST | `general/follow` | JWT | **Yes** | C | `general.route.ts` |
+| 13 | PUT | `general/acceptfollow/:id` | JWT | **Yes** | U | `general.route.ts` |
+| 14 | DELETE | `general/rejectfollow/:id` | JWT | **Yes** | D | `general.route.ts` |
+| 15 | POST | `multi-acceptfollow` | JWT | **Yes** | U | `root.route.ts` |
+| 16 | POST | `multi-rejectfollow` | JWT | **Yes** | D | `root.route.ts` |
+| 17 | POST | `multi-deleteViewRequest` | JWT | **Yes** | D | `root.route.ts` |
+| 18 | POST | `multi-approvedVeiwRequest` | JWT | **Yes** | U | `root.route.ts` |
+| 19 | GET | `general/skill/:id` | Public | **Yes** | R | `general.route.ts` |
+
+### Node file map
+
+| Area | Types | Service | Controller | Repository |
+|------|-------|---------|------------|------------|
+| Company connection / wishlist / document | `types/company.types.ts` | `services/company.service.ts` | `controllers/company.controller.ts` | `repositery/company.repositery.ts` |
+| Company list | `types/general.types.ts` (`companyListRootQuerySchema`) | `services/company-employee-request.service.ts` | `controllers/company-employee-request.controller.ts` | `repositery/company-employee-request.repositery.ts` |
+| Company profile (auth + public) | `types/general.types.ts` | `services/misc.service.ts` (`companyProfileService`) | `controllers/misc.controller.ts` / `general.controller.ts` | `repositery/misc.repositery.ts` |
+| People list signup | — | `services/common-auth.service.ts` | `controllers/common-auth.controller.ts` | `repositery/common-auth.repositery.ts` |
+| All-user | `types/general.types.ts` | `services/misc.service.ts` (`allUserService`) | `controllers/misc.controller.ts` | `repositery/common-auth.repositery.ts` |
+| Follow / delete-message / skill | `types/general.types.ts` | `services/general.service.ts` | `controllers/general.controller.ts` | `repositery/general.repositery.ts` / `skill.repositery.ts` |
+| Multi view-request | `types/job-dashboard.types.ts` | `services/job-dashboard.service.ts` | `controllers/job-dashboard.controller.ts` | `repositery/job-dashboard.repositery.ts` |
+
+**Postman:** `collarcheck.postman_collection.json` includes these endpoints.
 
 ---
 
-# A. Missing handlers (define contract for Node; old API 404s today)
+# A. Write / list handlers (implemented in Node)
 
 ## 1. GET `/wapi/employee/all-user`
 
 **Auth:** JWT  
-**Status today:** Method missing → 404  
+**Node:** `GET /wapi/employee/all-user` → `allUser` / `allUserService`
 
 ### Suggested request
 | Query | Type | Default |
@@ -131,7 +147,8 @@ Most handlers always return HTTP 200 with `status: false` for validation/busines
 
 ## 2. POST `/wapi/company/add-connection`
 
-**Auth:** JWT (company id). Menu permission id `5` recommended (same as `all-connection`).
+**Auth:** JWT (company id via `X-Company` / auth `id`). Menu permission id `5` recommended (same as `all-connection`; Node best-effort, no full menu helper yet).  
+**Node:** `addConnection` / `addConnectionService`
 
 ### Request body
 ```json
@@ -168,6 +185,7 @@ HTTP **403** for permission (same pattern as other company routes).
 ## 3. POST `/wapi/company/add-wishlist`
 
 **Auth:** JWT company  
+**Node:** `addWishlist` / `addWishlistService`
 
 ### Request
 ```json
@@ -198,7 +216,8 @@ VALUES (:companyId, :userId, 1, NOW(), NOW());
 ## 4. DELETE `/wapi/company/delete-wishlist/:id`
 
 **Auth:** JWT company  
-**Path:** `id` = `company_wishlist.id`
+**Path:** `id` = `company_wishlist.id`  
+**Node:** `deleteWishlist` / `deleteWishlistService` (soft-delete `status=0`)
 
 ### Success
 ```json
@@ -225,7 +244,8 @@ WHERE id = :id AND company = :companyId;
 ## 5. POST `/wapi/company/add-document`
 
 **Auth:** JWT company  
-**Content-Type:** `multipart/form-data`
+**Content-Type:** `multipart/form-data`  
+**Node:** `addCompanyDocument` / `addCompanyDocumentService` → `cyb_company_document`
 
 ### Request fields
 | Field | Type | Required |
@@ -260,12 +280,13 @@ WHERE id = :id AND company = :companyId;
 
 ---
 
-# B. Implemented CRUD
+# B. Read / social / multi-action contracts (implemented in Node)
 
 ## 6. GET `/wapi/company-list`
 
 **Auth:** JWT  
-**Handler:** `CompanyApi::company_list`
+**Handler:** `CompanyApi::company_list`  
+**Node:** `GET /wapi/company-list` → `companyList` / `companyListService`
 
 ### Query
 | Param | Default |
@@ -364,7 +385,8 @@ WHERE id = :id AND company = :companyId;
 
 **Auth:** JWT  
 **Handler:** `CompanyApi::companyDetail`  
-**Permission:** if JWT `user_type == 2`, `checkMenuAccess(loginUserId, companyId, 2)` → 403
+**Permission:** if JWT `user_type == 2`, `checkMenuAccess(loginUserId, companyId, 2)` → 403  
+**Node:** `authCompanyProfile` / `companyProfileService(slug, { viewerId, isPublic: false })`
 
 ### Success response (full field contract)
 ```json
@@ -533,7 +555,8 @@ WHERE id = :id AND company = :companyId;
 ## 8. GET `/wapi/general/company-profile/:slug`
 
 **Auth:** Public  
-**Handler:** `GeneralApi::companyprofile`
+**Handler:** `GeneralApi::companyprofile`  
+**Node:** `generalCompanyProfile` / `companyProfileService(slug, { isPublic: true })`
 
 ### Success — same core company fields as #7, with these differences
 ```json
@@ -633,7 +656,8 @@ WHERE id = :id AND company = :companyId;
 
 **Auth:** Public (pass `user_id`)  
 **Handler:** `ModuleController::people_list`  
-**Auth twin:** `GET /wapi/people-list` (JWT, same body)
+**Auth twin:** `GET /wapi/people-list` (JWT, same body)  
+**Node:** `peopleListSignup` (public) / `peopleList` (JWT) → `peopleListService`
 
 ### Query
 | Param | Required |
@@ -712,6 +736,7 @@ WHERE id = :id AND company = :companyId;
 ## 10. DELETE `/wapi/general/delete-message/:id`
 
 **Auth:** Legacy — header `Authorization: <token>` must match `user.token` (not necessarily `Bearer ` JWT filter).  
+**Node:** Uses standard `Authorization` middleware (Bearer or raw token accepted). Soft-deletes `cyb_message_history` row.  
 **Query required:** `user_type=user` or `user_type=company`
 
 ### Example
@@ -754,6 +779,7 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 
 **Auth:** JWT  
 **Also:** `POST /wapi/general/send-message-company` → same handler  
+**Node:** both routes call `addMessage` / `addMessageService`  
 **Body:** form-data or JSON
 
 ### Request
@@ -789,6 +815,7 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ## 12. POST `/wapi/general/follow`
 
 **Auth:** JWT (`followed_id` = current user)  
+**Node:** `follow` / `followUserService` — company targets auto-accept (`status=1`); users pending (`status=0`)  
 **Body:**
 ```json
 { "follower_id": 200 }
@@ -825,7 +852,8 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ## 13. PUT `/wapi/general/acceptfollow/:id`
 
 **Auth:** JWT  
-**Path `id`:** `follow.id`
+**Path `id`:** `follow.id`  
+**Node:** `acceptFollow` / `acceptFollowService`
 
 ### Success
 ```json
@@ -852,7 +880,8 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 
 **Auth:** JWT  
 **Path `id`:** `follow.id`  
-Soft-delete: `is_deleted = 1`
+Soft-delete: `is_deleted = 1`  
+**Node:** `rejectFollow` / `rejectFollowService`
 
 ### Success
 ```json
@@ -878,6 +907,7 @@ Soft-delete: `is_deleted = 1`
 ## 15. POST `/wapi/multi-acceptfollow`
 
 **Auth:** JWT  
+**Node:** `root.route.ts` → `multiAcceptFollow`  
 **Body:**
 ```json
 { "id": [12, 15, 18] }
@@ -909,6 +939,7 @@ Soft-delete: `is_deleted = 1`
 ## 16. POST `/wapi/multi-rejectfollow`
 
 **Auth:** JWT  
+**Node:** `root.route.ts` → `multiRejectFollow`  
 **Body:**
 ```json
 { "id": [12, 15] }
@@ -938,6 +969,7 @@ Soft-delete: `is_deleted = 1`
 ## 17. POST `/wapi/multi-deleteViewRequest`
 
 **Auth:** JWT (employee)  
+**Node:** `multiDeleteViewRequest` / `multiDeleteViewRequestService`  
 **Body:**
 ```json
 { "id": [3, 4] }
@@ -972,6 +1004,7 @@ Soft-deletes rows in `user_profile_view_request` where `userid = currentUser`.
 ## 18. POST `/wapi/multi-approvedVeiwRequest`
 
 **Auth:** JWT  
+**Node:** `multiApprovedVeiwRequest` (wraps single approve service)  
 **Note:** Name is misspelled `Veiw`. Despite `multi-`, body is **single** id.
 
 ### Request
@@ -1020,7 +1053,8 @@ Also inserts a notification to `companyid`.
 ## 19. GET `/wapi/general/skill/:id`
 
 **Auth:** Public  
-**Path `id`:** skill **category** id (`skill.category`)
+**Path `id`:** skill **category** id (`skill.category`)  
+**Node:** `skillByCategory` / `skillByCategoryService` — schema field `cyb_skill.category`
 
 ### Success
 ```json
@@ -1083,7 +1117,10 @@ Also inserts a notification to `companyid`.
 
 | Topic | File |
 |-------|------|
-| Company connection/wishlist **reads** | `company/company-endpoints.md` |
-| Employee view-request singles | `employee-job-dashboard-viewrequest-endpoints.md` |
-| Left-out stubs | `left-out-api.md` |
+| Doc index (all modules) | [README.md](./README.md) |
+| Company connection/wishlist **reads + writes** | `company/company-endpoints.md` |
+| Company add-document | `company/company-document-review-endpoints.md` |
+| Employee view-request singles + multi | `employee-job-dashboard-viewrequest-endpoints.md` |
+| General follow / notify / logout paths | `general/half-of-next-general-api.md` |
 | Auth people-list | `common-auth-endpoints.md` |
+| Still out of scope (OTP/KYC) | (not ported — separate work) |

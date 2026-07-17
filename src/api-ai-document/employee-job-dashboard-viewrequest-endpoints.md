@@ -19,21 +19,23 @@ Thirteen REST endpoints for job applications, dashboard summary, profile view re
 
 ## Routes
 
-| Method   | Path                                        | Controller Method                       | Description                           |
-|----------|---------------------------------------------|-----------------------------------------|---------------------------------------|
-| `POST`   | `/wapi/employee/apply-job`                  | `IndividualApi::applyJob`               | Apply to a job                        |
-| `GET`    | `/wapi/employee/all-user`                   | `IndividualApi::allUser`                | ⚠️ NOT IMPLEMENTED (returns 404)     |
-| `GET`    | `/wapi/employee/applyJobList`               | `IndividualApi::applyJobList`           | List all applied job IDs              |
-| `GET`    | `/wapi/employee/ProfilePercentage`          | `IndividualApi::ProfilePercentage`      | Get profile completion percentage     |
-| `PUT`    | `/wapi/employee/approvedEmployment/{id}`    | `IndividualApi::approvedEmployment`     | Approve employment verification       |
-| `GET`    | `/wapi/employee/AllViewRequest`             | `IndividualApi::AllViewRequest`         | List all profile view requests        |
-| `POST`   | `/wapi/employee/approvedVeiwRequest`        | `IndividualApi::approvedVeiwRequest`    | Approve a profile view request        |
-| `PUT`    | `/wapi/employee/rejectVeiwRequest/{id}`     | `IndividualApi::rejectVeiwRequest`      | Reject a profile view request         |
-| `DELETE` | `/wapi/employee/deleteViewRequest/{id}`     | `IndividualApi::deleteViewRequest`      | Soft-delete a view request            |
-| `GET`    | `/wapi/employee/checkCurrentCompany`        | `IndividualApi::checkCurrentCompany`    | Check current company employment      |
-| `GET`    | `/wapi/employee/dashboard`                  | `IndividualApi::dashboard`              | Dashboard summary data                |
-| `GET`    | `/wapi/employee/appliedjob`                 | `IndividualApi::appliedjob`             | Paginated list of applied jobs        |
-| `DELETE` | `/wapi/employee/remove-resume`              | `IndividualApi::removeResume`           | Remove uploaded resume                |
+| Method   | Path                                        | Controller Method                       | Node | Description                           |
+|----------|---------------------------------------------|-----------------------------------------|------|---------------------------------------|
+| `POST`   | `/wapi/employee/apply-job`                  | `IndividualApi::applyJob`               | Yes | Apply to a job                        |
+| `GET`    | `/wapi/employee/all-user`                   | `IndividualApi::allUser`                | **Yes** | User list (`allUserService`)     |
+| `GET`    | `/wapi/employee/applyJobList`               | `IndividualApi::applyJobList`           | Yes | List all applied job IDs              |
+| `GET`    | `/wapi/employee/ProfilePercentage`          | `IndividualApi::ProfilePercentage`      | Yes | Get profile completion percentage     |
+| `PUT`    | `/wapi/employee/approvedEmployment/{id}`    | `IndividualApi::approvedEmployment`     | Yes | Approve employment verification       |
+| `GET`    | `/wapi/employee/AllViewRequest`             | `IndividualApi::AllViewRequest`         | Yes | List all profile view requests        |
+| `POST`   | `/wapi/employee/approvedVeiwRequest`        | `IndividualApi::approvedVeiwRequest`    | Yes | Approve a profile view request        |
+| `PUT`    | `/wapi/employee/rejectVeiwRequest/{id}`     | `IndividualApi::rejectVeiwRequest`      | Yes | Reject a profile view request         |
+| `DELETE` | `/wapi/employee/deleteViewRequest/{id}`     | `IndividualApi::deleteViewRequest`      | Yes | Soft-delete a view request            |
+| `GET`    | `/wapi/employee/checkCurrentCompany`        | `IndividualApi::checkCurrentCompany`    | Yes | Check current company employment      |
+| `GET`    | `/wapi/employee/dashboard`                  | `IndividualApi::dashboard`              | Yes | Dashboard summary data                |
+| `GET`    | `/wapi/employee/appliedjob`                 | `IndividualApi::appliedjob`             | Yes | Paginated list of applied jobs        |
+| `DELETE` | `/wapi/employee/remove-resume`              | `IndividualApi::removeResume`           | Yes | Remove uploaded resume                |
+| `POST`   | `/wapi/multi-deleteViewRequest`             | multi delete view requests              | **Yes** | Soft-delete many (`root.route.ts`) |
+| `POST`   | `/wapi/multi-approvedVeiwRequest`           | multi approve (single id body)          | **Yes** | Approve one via multi route        |
 
 ---
 
@@ -127,11 +129,37 @@ VALUES (:jobId, :authUserId, NOW(), NOW())
 
 ---
 
-## Endpoint 2: GET All User (⚠️ NOT IMPLEMENTED)
+## Endpoint 2: GET All User
 
-**Path:** `GET /wapi/employee/all-user`
+**Path:** `GET /wapi/employee/all-user`  
+**Node:** `employee.route.ts` → `allUser` → `allUserService` (`misc.service.ts`)
 
-The route references `IndividualApi::allUser` but this method does **not exist** in the controller. Will return a 404.
+**Query:** `keyword?`, `limit` (default 10), `offset` (page number).
+
+**Success:**
+```json
+{
+  "status": true,
+  "messages": "User list",
+  "data": {
+    "list": [
+      {
+        "id": 101,
+        "individual_id": "U101",
+        "name": "John Doe",
+        "profile": "https://cdn.example.com/a.jpg",
+        "slug": "john-doe",
+        "designation_name": "Engineer",
+        "city_name": "Mumbai",
+        "is_verified": true
+      }
+    ],
+    "count": 1
+  }
+}
+```
+
+Full contract: [remaining-misc-crud-endpoints.md §1](./remaining-misc-crud-endpoints.md).
 
 ---
 
@@ -790,7 +818,7 @@ Returns nothing (function exits early without setting `$response`).
 
 ## Implementation Notes for Cross-Language Porting
 
-1. **`allUser` is missing:** The route exists but the controller method does not. Will return 404.
+1. **`allUser` is implemented in Node:** `GET /wapi/employee/all-user` → `allUserService`.
 2. **`applyJobList` returns IDs only:** Just an array of job IDs in `data`, not full job details. Use `appliedjob` for the full paginated list.
 3. **`applyJob` duplicate check:** The check is on `job + user` pair in the `application` table — not on job status. Even inactive jobs are checked for duplicates, but only active jobs (`company_job.status = 1`) pass validation.
 4. **`approvedEmployment` auto-sets current company:** If the user has no `current_company` set and the experience has `still_working = 1`, it auto-assigns the company/designation to the user profile.

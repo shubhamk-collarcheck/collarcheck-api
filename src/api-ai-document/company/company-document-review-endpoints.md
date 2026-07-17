@@ -7,24 +7,49 @@
 
 ## Routes Summary
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| POST | `company/add-document` | `CompanyApi::addDocument` | **404 — method not implemented** |
-| GET | `company/all-review` | `CompanyApi::allReview` | List all reviews for company's employees |
-| POST | `company/add-review` | `CompanyApi::addReview` | Create new review |
-| POST | `company/add-review/(:num)` | `CompanyApi::addReview/$1` | Update existing review |
-| PUT | `company/rejectReview/(:num)` | `CompanyApi::rejectReview/$1` | Reject a review request |
-| GET | `company/view-review/(:num)` | `CompanyApi::view_review_Detail/$1` | View reviews for specific experience |
-| POST | `company/add-help` | `CompanyApi::addHelp` | Submit help request for experience |
-| GET | `company/allapplication` | `CompanyApi::allApplication` | List job applications |
-| PUT | `company/updateBasicExperience/(:num)` | `CompanyApi::updateBasicExperience/$1` | Approve employee experience update |
+| Method | Route | Handler | Node | Description |
+|--------|-------|---------|------|-------------|
+| POST | `company/add-document` | `CompanyApi::addDocument` | **Yes** | Upload company documents (multipart) |
+| GET | `company/all-review` | `CompanyApi::allReview` | Yes | List all reviews for company's employees |
+| POST | `company/add-review` | `CompanyApi::addReview` | Yes | Create new review |
+| POST | `company/add-review/(:num)` | `CompanyApi::addReview/$1` | Yes | Update existing review |
+| PUT | `company/rejectReview/(:num)` | `CompanyApi::rejectReview/$1` | Yes | Reject a review request |
+| GET | `company/view-review/(:num)` | `CompanyApi::view_review_Detail/$1` | Yes | View reviews for specific experience |
+| POST | `company/add-help` | `CompanyApi::addHelp` | Yes | Submit help request for experience |
+| GET | `company/allapplication` | `CompanyApi::allApplication` | Yes | List job applications |
+| PUT | `company/updateBasicExperience/(:num)` | `CompanyApi::updateBasicExperience/$1` | Yes | Approve employee experience update |
 
 ---
 
 ## 1. POST `company/add-document`
 
-### ⚠️ NOT IMPLEMENTED
-Route exists in `Routes.php` but the method `CompanyApi::addDocument` does not exist (only `addDocument_old` exists). Returns **404**.
+### Node status: **implemented**
+
+| Item | Value |
+|------|--------|
+| Route | `POST /wapi/company/add-document` |
+| Files | `company.route.ts` → `addCompanyDocument` → `addCompanyDocumentService` → `company.repositery.createCompanyDocument` |
+| Content-Type | `multipart/form-data` |
+| Fields | `doctype` (array or single), `document` files (parallel to doctype) |
+| DB | `cyb_company_document` |
+
+### Success
+```json
+{ "status": true, "messages": "Successfully added" }
+```
+
+### Errors (legacy strings)
+```json
+{ "status": false, "messages": "Doc Type field is required" }
+```
+```json
+{ "status": false, "messages": "document not uploaded" }
+```
+```json
+{ "status": false, "messages": "Something Went Wrong" }
+```
+
+Full contract: [remaining-misc-crud-endpoints.md §5](../remaining-misc-crud-endpoints.md).
 
 ---
 
@@ -497,7 +522,7 @@ JWT required. `$this->request->id` = company ID.
 ## Cross-Language Porting Notes
 
 ### addDocument
-- **Not implemented** — route exists, method missing. See left-out-api.md.
+- **Implemented in Node:** `POST /wapi/company/add-document` → `addCompanyDocumentService` / `cyb_company_document`.
 
 ### allReview
 - Complex aggregation: merges regular reviews + lastReview-flagged employment records.
