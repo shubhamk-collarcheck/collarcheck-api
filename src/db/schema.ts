@@ -1040,6 +1040,7 @@ export const cybSkill = mysqlTable("cyb_skill", {
 	id: int().autoincrement().primaryKey().notNull(),
 	name: text(),
 	status: int().default(1).notNull(),
+	category: int(),
 	userId: int("user_id"),
 	userDefined: int("user_defined"),
 	createDate: datetime("create_date", { mode: 'string' }),

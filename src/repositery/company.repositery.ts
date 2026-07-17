@@ -9,7 +9,7 @@ import {
 	cybUserDomains, cybNotifications, cybUserExperienceRating,
 	cybCompanySize, cybTurnover, cybAccomodation, cybWorkType,
 	cybGender, cybNoticePeriod, cybAccountSetting,
-	cybCompanyInvite,
+	cybCompanyInvite, cybCompanyConnection, cybCompanyDocument,
 } from '../db/schema';
 
 class companyRepositery {
@@ -581,6 +581,87 @@ class companyRepositery {
 			.where(eq(cybUser.id, userId))
 			.limit(1);
 		return row;
+	}
+
+	// ====== Connection / Wishlist / Company Document writes ======
+
+	async findConnection(companyId: number, userId: number) {
+		const [row] = await db.select()
+			.from(cybCompanyConnection)
+			.where(and(
+				eq(cybCompanyConnection.company, companyId),
+				eq(cybCompanyConnection.user, userId),
+				eq(cybCompanyConnection.status, 1),
+			))
+			.limit(1);
+		return row;
+	}
+
+	async createConnection(data: {
+		company: number;
+		user: number;
+		currentEmployee?: number;
+	}) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const [{ id }] = await db.insert(cybCompanyConnection).values({
+			company: data.company,
+			user: data.user,
+			currentEmployee: data.currentEmployee ?? 0,
+			status: 1,
+			createDate: now,
+			modifyDate: now,
+		}).$returningId();
+		return id;
+	}
+
+	async createWishlist(companyId: number, userId: number) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const [{ id }] = await db.insert(cybCompanyWishlist).values({
+			company: companyId,
+			user: userId,
+			status: 1,
+			createDate: now,
+			modifyDate: now,
+		}).$returningId();
+		return id;
+	}
+
+	async softDeleteWishlist(id: number, companyId: number) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const result = await db.update(cybCompanyWishlist)
+			.set({ status: 0, modifyDate: now })
+			.where(and(
+				eq(cybCompanyWishlist.id, id),
+				eq(cybCompanyWishlist.company, companyId),
+				eq(cybCompanyWishlist.status, 1),
+			));
+		return result;
+	}
+
+	async findWishlistById(id: number, companyId: number) {
+		const [row] = await db.select()
+			.from(cybCompanyWishlist)
+			.where(and(
+				eq(cybCompanyWishlist.id, id),
+				eq(cybCompanyWishlist.company, companyId),
+				eq(cybCompanyWishlist.status, 1),
+			))
+			.limit(1);
+		return row;
+	}
+
+	async createCompanyDocument(companyId: number, doctype: string | number, docName: string) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const [{ id }] = await db.insert(cybCompanyDocument).values({
+			company: companyId,
+			doctype: String(doctype),
+			docName,
+			status: 0,
+			verify: 0,
+			createDate: now,
+			modifyDate: now,
+		}).$returningId();
+		return id;
 	}
 }
 

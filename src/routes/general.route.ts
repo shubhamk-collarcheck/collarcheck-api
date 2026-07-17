@@ -7,8 +7,8 @@ import {
 	globalSearch, ratingFilter, starRatingEmployees, inviteDetail, addSuggestion, userProfile,
 	verifyAuthToken, allDocList, allMessageListGeneral, allNotification, verificationStatusGeneral,
 	followDataListGeneral, saveDocument, allReadNotification, chatMessageReadGeneral,
-	removeNotificationByBody, clearAllNotification, removeNotificationByParams,
-	unfollow, removeFollower, multiUnfollow, multiRemoveFollower,
+	unfollow, removeFollower, multiRemoveFollower,
+	follow, acceptFollow, rejectFollow, deleteMessage, skillByCategory, generalCompanyProfile,
 } from '../controllers/general.controller';
 import { validateData } from '../middlewares/validation.middleware';
 import { Authorization } from '../middlewares/Authorization';
@@ -16,11 +16,10 @@ import { markViewedParamsSchema } from '../types/misc.types';
 import { markViewed } from '../controllers/misc.controller';
 import {
 	allMessageListQuerySchema, addMessageSchema, chatMessageReadParamsSchema, followDataListQuerySchema,
-	claimCompanySchema,
 } from '../types/company-employee-request.types';
 import {
 	allMessageList, addMessage, chatMessageRead, followDataList,
-	verificationStatus, claimCompany,
+	verificationStatus,
 } from '../controllers/company-employee-request.controller';
 import { uploadToS3 } from '../utils/uploadToS3';
 import {
@@ -29,9 +28,10 @@ import {
 	userProfileParamsSchema, cityQuerySchema, cityByIdParamsSchema, stateQuerySchema,
 	periodListQuerySchema, jobDetailQuerySchema,
 	docListParamsSchema, saveDocumentSchema, chatMessageReadIdParamsSchema,
-	removeNotificationBodySchema, removeNotificationParamsSchema,
 	unfollowParamsSchema, removeFollowerParamsSchema,
-	multiUnfollowSchema, multiRemoveFollowerSchema,
+	multiRemoveFollowerSchema,
+	followSchema, acceptFollowParamsSchema, rejectFollowParamsSchema,
+	deleteMessageParamsSchema, skillByCategoryParamsSchema, companyProfileParamsSchema,
 } from '../types/general.types';
 
 const generalRoute = Router();
@@ -79,7 +79,6 @@ generalRoute.post("/send-message-company", Authorization, uploadToS3.single("doc
 generalRoute.put("/chatMessageReadCompany/:id", Authorization, validateData(chatMessageReadParamsSchema), chatMessageRead)
 generalRoute.get("/company-followDataList", Authorization, validateData(followDataListQuerySchema), followDataList)
 generalRoute.get("/company-verificationStatus", Authorization, verificationStatus)
-generalRoute.post("/claim-company", validateData(claimCompanySchema), claimCompany)
 
 // ====== New API Endpoints from Documentation ======
 
@@ -110,25 +109,22 @@ generalRoute.put("/allReadNotification", Authorization, allReadNotification)
 // Endpoint #12: Chat Message Read
 generalRoute.put("/chatMessageRead/:id", Authorization, validateData(chatMessageReadIdParamsSchema), chatMessageReadGeneral)
 
-// Endpoint #13: Remove Notification (by body)
-generalRoute.delete("/removeNotification", Authorization, validateData(removeNotificationBodySchema), removeNotificationByBody)
-
-// Endpoint #14: Clear All Notification
-generalRoute.delete("/clear-all-notification", Authorization, clearAllNotification)
-
-// Endpoint #15: Remove Notification (by params)
-generalRoute.delete("/removeNotification/:id", Authorization, validateData(removeNotificationParamsSchema), removeNotificationByParams)
-
 // Endpoint #16: Unfollow
 generalRoute.delete("/unfollow/:id", Authorization, validateData(unfollowParamsSchema), unfollow)
 
 // Endpoint #17: Remove Follower
 generalRoute.delete("/removeFollower/:id", Authorization, validateData(removeFollowerParamsSchema), removeFollower)
 
-// Endpoint #18: Multi Unfollow
-generalRoute.delete("/multi-unfollow", Authorization, validateData(multiUnfollowSchema), multiUnfollow)
+// Endpoint #19: Multi Remove Follower (PHP: POST general/multi-remove-follower)
+generalRoute.post("/multi-remove-follower", Authorization, validateData(multiRemoveFollowerSchema), multiRemoveFollower)
 
-// Endpoint #19: Multi Remove Follower
-generalRoute.delete("/multi-remove-follower", Authorization, validateData(multiRemoveFollowerSchema), multiRemoveFollower)
+// Remaining misc CRUD
+generalRoute.post("/send-message", Authorization, uploadToS3.single("doc"), validateData(addMessageSchema), addMessage)
+generalRoute.delete("/delete-message/:id", Authorization, validateData(deleteMessageParamsSchema), deleteMessage)
+generalRoute.post("/follow", Authorization, validateData(followSchema), follow)
+generalRoute.put("/acceptfollow/:id", Authorization, validateData(acceptFollowParamsSchema), acceptFollow)
+generalRoute.delete("/rejectfollow/:id", Authorization, validateData(rejectFollowParamsSchema), rejectFollow)
+generalRoute.get("/skill/:id", validateData(skillByCategoryParamsSchema), skillByCategory)
+generalRoute.get("/company-profile/:slug", validateData(companyProfileParamsSchema), generalCompanyProfile)
 
 export default generalRoute;

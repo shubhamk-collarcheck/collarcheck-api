@@ -583,6 +583,74 @@ class companyEmployeeRequestRepositery {
 		return result?.count ?? 0;
 	}
 
+	async findMessageHistoryById(id: number) {
+		const [row] = await db.select()
+			.from(cybMessageHistory)
+			.where(and(
+				eq(cybMessageHistory.id, id),
+				eq(cybMessageHistory.isDeleted, 0),
+			))
+			.limit(1);
+		return row;
+	}
+
+	async softDeleteMessageHistory(id: number) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		await db.update(cybMessageHistory)
+			.set({ isDeleted: 1, modifyDate: now })
+			.where(eq(cybMessageHistory.id, id));
+	}
+
+	async findCompanyBySlug(slug: string) {
+		const [row] = await db.select()
+			.from(cybUser)
+			.where(and(
+				eq(cybUser.slug, slug),
+				eq(cybUser.userType, 2),
+				eq(cybUser.isDeleted, 0),
+			))
+			.limit(1);
+		return row;
+	}
+
+	async getCompanyJobsForProfile(companyId: number, limit = 20) {
+		return db.select({
+			id: cybCompanyJob.id,
+			title: cybCompanyJob.jobTitle,
+			vacancy: cybCompanyJob.vacancy,
+			slug: cybCompanyJob.slug,
+			salary: cybCompanyJob.salary,
+			createDate: cybCompanyJob.createDate,
+			urgent: cybCompanyJob.urgent,
+			experience: cybCompanyJob.experience,
+			department: cybCompanyJob.department,
+			roleType: cybCompanyJob.roleType,
+			designation: cybCompanyJob.designation,
+			country: cybCompanyJob.country,
+			state: cybCompanyJob.state,
+			city: cybCompanyJob.city,
+		})
+			.from(cybCompanyJob)
+			.where(and(
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.status, 1),
+				eq(cybCompanyJob.isDeleted, 0),
+			))
+			.orderBy(desc(cybCompanyJob.createDate))
+			.limit(limit);
+	}
+
+	async hasActiveJobs(companyId: number) {
+		const [row] = await db.select({ count: count() })
+			.from(cybCompanyJob)
+			.where(and(
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.status, 1),
+				eq(cybCompanyJob.isDeleted, 0),
+			));
+		return (row?.count ?? 0) > 0 ? 1 : 0;
+	}
+
 	async getFollowData(userId: number, limit = 50, offset = 0) {
 		const followers = await db.select({
 			id: cybFollow.id,

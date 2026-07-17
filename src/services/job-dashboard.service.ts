@@ -263,6 +263,48 @@ export async function deleteViewRequestService(userId: number, id: number) {
 	return { status: true, messages: "Delete successfully!" };
 }
 
+// ====== Multi delete / approve view requests ======
+
+export async function multiDeleteViewRequestService(userId: number, ids: number[]) {
+	if (!ids || ids.length === 0) {
+		return { status: false, messages: "id Required!" };
+	}
+
+	for (const id of ids) {
+		const request = await jobDashboardRepositery.findViewRequestByIdAndUser(id, userId);
+		if (!request) {
+			return { status: false, messages: "Invalid delete id!" };
+		}
+		try {
+			await jobDashboardRepositery.softDeleteViewRequest(id, userId);
+		} catch {
+			return { status: false, messages: "Delete unsuccessfully!" };
+		}
+	}
+
+	return { status: true, messages: "Delete Successfully!" };
+}
+
+export async function multiApprovedVeiwRequestService(
+	userId: number,
+	id: number,
+	access?: string | string[] | Record<string, number>,
+	day?: number
+) {
+	if (!id) {
+		return { status: false, messages: "The id field is required." };
+	}
+
+	let accessPayload: string | string[] | undefined;
+	if (access && typeof access === 'object' && !Array.isArray(access)) {
+		accessPayload = JSON.stringify(access);
+	} else {
+		accessPayload = access as string | string[] | undefined;
+	}
+
+	return approvedVeiwRequestService(userId, id, accessPayload, day);
+}
+
 // ====== 10. Check Current Company ======
 
 export async function checkCurrentCompanyService(userId: number, employmentId?: number) {

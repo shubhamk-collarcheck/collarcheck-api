@@ -3,8 +3,14 @@ import { Authorization } from "../middlewares/Authorization";
 import { validateData } from "../middlewares/validation.middleware";
 import { sendUserProfileViewRequestSchema } from "../types/common-auth.types";
 import { sendUserProfileViewRequest } from "../controllers/common-auth.controller";
-import { editCompanySchema, allConnectionQuerySchema, updateEmploymentParamsSchema } from "../types/company.types";
-import { getCompanySetting, saveCompanySetting, editCompany, allConnection, allEmployment, updateEmployment, allWishlist, } from "../controllers/company.controller";
+import {
+	editCompanySchema, allConnectionQuerySchema, updateEmploymentParamsSchema,
+	addConnectionSchema, addWishlistSchema, deleteWishlistParamsSchema, addCompanyDocumentSchema,
+} from "../types/company.types";
+import {
+	getCompanySetting, saveCompanySetting, editCompany, allConnection, allEmployment, updateEmployment, allWishlist,
+	addConnection, addWishlist, deleteWishlist, addCompanyDocument,
+} from "../controllers/company.controller";
 import { addJobSchema, jobIdParamsSchema, allJobQuerySchema, multiCancelJobSchema, multiJobStatusChangeSchema, addJobUpdateSchema } from "../types/company-job.types";
 import {
 	allJob, addJob, addJobUpdate, jobStatusChange, deleteJob, cancelJob,
@@ -43,9 +49,13 @@ companyRouter.get("/getSetting", Authorization, getCompanySetting);
 companyRouter.post("/saveSetting", Authorization, saveCompanySetting);
 companyRouter.post("/edit-user", Authorization, educationUpload.array("profile"), validateData(editCompanySchema), editCompany);
 companyRouter.get("/all-connection", Authorization, validateData(allConnectionQuerySchema), allConnection);
+companyRouter.post("/add-connection", Authorization, validateData(addConnectionSchema), addConnection);
 companyRouter.get("/all-employement", Authorization, allEmployment);
 companyRouter.put("/update-employement/:id", Authorization, validateData(updateEmploymentParamsSchema), updateEmployment);
 companyRouter.get("/all-wishlist", Authorization, allWishlist);
+companyRouter.post("/add-wishlist", Authorization, validateData(addWishlistSchema), addWishlist);
+companyRouter.delete("/delete-wishlist/:id", Authorization, validateData(deleteWishlistParamsSchema), deleteWishlist);
+companyRouter.post("/add-document", Authorization, uploadToS3.array("document"), validateData(addCompanyDocumentSchema), addCompanyDocument);
 
 companyRouter.get("/all-job", Authorization, validateData(allJobQuerySchema), allJob);
 companyRouter.post("/add-job", Authorization, educationUpload.array("document"), validateData(addJobSchema), addJob);

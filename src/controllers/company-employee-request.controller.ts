@@ -238,21 +238,20 @@ export const companyList = async (req: Request, res: Response) => {
 	try {
 		const { user_id: userId } = req.auth as AuthUser;
 
-		const { query } = req.validated as { query: CompanyListQuery };
+		const query = (req.validated as { query?: CompanyListQuery })?.query
+			|| (req.query as unknown as CompanyListQuery)
+			|| { limit: 16, offset: 0 };
 
 		const result = await companyEmployeeRequestService.companyListService(
 			userId,
-			query.limit,
-			query.offset,
+			query.limit ?? 16,
+			query.offset ?? 0,
 		);
 
-		return res.status(200).json({
-			status: true,
-			data: result.data,
-		});
+		return res.status(200).json(result);
 	} catch (error) {
 		console.error("companyList error:", error);
-		return res.status(500).json({ status: false, messages: "Internal server error" });
+		return res.status(200).json({ status: false, messages: (error as Error).message || "Internal server error" });
 	}
 };
 

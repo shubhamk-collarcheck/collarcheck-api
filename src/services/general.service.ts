@@ -1185,3 +1185,149 @@ export const multiRemoveFollowerService = async (userId: number, userIds: number
 		removed_follower_ids: userIds,
 	};
 };
+
+// ====== Follow (POST) ======
+// Legacy naming: follower_id = user/company you want to follow; current user is the follower
+
+export const followUserService = async (currentUserId: number, targetUserId: number) => {
+	if (!targetUserId) {
+		return { status: false, messages: "The follower id field is required." };
+	}
+
+	const target = await generalRepositery.getUserById(targetUserId);
+	if (!target) {
+		return { status: false, messages: "Invalid Follwer Id" };
+	}
+
+	const existing = await generalRepositery.findFollowRelationship(currentUserId, targetUserId);
+	if (existing) {
+		return { status: false, messages: "Already Followed" };
+	}
+
+	// Company targets auto-accept; users stay pending
+	const status = target.userType === 2 ? 1 : 0;
+
+	try {
+		await generalRepositery.createFollow({
+			followedId: targetUserId,
+			followerId: currentUserId,
+			status,
+		});
+		return { status: true, messages: "Request Send successfully!" };
+	} catch {
+		return { status: false, messages: "Request not Send please retry!" };
+	}
+};
+
+export const acceptFollowService = async (userId: number, followId: number) => {
+	if (!followId) {
+		return { status: false, messages: "Invalid Id" };
+	}
+
+	const follow = await generalRepositery.findFollowById(followId);
+	if (!follow) {
+		return { status: false, messages: "Invalid Id" };
+	}
+
+	// Current user must be the one being followed (request recipient)
+	if (follow.followedId !== userId) {
+		return { status: false, messages: "Invalid request!" };
+	}
+
+	try {
+		await generalRepositery.acceptFollow(followId);
+		return { status: true, messages: "followed Successfully!" };
+	} catch {
+		return { status: false, messages: "Something went wrong!" };
+	}
+};
+
+export const rejectFollowService = async (userId: number, followId: number) => {
+	if (!followId) {
+		return { status: false, messages: "Invalid Id" };
+	}
+
+	const follow = await generalRepositery.findFollowById(followId);
+	if (!follow) {
+		return { status: false, messages: "Invalid Id" };
+	}
+
+	if (follow.followedId !== userId) {
+		return { status: false, messages: "Invalid Reject request !" };
+	}
+
+	try {
+		await generalRepositery.rejectFollow(followId);
+		return { status: true, messages: "Reject Successfully!" };
+	} catch {
+		return { status: false, messages: "Something went wrong!" };
+	}
+};
+
+export const multiAcceptFollowService = async (userId: number, ids: number[]) => {
+	if (!ids || ids.length === 0) {
+		return { status: false, messages: "id Required!" };
+	}
+
+	for (const id of ids) {
+		const result = await acceptFollowService(userId, id);
+		if (!result.status) {
+			return result;
+		}
+	}
+	return { status: true, messages: "followed Successfully!" };
+};
+
+export const multiRejectFollowService = async (userId: number, ids: number[]) => {
+	if (!ids || ids.length === 0) {
+		return { status: false, messages: "id Required!" };
+	}
+
+	for (const id of ids) {
+		const result = await rejectFollowService(userId, id);
+		if (!result.status) {
+			return result;
+		}
+	}
+	return { status: true, messages: "Reject Successfully!" };
+};
+
+export const deleteMessageService = async (
+	userId: number,
+	messageHistoryId: number,
+	userType?: string
+) => {
+	if (!userType || (userType !== 'user' && userType !== 'company')) {
+		return { status: false, messages: "User Type required ad should be user or company " };
+	}
+
+	const row = await generalRepositery.findMessageHistoryByIdAny(messageHistoryId);
+	if (!row) {
+		return { status: false, messages: "No Message Found" };
+	}
+
+	if (row.sender !== userId && row.receiver !== userId) {
+		return { status: false, messages: "Access denied" };
+	}
+
+	try {
+		await generalRepositery.softDeleteMessageHistory(messageHistoryId);
+		return { status: true, messages: " Deleted Sucessfully" };
+	} catch {
+		return { status: false, messages: "Try again something went wrong " };
+	}
+};
+
+export const skillByCategoryService = async (categoryId: number) => {
+	const skillRepositery = (await import('../repositery/skill.repositery')).default;
+	const rows = await skillRepositery.findByCategory(categoryId);
+	return {
+		status: true,
+		messages: "",
+		data: rows.map((r) => ({
+			id: r.id,
+			department: r.department ?? categoryId,
+			name: r.name,
+		})),
+	};
+};

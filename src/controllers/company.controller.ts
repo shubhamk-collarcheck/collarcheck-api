@@ -4,8 +4,12 @@ import { EditCompanyBody, AllConnectionQuery, UpdateEmploymentParams } from "../
 import {
 	getCompanySettingService, saveCompanySettingService, editCompanyService,
 	allConnectionService, allEmploymentService, updateEmploymentService,
-	allWishlistService,
+	allWishlistService, addConnectionService, addWishlistService,
+	deleteWishlistService, addCompanyDocumentService,
 } from "../services/company.service";
+import {
+	AddConnectionBody, AddWishlistBody, DeleteWishlistParams,
+} from "../types/company.types";
 
 export async function getCompanySetting(req: Request, res: Response, next: NextFunction) {
 	try {
@@ -80,6 +84,52 @@ export async function allWishlist(req: Request, res: Response, next: NextFunctio
 	try {
 		const { user_id } = req.auth as AuthUser;
 		const result = await allWishlistService(user_id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+export async function addConnection(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const { body } = req.validated as { body: AddConnectionBody };
+		const result = await addConnectionService(companyId, body);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+export async function addWishlist(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const { body } = req.validated as { body: AddWishlistBody };
+		const result = await addWishlistService(companyId, body.user);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+export async function deleteWishlist(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const { params } = req.validated as { params: DeleteWishlistParams };
+		const result = await deleteWishlistService(companyId, params.id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+export async function addCompanyDocument(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const validated = req.validated as { body?: { doctype?: unknown } } | undefined;
+		const doctype = req.body?.doctype ?? validated?.body?.doctype;
+		const files = (req.files as Express.MulterS3.File[] | undefined) || [];
+		const result = await addCompanyDocumentService(companyId, doctype, files);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);

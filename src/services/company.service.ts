@@ -354,3 +354,106 @@ export async function allWishlistService(companyId: number) {
 		data,
 	};
 }
+
+// ====== Add Connection ======
+
+export async function addConnectionService(
+	companyId: number,
+	body: { user: number; designation?: string; joining_date?: string; still_working?: number }
+) {
+	if (!body.user) {
+		return { status: false, messages: "user is required" };
+	}
+
+	const existing = await companyRepositery.findConnection(companyId, body.user);
+	if (existing) {
+		return { status: false, messages: "Already connected" };
+	}
+
+	const target = await companyRepositery.findUserById(body.user);
+	if (!target) {
+		return { status: false, messages: "user is required" };
+	}
+
+	await companyRepositery.createConnection({
+		company: companyId,
+		user: body.user,
+		currentEmployee: body.still_working ? 1 : 0,
+	});
+
+	return { status: true, messages: "Connection added" };
+}
+
+// ====== Add Wishlist ======
+
+export async function addWishlistService(companyId: number, userId: number) {
+	if (!userId) {
+		return { status: false, messages: "user is required" };
+	}
+
+	const inWishlist = await companyRepositery.checkInWishlist(companyId, userId);
+	if (inWishlist) {
+		return { status: false, messages: "Already in wishlist" };
+	}
+
+	const target = await companyRepositery.findUserById(userId);
+	if (!target) {
+		return { status: false, messages: "user is required" };
+	}
+
+	await companyRepositery.createWishlist(companyId, userId);
+	return { status: true, messages: "Added to wishlist" };
+}
+
+// ====== Delete Wishlist ======
+
+export async function deleteWishlistService(companyId: number, id: number) {
+	if (!id || Number.isNaN(id)) {
+		return { status: false, messages: "Invalid Id" };
+	}
+
+	const row = await companyRepositery.findWishlistById(id, companyId);
+	if (!row) {
+		return { status: false, messages: "Record not found!" };
+	}
+
+	await companyRepositery.softDeleteWishlist(id, companyId);
+	return { status: true, messages: "Deleted Successfully" };
+}
+
+// ====== Add Company Document ======
+
+export async function addCompanyDocumentService(
+	companyId: number,
+	doctypeRaw: unknown,
+	files: Array<{ location?: string; key?: string; path?: string }> | undefined
+) {
+	const doctypes = Array.isArray(doctypeRaw)
+		? doctypeRaw
+		: doctypeRaw !== undefined && doctypeRaw !== null
+			? [doctypeRaw]
+			: [];
+
+	if (doctypes.length === 0) {
+		return { status: false, messages: "Doc Type field is required" };
+	}
+
+	if (!files || files.length === 0) {
+		return { status: false, messages: "document not uploaded" };
+	}
+
+	try {
+		const count = Math.min(doctypes.length, files.length);
+		for (let i = 0; i < count; i++) {
+			const file = files[i];
+			const docName = file.location || file.key || file.path || '';
+			if (!docName) {
+				return { status: false, messages: "document not uploaded" };
+			}
+			await companyRepositery.createCompanyDocument(companyId, doctypes[i], docName);
+		}
+		return { status: true, messages: "Successfully added" };
+	} catch {
+		return { status: false, messages: "Something Went Wrong" };
+	}
+}

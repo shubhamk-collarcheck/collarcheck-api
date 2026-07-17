@@ -499,6 +499,49 @@ class commonAuthRepositery {
 			.limit(limit);
 		return rows;
 	}
+
+	async listAllUsers(keyword: string | undefined, limit: number, sqlOffset: number) {
+		const conditions = [
+			eq(cybUser.userType, 1),
+			eq(cybUser.status, 1),
+			eq(cybUser.isDeleted, 0),
+		];
+		if (keyword && keyword.trim()) {
+			const kw = `%${keyword.trim()}%`;
+			conditions.push(sql`(
+				${cybUser.fname} LIKE ${kw} OR
+				${cybUser.lname} LIKE ${kw} OR
+				${cybUser.fullName} LIKE ${kw} OR
+				${cybUser.individualId} LIKE ${kw}
+			)`);
+		}
+
+		const [countRow] = await db.select({ count: sql<number>`count(*)` })
+			.from(cybUser)
+			.where(and(...conditions));
+
+		const rows = await db.select({
+			id: cybUser.id,
+			individualId: cybUser.individualId,
+			fname: cybUser.fname,
+			lname: cybUser.lname,
+			fullName: cybUser.fullName,
+			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			slug: cybUser.slug,
+			currentPossition: cybUser.currentPossition,
+			city: cybUser.city,
+			emailVerified: cybUser.emailVerified,
+			phoneVerified: cybUser.phoneVerified,
+		})
+			.from(cybUser)
+			.where(and(...conditions))
+			.orderBy(desc(cybUser.id))
+			.limit(limit)
+			.offset(sqlOffset);
+
+		return { rows, count: Number(countRow?.count ?? 0) };
+	}
 }
 
 export default new commonAuthRepositery();

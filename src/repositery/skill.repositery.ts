@@ -40,6 +40,21 @@ class skillRepositery {
 		return inserted as unknown as Skill[];
 	}
 
+	async findByCategory(categoryId: number): Promise<Array<{ id: number; department: number | null; name: string | null }>> {
+		const rows = await db.select({
+			id: cybSkill.id,
+			department: cybSkill.category,
+			name: cybSkill.name,
+		})
+			.from(cybSkill)
+			.where(and(
+				eq(cybSkill.category, categoryId),
+				eq(cybSkill.status, 1),
+			))
+			.orderBy(asc(cybSkill.name));
+		return rows;
+	}
+
 	async getSkillNamesByIds(ids: number[]): Promise<Map<number, string>> {
 		if (isEmptyArray(ids)) return new Map();
 		const skills = await db.select({ id: cybSkill.id, name: cybSkill.name })

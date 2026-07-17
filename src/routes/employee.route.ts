@@ -27,12 +27,15 @@ import { applyJobSchema, approvedEmploymentSchema, approvedViewRequestSchema, vi
 import { applyJob, applyJobList, profilePercentage, approvedEmployment, allViewRequest, approvedVeiwRequest, rejectVeiwRequest, deleteViewRequest, checkCurrentCompany, dashboard, appliedjob, removeResume } from "../controllers/job-dashboard.controller";
 import { saveExploringSchema, allCompanyQuerySchema, editProfileSchema } from "../types/misc.types";
 import { sidebarCount, leaveReminderExperience, saveExploring, cvDetails, editProfile, allCompany, userDetail } from "../controllers/misc.controller";
+import { removeNotificationBodySchema, allUserQuerySchema } from "../types/general.types";
+import { removeNotificationByBody } from "../controllers/general.controller";
+import { allUser } from "../controllers/misc.controller";
 
 
 const employRouter = Router()
 
-employRouter.post("/add-employment", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), addExperience)
-employRouter.post("/add-employment/:employment_id", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), updateExperience)
+employRouter.post("/add-employement", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), addExperience)
+employRouter.post("/add-employement/:employment_id", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), updateExperience)
 employRouter.get("/all-employement", Authorization, allExperience)
 employRouter.get("/allEmployementNew", Authorization, allEmployementNew)
 employRouter.get("/employement-detail/:id", Authorization, validateData(commonIdParamsSchema), detailExperience)
@@ -66,10 +69,10 @@ employRouter.get("/all-document", Authorization, allDocumentList)
 employRouter.get("/document-detail/:id", Authorization, validateData(commonIdParamsSchema), documentDetail)
 employRouter.delete("/delete-document/:id", Authorization, validateData(commonIdParamsSchema), deleteDocument)
 
-employRouter.post("/add-language", Authorization, validateData(languageRequestSchema), addLanguage)
-employRouter.get("/all-language", Authorization, allLanguageList)
+employRouter.post("/add_language", Authorization, validateData(languageRequestSchema), addLanguage)
+employRouter.get("/allLanguage", Authorization, allLanguageList)
 employRouter.get("/language-detail/:id", Authorization, validateData(commonIdParamsSchema), languageDetail)
-employRouter.delete("/delete-language/:id", Authorization, validateData(commonIdParamsSchema), deleteLanguage)
+employRouter.delete("/language/:id", Authorization, validateData(commonIdParamsSchema), deleteLanguage)
 
 employRouter.get("/currentCompany", Authorization, currentCompany)
 employRouter.post("/sendCompanyInvite", Authorization, validateData(companyInviteRequestSchema), sendCompanyInvite)
@@ -102,6 +105,10 @@ employRouter.post("/edit-profile", Authorization, validateData(editProfileSchema
 employRouter.get("/all-company", Authorization, validateData(allCompanyQuerySchema), allCompany)
 employRouter.get("/user-detail", Authorization, userDetail)
 
+// PHP: DELETE employee/removeNotification
+employRouter.delete("/removeNotification", Authorization, validateData(removeNotificationBodySchema), removeNotificationByBody)
 
+// GET employee/all-user
+employRouter.get("/all-user", Authorization, validateData(allUserQuerySchema), allUser)
 
 export default employRouter;

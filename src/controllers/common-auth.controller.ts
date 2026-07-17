@@ -59,3 +59,17 @@ export async function peopleList(req: Request, res: Response, next: NextFunction
 		next(error);
 	}
 }
+
+export async function peopleListSignup(req: Request, res: Response, next: NextFunction) {
+	try {
+		const userIdRaw = req.query.user_id;
+		const userId = userIdRaw ? Number(userIdRaw) : NaN;
+		if (!userId || Number.isNaN(userId)) {
+			return res.status(200).json({ status: false, message: "ID is missing" });
+		}
+		const result = await peopleListService(userId);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}

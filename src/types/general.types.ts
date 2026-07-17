@@ -270,3 +270,82 @@ export const updateEmailSchema = z.object({
 
 export type UpdatePhoneBody = z.infer<typeof updatePhoneSchema>;
 export type UpdateEmailBody = z.infer<typeof updateEmailSchema>;
+
+// ====== Remaining misc CRUD ======
+
+export const followSchema = z.object({
+	body: z.object({
+		follower_id: z.coerce.number().int().positive("The follower id field is required."),
+	}),
+});
+
+export const acceptFollowParamsSchema = z.object({
+	params: z.object({
+		id: z.coerce.number().int().positive("Invalid Id"),
+	}),
+});
+
+export const rejectFollowParamsSchema = z.object({
+	params: z.object({
+		id: z.coerce.number().int().positive("Invalid Id"),
+	}),
+});
+
+export const multiFollowIdsSchema = z.object({
+	body: z.object({
+		id: z.array(z.coerce.number().int().positive()).min(1, "id Required!"),
+	}),
+});
+
+export const deleteMessageParamsSchema = z.object({
+	params: z.object({
+		id: z.coerce.number().int().positive(),
+	}),
+	query: z.object({
+		user_type: z.string().optional(),
+	}),
+});
+
+export const skillByCategoryParamsSchema = z.object({
+	params: z.object({
+		id: z.coerce.number().int().positive(),
+	}),
+});
+
+export const companyProfileParamsSchema = z.object({
+	params: z.object({
+		slug: z.string().min(1),
+	}),
+});
+
+export const peopleListSignupQuerySchema = z.object({
+	query: z.object({
+		user_id: z.coerce.number().int().positive().optional(),
+	}),
+});
+
+export const companyListRootQuerySchema = z.object({
+	query: z.object({
+		limit: z.coerce.number().int().positive().optional().default(16),
+		offset: z.coerce.number().int().nonnegative().optional().default(0),
+	}),
+});
+
+export const allUserQuerySchema = z.object({
+	query: z.object({
+		keyword: z.string().optional(),
+		limit: z.coerce.number().int().positive().optional().default(10),
+		offset: z.coerce.number().int().nonnegative().optional().default(0),
+	}),
+});
+
+export type FollowBody = z.infer<typeof followSchema>["body"];
+export type AcceptFollowParams = z.infer<typeof acceptFollowParamsSchema>["params"];
+export type RejectFollowParams = z.infer<typeof rejectFollowParamsSchema>["params"];
+export type MultiFollowIdsBody = z.infer<typeof multiFollowIdsSchema>["body"];
+export type DeleteMessageParams = z.infer<typeof deleteMessageParamsSchema>;
+export type SkillByCategoryParams = z.infer<typeof skillByCategoryParamsSchema>["params"];
+export type CompanyProfileParams = z.infer<typeof companyProfileParamsSchema>["params"];
+export type PeopleListSignupQuery = z.infer<typeof peopleListSignupQuerySchema>["query"];
+export type CompanyListRootQuery = z.infer<typeof companyListRootQuerySchema>["query"];
+export type AllUserQuery = z.infer<typeof allUserQuerySchema>["query"];

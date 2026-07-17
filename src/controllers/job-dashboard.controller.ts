@@ -9,6 +9,7 @@ import {
 	approvedEmploymentService, allViewRequestService, approvedVeiwRequestService,
 	rejectVeiwRequestService, deleteViewRequestService, checkCurrentCompanyService,
 	dashboardService, appliedjobService, removeResumeService,
+	multiDeleteViewRequestService, multiApprovedVeiwRequestService,
 } from "../services/job-dashboard.service";
 
 export async function applyJob(req: Request, res: Response, next: NextFunction) {
@@ -93,6 +94,30 @@ export async function deleteViewRequest(req: Request, res: Response, next: NextF
 		const { user_id } = req.auth as AuthUser;
 		const { params } = req.validated as { params: { id: number } };
 		const result = await deleteViewRequestService(user_id, params.id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+export async function multiDeleteViewRequest(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { body } = req.validated as { body: { id: number[] } };
+		const result = await multiDeleteViewRequestService(user_id, body.id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+export async function multiApprovedVeiwRequest(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { user_id } = req.auth as AuthUser;
+		const { body } = req.validated as {
+			body: { id: number; access?: string | string[] | Record<string, number>; day?: number }
+		};
+		const result = await multiApprovedVeiwRequestService(user_id, body.id, body.access, body.day);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);

@@ -366,41 +366,57 @@ class companyEmployeeRequestService {
 	}
 
 	async companyListService(userId: number, limit = 16, offset = 0) {
+		const page = offset;
+		const sqlOffset = page <= 1 ? 0 : page * limit - limit;
 		const relations = await companyEmployeeRequestRepositery.getCompanyRelations(userId);
 
+		// Simple pagination over relations list
+		const pageSlice = relations.slice(sqlOffset, sqlOffset + limit);
+
 		const myCompany = [];
-		for (const rel of relations) {
-			const followerCount = await companyEmployeeRequestRepositery.getCompanyFollowerCount(rel.companyId || 0);
-			const followingCount = await companyEmployeeRequestRepositery.getCompanyConnectionCount(rel.companyId || 0);
-			const industryName = rel.industry ? await companyEmployeeRequestRepositery.getIndustryName(rel.industry) : '';
+		for (const rel of pageSlice) {
+			const companyId = rel.companyId || 0;
+			const [followerCount, followingCount, industryName, exploreTalent, companyDetail] = await Promise.all([
+				companyEmployeeRequestRepositery.getCompanyFollowerCount(companyId),
+				companyEmployeeRequestRepositery.getCompanyConnectionCount(companyId),
+				rel.industry ? companyEmployeeRequestRepositery.getIndustryName(rel.industry) : Promise.resolve(''),
+				companyEmployeeRequestRepositery.hasActiveJobs(companyId),
+				companyEmployeeRequestRepositery.getCompanyDetail(companyId),
+			]);
+
+			const accountDeletion = await companyEmployeeRequestRepositery.getAccountDeleteRequest(companyId);
 
 			myCompany.push({
-				id: rel.companyId,
+				id: companyId,
 				individual_id: rel.individualId,
 				profile: rel.profile ? `${S3_PREFIX}${rel.profile}` : '',
-				name: rel.fname || '',
+				name: rel.fname || companyDetail?.fname || '',
 				city_name: '',
 				state_name: '',
 				country_name: '',
-				claim_status: rel.claimStatus,
+				claim_status: rel.claimStatus ?? companyDetail?.claimStatus,
 				status: rel.status,
-				slug: rel.slug,
+				slug: rel.slug || companyDetail?.slug,
 				company_size_name: '',
 				industry_name: industryName,
-				is_verified: rel.claimStatus === 1,
-				followData: { follower: followerCount, following: followingCount },
+				is_verified: (rel.claimStatus ?? companyDetail?.claimStatus) === 1,
+				followData: { following: followingCount, follower: followerCount },
 				following: { requestSend: false, requestApproved: false },
-				exploreTalent: rel.onExplore,
-				user_group: [],
+				exploreTalent,
+				user_group: rel.type === 1 ? [{ id: 1, name: 'Super Admin' }] : [],
 				user_details: [],
 				user_count: 0,
-				account_deletion: false,
-				currentStatus: {},
+				account_deletion: !!accountDeletion,
+				currentStatus: (rel.claimStatus ?? companyDetail?.claimStatus) === 1 ? 1 : 4,
 				isSuperAdmin: rel.type === 1,
 			});
 		}
 
-		return { success: true, data: { myCompany } };
+		return {
+			status: true,
+			messages: "Company list",
+			data: { myCompany },
+		};
 	}
 
 	async allMessageListService(userId: number, slug?: string, limit = 50, offset = 0) {

@@ -35,6 +35,42 @@ export const updateEmploymentParamsSchema = z.object({
 	id: z.coerce.number().int().positive(),
 });
 
+export const addConnectionSchema = z.object({
+	body: z.object({
+		user: z.coerce.number().int().positive("user is required"),
+		designation: z.string().optional(),
+		joining_date: z.string().optional(),
+		still_working: z.coerce.number().int().optional(),
+	}),
+});
+
+export const addWishlistSchema = z.object({
+	body: z.object({
+		user: z.coerce.number().int().positive("user is required"),
+	}),
+});
+
+export const deleteWishlistParamsSchema = z.object({
+	params: z.object({
+		id: z.coerce.number().int().positive("Invalid Id"),
+	}),
+});
+
+export const addCompanyDocumentSchema = z.object({
+	body: z.object({
+		doctype: z.union([
+			z.array(z.coerce.number()),
+			z.coerce.number(),
+			z.array(z.string()),
+			z.string(),
+		]).optional(),
+	}),
+});
+
 export type EditCompanyBody = z.infer<typeof editCompanySchema>;
 export type AllConnectionQuery = z.infer<typeof allConnectionQuerySchema>;
 export type UpdateEmploymentParams = z.infer<typeof updateEmploymentParamsSchema>;
+export type AddConnectionBody = z.infer<typeof addConnectionSchema>["body"];
+export type AddWishlistBody = z.infer<typeof addWishlistSchema>["body"];
+export type DeleteWishlistParams = z.infer<typeof deleteWishlistParamsSchema>["params"];
+export type AddCompanyDocumentBody = z.infer<typeof addCompanyDocumentSchema>["body"];

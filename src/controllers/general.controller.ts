@@ -21,10 +21,14 @@ import {
 	saveDocumentService, allReadNotificationService, chatMessageReadGeneralService,
 	removeNotificationService, clearAllNotificationService, unfollowService,
 	removeFollowerService, multiUnfollowService, multiRemoveFollowerService,
+	followUserService, acceptFollowService, rejectFollowService,
+	multiAcceptFollowService, multiRejectFollowService,
+	deleteMessageService, skillByCategoryService,
 } from '../services/general.service';
 import { get_job_detail_service, get_search_job_list, get_jobs_detail_by_ids, allJobService } from '../services/job.service';
 import { get_company_detail } from '../services/users.service';
 import { publicUserProfileService } from '../services/common-auth.service';
+import { companyProfileService } from '../services/misc.service';
 import {
 	AllJobQuery, JobFilterDataListQuery, GlobalSearchQuery, SearchSuggestionParams,
 	RatingFilterQuery, StarRatingParams, InviteDetailParams, AddSuggestionBody, UserProfileParams,
@@ -32,6 +36,8 @@ import {
 	DocListParams, SaveDocumentBody, ChatMessageReadIdParams, RemoveNotificationBody,
 	RemoveNotificationParams, UnfollowParams, RemoveFollowerParams,
 	MultiUnfollowBody, MultiRemoveFollowerBody,
+	FollowBody, AcceptFollowParams, RejectFollowParams, MultiFollowIdsBody,
+	CompanyProfileParams, SkillByCategoryParams,
 } from '../types/general.types';
 
 
@@ -674,6 +680,94 @@ export const multiRemoveFollower = async (req: Request, res: Response, next: Nex
 		const { body } = req.validated as MultiRemoveFollowerBody;
 		const data = await multiRemoveFollowerService(user_id, body.user_ids);
 		return res.status(200).json({ status: true, message: '', data });
+	} catch (error) {
+		next(error);
+	}
+};
+
+// ====== Follow / reject / accept ======
+
+export const follow = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: userId } = req.auth as AuthUser;
+		const { body } = req.validated as { body: FollowBody };
+		const result = await followUserService(userId, body.follower_id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const acceptFollow = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: userId } = req.auth as AuthUser;
+		const { params } = req.validated as { params: AcceptFollowParams };
+		const result = await acceptFollowService(userId, params.id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const rejectFollow = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: userId } = req.auth as AuthUser;
+		const { params } = req.validated as { params: RejectFollowParams };
+		const result = await rejectFollowService(userId, params.id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const multiAcceptFollow = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: userId } = req.auth as AuthUser;
+		const { body } = req.validated as { body: MultiFollowIdsBody };
+		const result = await multiAcceptFollowService(userId, body.id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const multiRejectFollow = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: userId } = req.auth as AuthUser;
+		const { body } = req.validated as { body: MultiFollowIdsBody };
+		const result = await multiRejectFollowService(userId, body.id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const deleteMessage = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: userId } = req.auth as AuthUser;
+		const validated = req.validated as { params: { id: number }; query: { user_type?: string } };
+		const result = await deleteMessageService(userId, validated.params.id, validated.query?.user_type);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const skillByCategory = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { params } = req.validated as { params: SkillByCategoryParams };
+		const result = await skillByCategoryService(params.id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const generalCompanyProfile = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { params } = (req.validated as { params: CompanyProfileParams }) || { params: { slug: req.params.slug } };
+		const result = await companyProfileService(params.slug, { isPublic: true });
+		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
 	}

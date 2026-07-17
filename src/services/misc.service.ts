@@ -278,69 +278,228 @@ export async function userDetailService(userId: number, token: string) {
 	};
 }
 
-// ====== 10. Company Profile ======
+// ====== 10. Company Profile (auth + public contract) ======
 
-export async function companyProfileService(slug: string) {
+export async function companyProfileService(
+	slug: string,
+	options?: { viewerId?: number; isPublic?: boolean }
+) {
+	const isPublic = options?.isPublic ?? false;
+	const viewerId = options?.viewerId;
+
 	const company = await miscRepositery.findCompanyBySlug(slug);
 	if (!company) {
 		return { status: false, messages: "No Company Found!" };
 	}
 
-	const [activeJobs, similarCompanies] = await Promise.all([
+	const companyEmployeeRequestRepositery = (await import('../repositery/company-employee-request.repositery')).default;
+	const companyBenefitGalleryRepositery = (await import('../repositery/company-benefit-gallery.repositery')).default;
+	const generalRepositery = (await import('../repositery/general.repositery')).default;
+	const { user_verified } = await import('./users.service');
+
+	const [activeJobs, similarCompanies, followerCount, followingCount, galleries, benefits, employmentCount, exploreTalent, isVerified] = await Promise.all([
 		miscRepositery.getCompanyActiveJobs(company.id, 20),
-		miscRepositery.getSimilarCompanies(company.id, company.industry, 4),
+		isPublic ? Promise.resolve([] as Awaited<ReturnType<typeof miscRepositery.getSimilarCompanies>>) : miscRepositery.getSimilarCompanies(company.id, company.industry, 4),
+		companyEmployeeRequestRepositery.getCompanyFollowerCount(company.id),
+		companyEmployeeRequestRepositery.getCompanyConnectionCount(company.id),
+		companyBenefitGalleryRepositery.getGalleries(company.id),
+		companyBenefitGalleryRepositery.getCompanyBenefits(company.id),
+		companyEmployeeRequestRepositery.getCompanyConnectionCount(company.id),
+		companyEmployeeRequestRepositery.hasActiveJobs(company.id),
+		user_verified(company.id),
 	]);
 
 	const jobIds = activeJobs.map((j) => j.id);
 	const applicationCounts = await miscRepositery.countCompanyApplications(jobIds);
 	const appCountMap = new Map(applicationCounts.map((a) => [a.job, a.count]));
 
+	const alljob = activeJobs.map((j) => ({
+		id: j.id,
+		title: j.jobTitle,
+		experience_name: j.experienceName,
+		department_name: j.departmentName,
+		role_type_name: j.roleTypeName,
+		vacancy: j.vacancy,
+		slug: j.slug,
+		country_name: j.countryName,
+		state_name: j.stateName,
+		city_name: j.cityName,
+		designation_name: j.designationName,
+		salary: j.salaryName,
+		no_of_application: appCountMap.get(j.id) || 0,
+		create_date: j.createDate,
+		urgent: j.urgent ?? 0,
+	}));
+
+	const topCompany = isPublic
+		? []
+		: await Promise.all(similarCompanies.map(async (c) => {
+			const [fCount, gCount] = await Promise.all([
+				companyEmployeeRequestRepositery.getCompanyFollowerCount(c.id),
+				companyEmployeeRequestRepositery.getCompanyConnectionCount(c.id),
+			]);
+			let followStatus = {
+				requestSend: false,
+				requestApproved: false,
+				id: null as number | null,
+				followerRequest: false,
+				followerRequestApproved: false,
+			};
+			if (viewerId) {
+				const st = await generalRepositery.findFollowRelationship(viewerId, c.id);
+				if (st) {
+					followStatus = {
+						requestSend: true,
+						requestApproved: st.status === 1,
+						id: st.id,
+						followerRequest: false,
+						followerRequestApproved: false,
+					};
+				}
+			}
+			return {
+				id: c.id,
+				profile: c.profile ? `${s3Prefix}${c.profile}` : (c.socialImage || ''),
+				name: c.fname,
+				individual_id: null,
+				slug: c.slug,
+				city_name: null,
+				state_name: null,
+				country_name: null,
+				followData: { following: gCount, follower: fCount },
+				followStatus,
+			};
+		}));
+
+	const allGallery = galleries.map((g: any) => ({
+		...(isPublic ? {} : { id: g.id }),
+		name: g.name,
+		image: g.image ? (String(g.image).startsWith('http') ? g.image : `${s3Prefix}${g.image}`) : '',
+	}));
+
+	const allBenefits = benefits.map((b: any) => ({
+		...(isPublic ? {} : { id: b.id }),
+		name: b.name,
+		image: b.image ? (String(b.image).startsWith('http') ? b.image : `${s3Prefix}${b.image}`) : '',
+	}));
+
+	const data: Record<string, unknown> = {
+		id: company.id,
+		is_verified: isVerified,
+		individual_id: company.individualId,
+		company_name: company.fname,
+		contact_person: company.contactPerson || '',
+		email: company.email,
+		email_alternate: '',
+		phone: company.phone,
+		profile: company.profile || '',
+		website: company.website || '',
+		description: company.profileDescription || '',
+		second_phone: '',
+		location: company.cityName || '',
+		phone_verified: 0,
+		email_verified: 0,
+		user_type: 'company',
+		second_phone_verify: 0,
+		email_alternate_verify: 0,
+		profile_description: company.profileDescription || '',
+		present_address: company.presentAddress || '',
+		country: company.country,
+		city: company.city,
+		state: company.state,
+		slug: company.slug,
+		country_name: company.countryName || '',
+		city_name: company.cityName || '',
+		state_name: company.stateName || '',
+		linkdin: company.linkdin || '',
+		youtube: company.youtube || '',
+		instagram: company.instagram || '',
+		facebook: company.facebook || '',
+		tumblr: '',
+		discord: '',
+		twitter: company.twitter || '',
+		snapchat: '',
+		incorporate_date: company.incorporateDate || '',
+		turnover: company.turnover,
+		claim_status: company.claimStatus,
+		turnover_name: company.turnoverName || '',
+		industry: company.industry,
+		industry_name: company.industryName || '',
+		company_size: company.companySize,
+		company_size_name: company.companySizeName || '',
+		total_employee: employmentCount,
+		allEmploymentCount: employmentCount,
+		alljob,
+		topCompany,
+		topUser: [],
+		allGallery,
+		allBenefits,
+		followData: { following: followingCount, follower: followerCount },
+		exploreTalent,
+	};
+
+	if (!isPublic) {
+		data.domainPopulate = true;
+		if (viewerId && viewerId !== company.id) {
+			const st = await generalRepositery.findFollowRelationship(viewerId, company.id);
+			data.following = {
+				requestSend: !!st,
+				requestApproved: st?.status === 1,
+				id: st?.id ?? null,
+			};
+		}
+	}
+
 	return {
 		status: true,
-		messages: "Success!",
-		company_profile: {
-			id: company.id,
-			company_name: company.fname,
-			fname: company.fname,
-			email: company.email,
-			slug: company.slug,
-			industry_name: company.industryName,
-			company_size_name: company.companySizeName,
-			turnover_name: company.turnoverName,
-			country_name: company.countryName,
-			city_name: company.cityName,
-			state_name: company.stateName,
-			present_address: company.presentAddress,
-			description: company.profileDescription,
-			website: company.website,
-			linkdin: company.linkdin,
-			profile: company.profile ? `${s3Prefix}${company.profile}` : '',
-			social_image: company.socialImage || '',
-			followerCount: 0,
-		},
-		jobList: activeJobs.map((j) => ({
-			id: j.id,
-			title: j.jobTitle,
-			experience_name: j.experienceName,
-			department_name: j.departmentName,
-			role_type_name: j.roleTypeName,
-			vacancy: j.vacancy,
-			slug: j.slug,
-			country_name: j.countryName,
-			state_name: j.stateName,
-			city_name: j.cityName,
-			designation_name: j.designationName,
-			salary: j.salaryName,
-			no_of_application: appCountMap.get(j.id) || 0,
-			create_date: j.createDate,
-			urgent: j.urgent,
-		})),
-		similarCompany: similarCompanies.map((c) => ({
-			id: c.id,
-			company_name: c.fname,
-			slug: c.slug,
-			profile: c.profile ? `${s3Prefix}${c.profile}` : (c.socialImage || ''),
-		})),
-		totalConnectionCount: 0,
+		message: "company Detail",
+		data,
+	};
+}
+
+// ====== All User list ======
+
+export async function allUserService(keyword: string | undefined, limit = 10, page = 0) {
+	const commonAuthRepositery = (await import('../repositery/common-auth.repositery')).default;
+	const { user_verified } = await import('./users.service');
+	const designationRepositery = (await import('../repositery/designation.repositery')).default;
+	const { cybCities } = await import('../db/schema');
+	const db = (await import('../db')).default;
+	const { eq } = await import('drizzle-orm');
+
+	const sqlOffset = page <= 1 ? 0 : page * limit - limit;
+	const { rows, count } = await commonAuthRepositery.listAllUsers(keyword, limit, sqlOffset);
+
+	const list = await Promise.all(rows.map(async (u) => {
+		let designation_name: string | null = null;
+		let city_name: string | null = null;
+		if (u.currentPossition) {
+			const d = await designationRepositery.findById(u.currentPossition);
+			designation_name = d?.name ?? null;
+		}
+		if (u.city) {
+			const [city] = await db.select({ name: cybCities.name })
+				.from(cybCities)
+				.where(eq(cybCities.id, u.city))
+				.limit(1);
+			city_name = city?.name ?? null;
+		}
+		const isVerified = await user_verified(u.id);
+		return {
+			id: u.id,
+			individual_id: u.individualId,
+			name: u.fullName || `${u.fname ?? ''} ${u.lname ?? ''}`.trim(),
+			profile: u.profile ? `${s3Prefix}${u.profile}` : (u.socialImage || ''),
+			slug: u.slug,
+			designation_name,
+			city_name,
+			is_verified: isVerified,
+		};
+	}));
+
+	return {
+		status: true,
+		messages: "User list",
+		data: { list, count },
 	};
 }

@@ -415,6 +415,76 @@ class generalRepositery {
 				eq(cybMessageHistory.receiver, userId),
 			));
 	}
+
+	// ====== Follow CRUD ======
+
+	async createFollow(data: {
+		followedId: number;
+		followerId: number;
+		status: number;
+	}) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const [{ id }] = await db.insert(cybFollow).values({
+			followedId: data.followedId,
+			followerId: data.followerId,
+			status: data.status,
+			isDeleted: 0,
+			createDate: now,
+			modifyDate: now,
+		}).$returningId();
+		return id;
+	}
+
+	async findFollowById(id: number) {
+		const [row] = await db.select()
+			.from(cybFollow)
+			.where(and(
+				eq(cybFollow.id, id),
+				eq(cybFollow.isDeleted, 0),
+			))
+			.limit(1);
+		return row;
+	}
+
+	async acceptFollow(id: number) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		await db.update(cybFollow)
+			.set({ status: 1, modifyDate: now })
+			.where(and(
+				eq(cybFollow.id, id),
+				eq(cybFollow.isDeleted, 0),
+			));
+	}
+
+	async rejectFollow(id: number) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		await db.update(cybFollow)
+			.set({ isDeleted: 1, modifyDate: now })
+			.where(and(
+				eq(cybFollow.id, id),
+				eq(cybFollow.isDeleted, 0),
+			));
+	}
+
+	// ====== Delete message (history row by id) ======
+
+	async findMessageHistoryByIdAny(id: number) {
+		const [row] = await db.select()
+			.from(cybMessageHistory)
+			.where(and(
+				eq(cybMessageHistory.id, id),
+				eq(cybMessageHistory.isDeleted, 0),
+			))
+			.limit(1);
+		return row;
+	}
+
+	async softDeleteMessageHistory(id: number) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		await db.update(cybMessageHistory)
+			.set({ isDeleted: 1, modifyDate: now })
+			.where(eq(cybMessageHistory.id, id));
+	}
 }
 
 export default new generalRepositery();

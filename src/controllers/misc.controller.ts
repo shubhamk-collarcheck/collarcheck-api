@@ -7,8 +7,9 @@ import {
 	markViewedService, sidebarCountService, leaveReminderExperienceService,
 	hiredService, saveExploringService, cvDetailsService,
 	editProfileService, allCompanyService, userDetailService,
-	companyProfileService,
+	companyProfileService, allUserService,
 } from "../services/misc.service";
+import { AllUserQuery } from "../types/general.types";
 
 export async function markViewed(req: Request, res: Response, next: NextFunction) {
 	try {
@@ -112,7 +113,29 @@ export async function userDetail(req: Request, res: Response, next: NextFunction
 export async function companyProfile(req: Request, res: Response, next: NextFunction) {
 	try {
 		const slug = req.params.slug as string;
-		const result = await companyProfileService(slug);
+		const viewerId = (req.auth as AuthUser | undefined)?.id;
+		const result = await companyProfileService(slug, { viewerId, isPublic: !viewerId });
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+export async function authCompanyProfile(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { id: viewerId } = req.auth as AuthUser;
+		const slug = req.params.slug as string;
+		const result = await companyProfileService(slug, { viewerId, isPublic: false });
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+}
+
+export async function allUser(req: Request, res: Response, next: NextFunction) {
+	try {
+		const { query } = (req.validated as { query: AllUserQuery }) || { query: req.query as any };
+		const result = await allUserService(query.keyword, query.limit ?? 10, query.offset ?? 0);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
