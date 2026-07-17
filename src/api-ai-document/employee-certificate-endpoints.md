@@ -1,5 +1,12 @@
-
 # Employee Certificate API Endpoints
+
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Route file:** `src/routes/employee.route.ts`  
+> **Controller:** `src/controllers/certificate.controller.ts`  
+> **Service:** `src/services/certificate.service.ts`  
+> **Types:** `src/types/certificate.types.ts`
+
 
 ## Overview
 
@@ -30,7 +37,6 @@ src/
 ├── routes/employee.route.ts            # Route registration (certificateUpload middleware)
 └── utils/educationUpload.ts            # S3 multer config (PDF/PNG/JPG/JPEG/DOC/DOCX, 2MB, max 5 files)
 ```
-
 ---
 
 ## Zod Validation Schemas
@@ -54,13 +60,11 @@ z.object({
   })
 })
 ```
-
 ### certificateRequestSchema (List/Detail)
 
 ```typescript
 z.object({ params: z.object({ id: z.number() }) })
 ```
-
 ---
 
 ## Middleware
@@ -137,7 +141,6 @@ update(id, data)
 deleteByUserAndId(id: number, userId: number)
   → UPDATE cyb_user_certificate SET is_deleted = 1 WHERE id = :id AND user = :userId
 ```
-
 ---
 
 ## Service Methods
@@ -173,7 +176,6 @@ certificateValue
   .filter((key) => key !== "")
   .map((key) => process.env.S3_PREFIX + key)
 ```
-
 ### createCertificateService(data, userId)
 
 1. Handle file uploads (if present)
@@ -213,7 +215,6 @@ async (req, res) => {
   return res.status(200).json(result)
 }
 ```
-
 ### allCertificateList
 
 ```typescript
@@ -226,7 +227,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### certificateDetail
 
 ```typescript
@@ -240,7 +240,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### deleteCertificate
 
 ```typescript
@@ -253,7 +252,6 @@ async (req, res) => {
   })
 }
 ```
-
 ---
 
 ## Response Mapping
@@ -275,7 +273,6 @@ async (req, res) => {
   ]
 }
 ```
-
 | Key              | Source / Logic                                                                  |
 |------------------|---------------------------------------------------------------------------------|
 | `id`             | `cyb_user_certificate.id`                                                       |
@@ -329,7 +326,6 @@ curl -X POST http://localhost:3000/wapi/employee/add-certificate \
   -F "ongoing=false" \
   -F "document=@/path/to/cert.pdf"
 ```
-
 ### Success Response
 
 ```json

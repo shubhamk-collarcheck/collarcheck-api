@@ -1,5 +1,12 @@
-
 # Employee Send Company Invite API Endpoint
+
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Route file:** `src/routes/employee.route.ts`  
+> **Controller:** `src/controllers/company-invite.controller.ts`  
+> **Service:** `src/services/company-invite.service.ts`  
+> **Types:** `src/types/company-invite.types.ts`
+
 
 ## Overview
 
@@ -26,7 +33,6 @@ src/
 ├── routes/employee.route.ts               # Route registration
 └── utils/sqs.ts                           # AWS SQS utility
 ```
-
 ---
 
 ## Zod Validation Schemas
@@ -53,13 +59,11 @@ z.object({
   { message: "The email field must contain a valid email address.", path: ["email"] }
 )
 ```
-
 ### companyInviteRequestSchema
 
 ```typescript
 z.object({ body: companyInviteBodySchema })
 ```
-
 ---
 
 ## Middleware
@@ -105,7 +109,6 @@ create(data)
 update(id, data)
   → UPDATE cyb_company_invite SET ... WHERE id = :id
 ```
-
 ---
 
 ## Service Methods
@@ -145,7 +148,6 @@ update(id, data)
   }
 }
 ```
-
 ---
 
 ## Controller Methods
@@ -165,7 +167,6 @@ async (req, res) => {
   })
 }
 ```
-
 ---
 
 ## Response Mapping
@@ -178,7 +179,6 @@ async (req, res) => {
   "messages": "Company invite send!"
 }
 ```
-
 ### Validation Error (Both Empty)
 
 ```json
@@ -187,7 +187,6 @@ async (req, res) => {
   "messages": "Either Email or Phone is required"
 }
 ```
-
 ### Validation Error (Bad Email)
 
 ```json
@@ -196,7 +195,6 @@ async (req, res) => {
   "messages": "The email field must contain a valid email address."
 }
 ```
-
 ### Exception Response
 
 ```json
@@ -205,7 +203,6 @@ async (req, res) => {
   "messages": "Something went wrong!"
 }
 ```
-
 ---
 
 ## Implementation Notes
@@ -228,7 +225,6 @@ AWS_REGION=ap-south-1
 AWS_SQS_URL=https://sqs.ap-south-1.amazonaws.com/xxxxx/collarcheck-queue.fifo
 REACT_SITE=https://app.collarcheck.com/
 ```
-
 ---
 
 ## Example Request
@@ -246,7 +242,6 @@ curl -X POST http://localhost:3000/wapi/employee/sendCompanyInvite \
     "website": "https://company.com"
   }'
 ```
-
 ### Success Response
 
 ```json

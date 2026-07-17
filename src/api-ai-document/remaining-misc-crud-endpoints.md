@@ -1,11 +1,14 @@
 
 # Remaining CRUD Endpoints — Response Contracts for Node Port
 
-AI porting guide for **CRUD-only** endpoints. Goal: a new stack (Node/Express, Nest, etc.) must return **the same JSON shape and message strings** so existing mobile/web clients keep working.
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Auth:** `Authorization` middleware · optional `X-Company` header  
+> **Status:** All 19 routes implemented in this repo  
 
-**Base path:** `/wapi`  
+Response contracts for **CRUD-only** endpoints. Match **JSON shape and message strings** so mobile/web clients keep working.
+
 **Content-Type:** `application/json` (or `multipart/form-data` for file uploads)  
-**Auth:** `Authorization: Bearer <jwt>` unless marked Public  
 **Acting user:** JWT `id` → request user. Header `X-Company: {companyId}` swaps acting id to company; original user in `user_id`.
 
 > **Out of scope:** OTP, email OTP, KYC/verifyDocument/Aadhaar/GST/Digilocker (still separate). `globalSearch` already exists under `general/globalSearch`.
@@ -21,8 +24,8 @@ AI porting guide for **CRUD-only** endpoints. Goal: a new stack (Node/Express, N
 |------|------|------|
 | Most success/business errors | **200** | `{ status: true\|false, ... }` |
 | Permission denied (menu access) | **403** | `{ status: false, message: "..." }` (note: key is `message`, not `messages`) |
-| Auth filter fail (missing/invalid JWT) | **401** | Framework-dependent; keep client-compatible |
-| Unimplemented route/handler | **404** | CI4 default |
+| Authorization middleware fail (missing/invalid JWT) | **401** | Framework-dependent; keep client-compatible |
+| Unimplemented route/handler | **404** | Express default |
 
 Most handlers always return HTTP 200 with `status: false` for validation/business failures. Do **not** invent REST 400s unless the client already expects them.
 
@@ -36,12 +39,11 @@ Most handlers always return HTTP 200 with `status: false` for validation/busines
 
 ### Shared nested shapes
 
-**`followData`** (from `UserModel::get_total_follower_count`):
+**`followData`** (from `get_total_follower_count`):
 ```json
 { "following": 12, "follower": 45 }
 ```
-
-**`following` / follow status** (from `UserModel::get_follow_status` — used on auth company profile):
+**`following` / follow status** (from `get_follow_status` — used on auth company profile):
 ```json
 {
   "requestSend": true,
@@ -137,12 +139,10 @@ Most handlers always return HTTP 200 with `status: false` for validation/busines
   }
 }
 ```
-
 ### Error
 ```json
 { "status": false, "messages": "Access denied" }
 ```
-
 ---
 
 ## 2. POST `/wapi/company/add-connection`
@@ -159,12 +159,10 @@ Most handlers always return HTTP 200 with `status: false` for validation/busines
   "still_working": 1
 }
 ```
-
 ### Success
 ```json
 { "status": true, "messages": "Connection added" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "user is required" }
@@ -191,12 +189,10 @@ HTTP **403** for permission (same pattern as other company routes).
 ```json
 { "user": 101 }
 ```
-
 ### Success
 ```json
 { "status": true, "messages": "Added to wishlist" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "Already in wishlist" }
@@ -204,13 +200,11 @@ HTTP **403** for permission (same pattern as other company routes).
 ```json
 { "status": false, "messages": "user is required" }
 ```
-
 ### DB write
 ```sql
 INSERT INTO company_wishlist (company, user, status, create_date, modify_date)
 VALUES (:companyId, :userId, 1, NOW(), NOW());
 ```
-
 ---
 
 ## 4. DELETE `/wapi/company/delete-wishlist/:id`
@@ -223,7 +217,6 @@ VALUES (:companyId, :userId, 1, NOW(), NOW());
 ```json
 { "status": true, "messages": "Deleted Successfully" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "Record not found!" }
@@ -231,14 +224,12 @@ VALUES (:companyId, :userId, 1, NOW(), NOW());
 ```json
 { "status": false, "messages": "Invalid Id" }
 ```
-
 ### DB
 ```sql
 UPDATE company_wishlist
 SET status = 0, modify_date = NOW()
 WHERE id = :id AND company = :companyId;
 ```
-
 ---
 
 ## 5. POST `/wapi/company/add-document`
@@ -257,7 +248,6 @@ WHERE id = :id AND company = :companyId;
 ```json
 { "status": true, "messages": "Successfully added" }
 ```
-
 ### Errors (exact legacy strings)
 ```json
 { "status": false, "messages": "Doc Type field is required" }
@@ -277,7 +267,6 @@ WHERE id = :id AND company = :companyId;
 ```json
 { "status": false, "messages": "Method Not Found" }
 ```
-
 ---
 
 # B. Read / social / multi-action contracts (implemented in Node)
@@ -285,7 +274,6 @@ WHERE id = :id AND company = :companyId;
 ## 6. GET `/wapi/company-list`
 
 **Auth:** JWT  
-**Handler:** `CompanyApi::company_list`  
 **Node:** `GET /wapi/company-list` → `companyList` / `companyListService`
 
 ### Query
@@ -340,7 +328,6 @@ WHERE id = :id AND company = :companyId;
   }
 }
 ```
-
 ### Field notes
 | Field | Type | Rules |
 |-------|------|--------|
@@ -373,18 +360,15 @@ WHERE id = :id AND company = :companyId;
   }
 }
 ```
-
 ### Error
 ```json
 { "status": false, "messages": "Exception message text" }
 ```
-
 ---
 
 ## 7. GET `/wapi/auth/company-profile/:slug`
 
 **Auth:** JWT  
-**Handler:** `CompanyApi::companyDetail`  
 **Permission:** if JWT `user_type == 2`, `checkMenuAccess(loginUserId, companyId, 2)` → 403  
 **Node:** `authCompanyProfile` / `companyProfileService(slug, { viewerId, isPublic: false })`
 
@@ -525,7 +509,6 @@ WHERE id = :id AND company = :companyId;
   }
 }
 ```
-
 > **Key name is `message` (singular), not `messages`.**  
 > `following` is **omitted** when viewer is the same company (`userId == request.id`).
 
@@ -536,7 +519,6 @@ WHERE id = :id AND company = :companyId;
 ```json
 { "status": false, "messages": "No Company Found!" }
 ```
-
 ### Error — permission (HTTP 403)
 ```json
 {
@@ -544,18 +526,15 @@ WHERE id = :id AND company = :companyId;
   "message": "<permission helper message>"
 }
 ```
-
 ### Error — exception
 ```json
 { "status": false, "messages": "Error text" }
 ```
-
 ---
 
 ## 8. GET `/wapi/general/company-profile/:slug`
 
 **Auth:** Public  
-**Handler:** `GeneralApi::companyprofile`  
 **Node:** `generalCompanyProfile` / `companyProfileService(slug, { isPublic: true })`
 
 ### Success — same core company fields as #7, with these differences
@@ -629,7 +608,6 @@ WHERE id = :id AND company = :companyId;
   }
 }
 ```
-
 ### Diff vs auth profile (#7)
 | Field | Auth (#7) | Public (#8) |
 |-------|-----------|-------------|
@@ -649,13 +627,11 @@ WHERE id = :id AND company = :companyId;
 ```json
 { "status": false, "messages": "Error text" }
 ```
-
 ---
 
 ## 9. GET `/wapi/people-list-signup`
 
 **Auth:** Public (pass `user_id`)  
-**Handler:** `ModuleController::people_list`  
 **Auth twin:** `GET /wapi/people-list` (JWT, same body)  
 **Node:** `peopleListSignup` (public) / `peopleList` (JWT) → `peopleListService`
 
@@ -708,7 +684,6 @@ WHERE id = :id AND company = :companyId;
   }
 }
 ```
-
 > **No `messages` key on success.**  
 > `checked` is number `1` or `0`.  
 > User card uses `name` + `profile`; company card uses `company` + `company_logo`.
@@ -717,7 +692,6 @@ WHERE id = :id AND company = :companyId;
 ```json
 { "status": false, "message": "ID is missing" }
 ```
-
 ### Empty lists still success
 ```json
 {
@@ -730,7 +704,6 @@ WHERE id = :id AND company = :companyId;
   }
 }
 ```
-
 ---
 
 ## 10. DELETE `/wapi/general/delete-message/:id`
@@ -744,12 +717,10 @@ WHERE id = :id AND company = :companyId;
 DELETE /wapi/general/delete-message/55?user_type=user
 Authorization: <legacy-or-jwt-token-value-as-stored>
 ```
-
 ### Success (note leading space + typo "Sucessfully")
 ```json
 { "status": true, "messages": " Deleted Sucessfully" }
 ```
-
 ### Errors (copy strings exactly for client parity)
 ```json
 { "status": false, "messages": "No Message Found" }
@@ -772,7 +743,6 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ```json
 { "status": false, "messages": "Method Not Found" }
 ```
-
 ---
 
 ## 11. POST `/wapi/general/send-message`
@@ -793,7 +763,6 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ```json
 { "status": true, "messages": "Successfully added" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "send to id field is required" }
@@ -807,7 +776,6 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ```json
 { "status": false, "messages": "Exception message" }
 ```
-
 > **No `data` on success** in current API. Node should match unless product decides to return `message_id`.
 
 ---
@@ -826,7 +794,6 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ```json
 { "status": true, "messages": "Request Send successfully!" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "The follower id field is required." }
@@ -843,7 +810,6 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ```json
 { "status": false, "messages": "Exception message" }
 ```
-
 > Side effects (notification, push, email) do **not** change response body.  
 > Company targets auto-accept (`status=1`); users stay pending (`status=0`). Still same success message.
 
@@ -859,7 +825,6 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ```json
 { "status": true, "messages": "followed Successfully!" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "Invalid Id" }
@@ -873,7 +838,6 @@ Authorization: <legacy-or-jwt-token-value-as-stored>
 ```json
 { "status": false, "messages": "Exception message" }
 ```
-
 ---
 
 ## 14. DELETE `/wapi/general/rejectfollow/:id`
@@ -887,7 +851,6 @@ Soft-delete: `is_deleted = 1`
 ```json
 { "status": true, "messages": "Reject Successfully!" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "Invalid Id" }
@@ -901,7 +864,6 @@ Soft-delete: `is_deleted = 1`
 ```json
 { "status": false, "messages": "Exception message" }
 ```
-
 ---
 
 ## 15. POST `/wapi/multi-acceptfollow`
@@ -912,12 +874,10 @@ Soft-delete: `is_deleted = 1`
 ```json
 { "id": [12, 15, 18] }
 ```
-
 ### Success
 ```json
 { "status": true, "messages": "followed Successfully!" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "id Required!" }
@@ -931,7 +891,6 @@ Soft-delete: `is_deleted = 1`
 ```json
 { "status": false, "messages": "Something went wrong!" }
 ```
-
 > First invalid id aborts remaining. Response is not a per-id array.
 
 ---
@@ -944,12 +903,10 @@ Soft-delete: `is_deleted = 1`
 ```json
 { "id": [12, 15] }
 ```
-
 ### Success
 ```json
 { "status": true, "messages": "Reject Successfully!" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "id Required!" }
@@ -963,7 +920,6 @@ Soft-delete: `is_deleted = 1`
 ```json
 { "status": false, "messages": "Something went wrong!" }
 ```
-
 ---
 
 ## 17. POST `/wapi/multi-deleteViewRequest`
@@ -974,14 +930,12 @@ Soft-delete: `is_deleted = 1`
 ```json
 { "id": [3, 4] }
 ```
-
 Soft-deletes rows in `user_profile_view_request` where `userid = currentUser`.
 
 ### Success
 ```json
 { "status": true, "messages": "Delete Successfully!" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "Access Denied!" }
@@ -998,7 +952,6 @@ Soft-deletes rows in `user_profile_view_request` where `userid = currentUser`.
 ```json
 { "status": false, "messages": "Something went wrong!" }
 ```
-
 ---
 
 ## 18. POST `/wapi/multi-approvedVeiwRequest`
@@ -1015,7 +968,6 @@ Soft-deletes rows in `user_profile_view_request` where `userid = currentUser`.
   "day": 7
 }
 ```
-
 | Field | Required | Default |
 |-------|----------|---------|
 | `id` | Yes | |
@@ -1026,7 +978,6 @@ Soft-deletes rows in `user_profile_view_request` where `userid = currentUser`.
 ```json
 { "status": true, "messages": "Approved successfully!" }
 ```
-
 ### Errors
 ```json
 { "status": false, "messages": "The id field is required." }
@@ -1037,7 +988,6 @@ Soft-deletes rows in `user_profile_view_request` where `userid = currentUser`.
 ```json
 { "status": false, "messages": "Access denied" }
 ```
-
 ### DB effect
 ```sql
 UPDATE user_profile_view_request
@@ -1075,7 +1025,6 @@ Also inserts a notification to `companyid`.
   ]
 }
 ```
-
 | Field | Source |
 |-------|--------|
 | `id` | `skill.id` |
@@ -1090,12 +1039,10 @@ Also inserts a notification to `companyid`.
   "data": []
 }
 ```
-
 ### Wrong HTTP method
 ```json
 { "status": false, "messages": "Method Not Found" }
 ```
-
 ---
 
 # Node implementation checklist (parity)

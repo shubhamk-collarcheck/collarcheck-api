@@ -1,23 +1,23 @@
+# Common Auth Endpoints — Settings, Profiles, People List
 
-# Common Auth Endpoints — Settings, Auth Profile, View Request, People List
-
-**Base path:** `/wapi` (all endpoints in `wapi` group with `Auth` filter, JWT Bearer token required)
-
----
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Auth:** `Authorization` middleware · optional `X-Company` header  
+> **Layers:** `routes → controllers → services → repositery` · types in `src/types/`
 
 ## Routes Summary
 
-| Method | Route | Handler | Node | Description |
-|--------|-------|---------|------|-------------|
-| GET | `user/getSetting` | `IndividualApi::getSetting` | Yes | Get user account settings |
-| POST | `user/saveSetting` | `IndividualApi::saveSetting` | Yes | Save/update account settings |
-| POST | `user/updatePhone` | `GeneralApi::updatePhone` | Yes | Update phone |
-| POST | `user/updateEmail` | `GeneralApi::updateEmail` | Yes | Update email |
-| GET | `auth/user-profile/(:any)` | `IndividualApi::authUserprofile/$1` | Yes | Full user profile (auth-gated view) |
-| GET | `auth/company-profile/(:any)` | `CompanyApi::companyDetail/$1` | **Yes** | Auth company profile by slug |
-| POST | `company/sendUserProfileViewRequest` | `CompanyApi::sendUserProfileViewRequest` | Yes | Request salary/profile view access |
-| GET | `people-list` | `ModuleController::people_list` | Yes | Exploring people picker list (JWT) |
-| GET | `people-list-signup` | `ModuleController::people_list` | **Yes** | Same payload, public + `user_id` query |
+| Method | Full path | Route file | Controller | Service |
+|--------|-----------|------------|------------|---------|
+| GET | `/wapi/user/getSetting` | `user.route.ts` | `getSetting` | `getSettingService` |
+| POST | `/wapi/user/saveSetting` | `user.route.ts` | `saveSetting` | `saveSettingService` |
+| POST | `/wapi/user/updatePhone` | `user.route.ts` | `updatePhone` | `user.service` |
+| POST | `/wapi/user/updateEmail` | `user.route.ts` | `updateEmail` | `user.service` |
+| GET | `/wapi/auth/user-profile/:slug` | `auth.route.ts` | `authUserProfile` | `authUserProfileService` |
+| GET | `/wapi/auth/company-profile/:slug` | `auth.route.ts` | `authCompanyProfile` | `companyProfileService` |
+| POST | `/wapi/company/sendUserProfileViewRequest` | `company.route.ts` | `sendUserProfileViewRequest` | `sendUserProfileViewRequestService` |
+| GET | `/wapi/people-list` | `root.route.ts` | `peopleList` | `peopleListService` (JWT) |
+| GET | `/wapi/people-list-signup` | `root.route.ts` | `peopleListSignup` | `peopleListService` (public + `user_id`) |
 
 ---
 
@@ -27,10 +27,9 @@
 ```
 GET /wapi/user/getSetting
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
-**Permission guard:** If `$this->request->user_type == 2` (company viewing another user's settings), runs `checkMenuAccess($login_user_id, $companyId, 11)`. Returns **403** if denied.
+JWT required. `req.auth.id` = logged-in user.
+**Permission guard:** If `req.auth.user_type == 2` (company viewing another user's settings), runs `checkMenuAccess(loginUserId, companyId, 11)`. Returns **403** if denied.
 
 ### DB Queries
 ```
@@ -65,7 +64,6 @@ No body params (user identified from JWT).
 { "status": false, "message": "Permission denied message" }   // 403
 { "status": false, "messages": "Exception message" }
 ```
-
 ---
 
 ## 2. POST `user/saveSetting`
@@ -74,9 +72,8 @@ No body params (user identified from JWT).
 ```
 POST /wapi/user/saveSetting
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+JWT required. `req.auth.id` = logged-in user.
 
 ### DB Queries
 Iterates over **all POST body keys** and upserts each into `account_setting`:
@@ -94,7 +91,6 @@ For each key/value in POST body:
   ELSE:
       INSERT INTO account_setting (user_id, code, key, value)
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -107,7 +103,6 @@ push_notification=0
 profile_visibility=public
 show_salary=1
 ```
-
 ### Response
 ```json
 { "status": true, "messages": "Record updated!" }
@@ -115,7 +110,6 @@ show_salary=1
 ```json
 { "status": false, "messages": "Exception message" }
 ```
-
 ### Notes
 - `code` column is always set to `'config'`.
 - Handles duplicate cleanup: if multiple rows exist for same user+key, deletes all and re-inserts one.
@@ -123,74 +117,73 @@ show_salary=1
 
 ---
 
-## 3. GET `auth/user-profile/(:any)`
+## 3. GET `auth/user-profile/:slug`
 
 ### Route
 ```
 GET /wapi/auth/user-profile/{slug}
 ```
-- `(:any)` → `$slug` — user slug (individual, user_type=1)
+- `:slug` → `slug` — user slug (individual, user_type=1)
 
 ### Auth
-JWT required. `$this->request->id` = current logged-in user (viewer).
+JWT required. `req.auth.id` = current logged-in user (viewer).
 
 ### DB Queries
 ```
 1. SELECT * FROM user WHERE slug = ? AND status = 1 AND is_deleted = 0
-   → $userdetail (must be user_type=1, else "No User Found!")
+   → userDetail (must be user_type=1, else "No User Found!")
 
-2. UserModel::get_user_detail($userdetail->id)
+2. get_user_detail(userDetail->id)
    → Full user row with joined names
 
 3. SELECT * FROM user WHERE id = {currentUserId}
-   → $currentUser (viewer)
+   → currentUser (viewer)
 
 4. SELECT * FROM user_profile_view_request
    WHERE userid = {target} AND companyid = {viewer} AND status = 1
    AND is_deleted = 0 AND DATE(expiry) >= CURDATE()
-   → $viewRequest (salary-view permission)
+   → viewRequest (salary-view permission)
 
 5. check_data_permission(target, viewer, field)
    → Controls visibility of email, phone, address, dob
 
-6. UserModel::get_unique_experience_id($filter)
+6. get_unique_experience_id(filter)
    → Employment history (approved + pending for others, all for self)
 
 7. For each experience: get_experience_detail(id, ...)
    → Full experience with salary visibility based on viewRequest
 
-8. UserModel::get_educaton_list($user)
+8. get_educaton_list(user)
    → Education records
 
-9. UserModel::get_user_skill_list($user)
+9. get_user_skill_list(user)
    → Skills with ratings
 
-10. UserModel::get_user_langauageList($user)
+10. get_user_langauageList(user)
     → Language proficiency
 
-11. UserModel::get_certificate_list($user)
+11. get_certificate_list(user)
     → Certificates
 
-12. UserModel::get_user_portfolio($user)
+12. get_user_portfolio(user)
     → Portfolio items
 
-13. UserModel::get_total_follower_count($user)
+13. get_total_follower_count(user)
     → Follower count
 
-14. UserModel::get_follow_status(currentUserId, targetUserId)
+14. get_follow_status(currentUserId, targetUserId)
     → Boolean follow status
 
-15. UserModel::overallprofileScore($user) / getoverallprofileScore($user)
+15. overallprofileScore(user) / getoverallprofileScore(user)
     → Rating/review scores
 
-16. accountSetting($currentUserId)
+16. accountSetting(currentUserId)
     → Viewer's own settings (only returned if viewing self)
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$slug` | URL segment | Yes | Target user's slug |
+| `slug` | URL segment | Yes | Target user's slug |
 
 ### Access Control Logic
 - **Self-viewing** (`currentUserId == targetId`): Full access to all fields + settings returned.
@@ -321,13 +314,11 @@ JWT required. `$this->request->id` = current logged-in user (viewer).
   }
 }
 ```
-
 ### Error Responses
 ```json
 { "status": false, "messages": "No User Found!" }
 { "status": false, "messages": "Exception message" }
 ```
-
 ---
 
 ## 4. POST `company/sendUserProfileViewRequest`
@@ -336,9 +327,8 @@ JWT required. `$this->request->id` = current logged-in user (viewer).
 ```
 POST /wapi/company/sendUserProfileViewRequest
 ```
-
 ### Auth
-JWT required. `$this->request->id` = sender (must be user_type=1, individual only).
+JWT required. `req.auth.id` = sender (must be user_type=1, individual only).
 
 ### Side Effects (Non-CRUD)
 This endpoint triggers **3 notifications** via SQS queues:
@@ -369,7 +359,6 @@ This endpoint triggers **3 notifications** via SQS queues:
 
 6. SQS push: SEND_PUSH, SEND_EMAIL, SEND_WHATSAPP
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -387,7 +376,6 @@ This endpoint triggers **3 notifications** via SQS queues:
 { "status": false, "messages": "User Not Found!" }
 { "status": false, "messages": "Already Request send!" }
 ```
-
 ### Notes
 - Despite the route name mentioning "salary", this is a **full profile view request**.
 - `status = 0` on insert means the request is **pending** until the target user approves.
@@ -402,7 +390,6 @@ This endpoint triggers **3 notifications** via SQS queues:
 GET /wapi/people-list              # JWT
 GET /wapi/people-list-signup       # public, requires ?user_id=
 ```
-
 ### Auth
 - `people-list`: JWT required. Acting user from token.
 - `people-list-signup`: no JWT; query `user_id` required (else `{ status: false, message: "ID is missing" }`).
@@ -410,24 +397,23 @@ GET /wapi/people-list-signup       # public, requires ?user_id=
 ### DB Queries
 ```
 1. SELECT * FROM user_details WHERE user_id = ?
-   → $checkList (exploring config)
+   → checkList (exploring config)
 
-2. JSON-decode $checkList->exploring_details → $peopleIds (array of selected user IDs)
+2. JSON-decode checkList->exploring_details → peopleIds (array of selected user IDs)
 
-3. UserModel::get_exploring_user_list($peopleIds)
+3. get_exploring_user_list(peopleIds)
    → SELECT id, user_type, individual_id, fname, lname, profile, social_image
-     FROM user WHERE id IN ($peopleIds)
+     FROM user WHERE id IN (peopleIds)
    → Split into selected users (user_type=1) and selected companies (user_type=2)
 
-4. UserModel::get_user_explore(user_type=1, $peopleIds)
+4. get_user_explore(user_type=1, peopleIds)
    → SELECT * FROM user WHERE status=1 AND user_type=1 AND is_deleted=0
-     AND id NOT IN ($peopleIds) ORDER BY RAND() LIMIT 10
+     AND id NOT IN (peopleIds) ORDER BY RAND() LIMIT 10
    → Random unselected users, sorted alphabetically
 
-5. UserModel::get_user_explore(user_type=2, $peopleIds)
+5. get_user_explore(user_type=2, peopleIds)
    → Same as above but for companies (user_type=2)
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
@@ -477,12 +463,10 @@ GET /wapi/people-list-signup       # public, requires ?user_id=
   }
 }
 ```
-
 ### Error Responses
 ```json
 { "status": false, "message": "ID is missing" }
 ```
-
 ---
 
 ## Cross-Language Porting Notes

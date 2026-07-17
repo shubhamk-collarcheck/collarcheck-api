@@ -1,64 +1,64 @@
+# Employee Misc Endpoints
 
-# Employee Misc Endpoints — companyProfile, markViewed, sidebar, exploring, hired, cv_details, editProfile, allCompany, userDetail
-
-**Base path:** `/wapi` (all endpoints in `Auth` filter group, JWT Bearer token required)
-
----
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Auth:** `Authorization` middleware · optional `X-Company`  
+> **Controllers:** `misc.controller.ts`, `profile-review` / related services  
 
 ## Routes Summary
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| GET | `auth/company-profile/(:any)` | `CompanyApi::companyDetail/$1` | Public company profile by slug |
-| PUT | `general/markViewed/(:num)` | `GeneralApi::markViewed/$1` | Mark single notification as read |
-| GET | `employee/sidebar-count` | `IndividualApi::sidebarCount` | Notification + message badge counts |
-| POST | `employee/leave-reminder-experience` | `IndividualApi::leave_reminder_experience` | Dismiss future-experience reminder |
-| POST | `hired` | `IndividualApi::hired` | Check if a user has ever been an employee |
-| POST | `employee/save-exploring` | `IndividualApi::save_exploring` | Save exploring preferences |
-| GET | `employee/cv-details` | `ModuleController::cv_details` | Full profile with CV-parse merge |
-| POST | `employee/edit-profile` | `IndividualApi::edit_profile_individual` | Edit individual profile (multi-step) |
-| GET | `employee/all-company` | `IndividualApi::allCompany` | Paginated company search |
-| GET | `employee/user-detail` | `IndividualApi::userDetail` | Logged-in user's own profile/stats |
+| Method | Full path | Route file | Handler | Description |
+|--------|-----------|------------|---------|-------------|
+| GET | `/wapi/auth/company-profile/:slug` | `auth.route.ts` | `authCompanyProfile` | Auth company profile |
+| GET | `/wapi/general/company-profile/:slug` | `general.route.ts` | `generalCompanyProfile` | Public company profile |
+| PUT | `/wapi/general/markViewed/:id` | `general.route.ts` | `markViewed` | Mark notification read |
+| GET | `/wapi/employee/sidebar-count` | `employee.route.ts` | `sidebarCount` | Badge counts |
+| POST | `/wapi/employee/leave-reminder-experience` | `employee.route.ts` | `leaveReminderExperience` | Dismiss reminder |
+| POST | `/wapi/hired` | `hired.route.ts` | `hired` | Hired check |
+| POST | `/wapi/employee/save-exploring` | `employee.route.ts` | `saveExploring` | Save exploring prefs |
+| GET | `/wapi/employee/cv-details` | `employee.route.ts` | `cvDetails` | CV details |
+| POST | `/wapi/employee/edit-profile` | `employee.route.ts` | `editProfile` | Multi-step profile edit |
+| GET | `/wapi/employee/all-company` | `employee.route.ts` | `allCompany` | Company search |
+| GET | `/wapi/employee/user-detail` | `employee.route.ts` | `userDetail` | Own profile stats |
+
+**Service:** `misc.service.ts` · **Repo:** `misc.repositery.ts` · **Types:** `misc.types.ts`
 
 ---
 
-## 1. GET `auth/company-profile/(:any)`
+## 1. GET `auth/company-profile/:slug`
 
 ### Route
 ```
 GET /wapi/auth/company-profile/{slug}
 ```
-- `(:any)` → `$slug` — company slug (URL segment)
+- `:slug` → `slug` — company slug (URL segment)
 
 ### Auth
-No JWT required (route is in the `auth` group without the `Auth` filter).
-**However**, if `$this->request->user_type == 2` (company user calling for another company), a `checkMenuAccess` permission check runs. Returns **403** if denied.
+JWT required. Public twin: `GET /wapi/general/company-profile/:slug`. Menu permission (legacy) may return **403** for company users without access.
 
 ### DB Queries
 ```
 1. SELECT * FROM user WHERE slug = ? AND status = 1 AND is_deleted = 0
-   → $userdetail (must be user_type = 2, else "No Company Found!")
+   → userDetail (must be user_type = 2, else "No Company Found!")
 
-2. UserModel::get_company_detail($userId)
+2. get_company_detail(userId)
    → Full company profile row (industry, company_size, turnover, etc.)
 
-3. UserModel::get_all_connection($userId)
+3. get_all_connection(userId)
    → Total connection count
 
-4. UserModel::get_all_job_list($filter)
+4. get_all_job_list(filter)
    → Active jobs for company (limit 20), each with application count
 
-5. UserModel::get_similar_users($tfilter)
+5. get_similar_users(tfilter)
    → Top 4 similar companies (for sidebar)
 
-6. UserModel::get_all_connection($userId)
+6. get_all_connection(userId)
    → Follower count
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$slug` | URL segment | Yes | Company slug |
+| `slug` | URL segment | Yes | Company slug |
 
 ### Response
 ```json
@@ -115,31 +115,30 @@ No JWT required (route is in the `auth` group without the `Auth` filter).
   "totalConnectionCount": 42
 }
 ```
-> Response is `json_encode()`-d, not wrapped in `$this->response->setJSON()`.
+> Response is `json_encode()`-d, not wrapped in `this->response->setJSON()`.
 
 ---
 
-## 2. PUT `general/markViewed/(:num)`
+## 2. PUT `general/markViewed/:id`
 
 ### Route
 ```
 PUT /wapi/general/markViewed/{id}
 ```
-- `(:num)` → `$id` — notification ID
+- `:id` → `id` — notification ID
 
 ### Auth
-JWT required. `$this->request->id` = authenticated user.
+JWT required. `req.auth.id` = authenticated user.
 
 ### DB Queries
 ```
 UPDATE notifications SET is_viewed = 1
 WHERE receiver = {userId} AND id = {id}
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Notification ID |
+| `id` | URL segment | Yes | Notification ID |
 
 ### Response
 ```json
@@ -151,7 +150,6 @@ WHERE receiver = {userId} AND id = {id}
 ```json
 { "status": false, "messages": "Exception message" }
 ```
-
 ---
 
 ## 3. GET `employee/sidebar-count`
@@ -160,23 +158,21 @@ WHERE receiver = {userId} AND id = {id}
 ```
 GET /wapi/employee/sidebar-count
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+JWT required. `req.auth.id` = logged-in user.
 
 ### DB Queries
 ```
 1. SELECT * FROM notifications WHERE receiver = ? AND is_viewed = 0 ORDER BY id DESC
-   → $unreadnotifications
+   → unreadnotifications
 
 2. For each unread notification, count child notifications with same parent_id:
    SELECT COUNT(*) FROM notifications WHERE parent_id = ? AND receiver = ?
-   → appeneded as $row['child_count']
+   → appeneded as row['child_count']
 
-3. UserModel::get_unread_message_count($userId)
+3. get_unread_message_count(userId)
    → Total unread messages
 ```
-
 ### Request
 No body or query params.
 
@@ -205,7 +201,6 @@ No body or query params.
   }
 }
 ```
-
 ---
 
 ## 4. POST `employee/leave-reminder-experience`
@@ -214,9 +209,8 @@ No body or query params.
 ```
 POST /wapi/employee/leave-reminder-experience
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+JWT required. `req.auth.id` = logged-in user.
 
 ### DB Queries
 ```
@@ -225,7 +219,6 @@ JWT required. `$this->request->id` = logged-in user.
 
 2. UPDATE user SET cvPop = 1 WHERE id = ?
 ```
-
 ### Request
 No body params (user identified from JWT).
 
@@ -239,7 +232,6 @@ No body params (user identified from JWT).
 ```json
 { "status": false, "messages": "Exception message" }
 ```
-
 ---
 
 ## 5. POST `hired`
@@ -248,9 +240,8 @@ No body params (user identified from JWT).
 ```
 POST /wapi/hired
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+JWT required. `req.auth.id` = logged-in user.
 
 ### DB Queries
 ```
@@ -258,9 +249,8 @@ JWT required. `$this->request->id` = logged-in user.
    → Verify user exists
 
 2. SELECT COUNT(*) FROM user_experience WHERE user = ? AND is_deleted = 0
-   → $alreadyHired (int)
+   → alreadyHired (int)
 ```
-
 ### Request
 No body params (user identified from JWT).
 
@@ -271,7 +261,6 @@ No body params (user identified from JWT).
 ```json
 { "status": false, "messages": "Access denied" }
 ```
-
 ---
 
 ## 6. POST `employee/save-exploring`
@@ -280,9 +269,8 @@ No body params (user identified from JWT).
 ```
 POST /wapi/employee/save-exploring
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+JWT required. `req.auth.id` = logged-in user.
 
 ### DB Queries
 ```
@@ -305,7 +293,6 @@ JWT required. `$this->request->id` = logged-in user.
 
    (notice_employments is json_encode()'d before saving)
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -327,7 +314,6 @@ JWT required. `$this->request->id` = logged-in user.
 ```json
 { "status": false, "messages": "Access denied" }
 ```
-
 ---
 
 ## 7. GET `employee/cv-details`
@@ -336,30 +322,29 @@ JWT required. `$this->request->id` = logged-in user.
 ```
 GET /wapi/employee/cv-details
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+JWT required. `req.auth.id` = logged-in user.
 
 ### DB Queries
 This is a **heavy aggregation endpoint** that builds a full profile view by merging DB data with parsed CV/resume data:
 
 ```
-1. UserModel::get_user_detail($user)
+1. get_user_detail(user)
    → Basic user row (name, email, phone, resume path, etc.)
 
-2. ModuleController::resume_parse($basic->resume)
+2. `resume_parse(basic->resume)`
    → Parse uploaded resume (PDF/DOC) into structured data:
-     - $cvData->date_of_birth, $cvData->about, $cvData->address
-     - $cvData->linkedIn, $cvData->education[], $cvData->employment_history[]
-     - $cvData->skills (comma-separated), $cvData->language (comma-separated)
+     - cvData->date_of_birth, cvData->about, cvData->address
+     - cvData->linkedIn, cvData->education[], cvData->employment_history[]
+     - cvData->skills (comma-separated), cvData->language (comma-separated)
 
-3. UserModel::get_unique_experience_id($filter)
+3. get_unique_experience_id(filter)
    → Unique experience IDs for user
 
-4. For each experience: UserModel::get_experience_detail($id)
+4. For each experience: get_experience_detail(id)
    → Full experience row with joined company_name, designation_name, etc.
 
-5. UserModel::get_educaton_list($user)
+5. get_educaton_list(user)
    → All education records
 
 6. AdminModel::all_fetch('user_skill', where user, order by rating desc)
@@ -368,13 +353,12 @@ This is a **heavy aggregation endpoint** that builds a full profile view by merg
 7. For each skill: AdminModel::fs('skill', id)
    → Skill name from skill table
 
-8. UserModel::get_user_langauageList($user)
+8. get_user_langauageList(user)
    → Language proficiency records
 
-9. UserModel::get_certificate_list($user)
+9. get_certificate_list(user)
    → All certificates
 ```
-
 **CV Merge logic:** DB records are primary. CV-parsed data is appended only if the same education (university+course) or employment (company name) does NOT already exist in DB. Skills and languages from CV are appended without IDs.
 
 ### Request
@@ -472,7 +456,6 @@ No body params (user identified from JWT).
   }
 }
 ```
-
 ---
 
 ## 8. POST `employee/edit-profile`
@@ -481,9 +464,8 @@ No body params (user identified from JWT).
 ```
 POST /wapi/employee/edit-profile
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+JWT required. `req.auth.id` = logged-in user.
 
 ### DB Queries
 Multi-step profile update — all fields are optional, only provided fields are updated:
@@ -493,26 +475,26 @@ Step 1: Verify user exists
   SELECT * FROM user WHERE id = ? AND is_deleted = 0
 
 Step 2: Upload profile image (if provided)
-  - Upload to S3 via CodeIgniter upload library
-  - S3 path stored in $save['profile']
-  - Old profile moved to $save['social_image'] (backup)
+  - Upload to S3 via `uploadToS3` / `educationUpload` (multer)
+  - S3 path stored in save['profile']
+  - Old profile moved to save['social_image'] (backup)
 
 Step 3: Upload cover image (if provided)
   - Same S3 upload flow
-  - Old cover moved to $save['cover_image_backup']
+  - Old cover moved to save['cover_image_backup']
 
 Step 4: Upload resume (if provided)
   - PDF/DOC upload to S3
-  - Stored in $save['resume'] + $save['resumeName']
+  - Stored in save['resume'] + save['resumeName']
 
 Step 5: Upload cover-letter (if provided)
-  - S3 upload → $save['cover_letter'] + $save['cover_letter_name']
+  - S3 upload → save['cover_letter'] + save['cover_letter_name']
 
 Step 6: Upload additional-documents (if provided)
-  - S3 upload → $save['additional_documents'] + $save['additional_documents_name']
+  - S3 upload → save['additional_documents'] + save['additional_documents_name']
 
 Step 7: Upload social-image (if provided)
-  - S3 upload → $save['social_image']
+  - S3 upload → save['social_image']
 
 Step 8: Insert profile update history
   INSERT INTO profile_update_history (user, description)
@@ -521,7 +503,6 @@ Step 8: Insert profile update history
 Step 9: UPDATE user SET ... WHERE id = ?
   All collected fields merged into single UPDATE.
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -575,7 +556,6 @@ Step 9: UPDATE user SET ... WHERE id = ?
 ```json
 { "status": false, "messages": "Exception message" }
 ```
-
 ---
 
 ## 9. GET `employee/all-company`
@@ -584,22 +564,20 @@ Step 9: UPDATE user SET ... WHERE id = ?
 ```
 GET /wapi/employee/all-company
 ```
-
 ### Auth
 JWT required (but user not used in query — public company listing).
 
 ### DB Queries
 ```
-MainModel::getAllCompanySearch($keyword, $limit, $offset)
+MainModel::getAllCompanySearch(keyword, limit, offset)
   → SELECT * FROM user
     WHERE status = 1 AND user_type = 2 AND claim_status = 1
     AND fname LIKE '%{word1}%' AND fname LIKE '%{word2}%' ...
     ORDER BY fname ASC
     LIMIT {limit} OFFSET {offset}
 
-Total count: returns countAllResults() when $limit is false
+Total count: returns countAllResults() when limit is false
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
@@ -624,7 +602,6 @@ Total count: returns countAllResults() when $limit is false
   ]
 }
 ```
-
 ### Response — Total count (`total=1`)
 ```json
 {
@@ -633,7 +610,6 @@ Total count: returns countAllResults() when $limit is false
   "data": 42
 }
 ```
-
 ---
 
 ## 10. GET `employee/user-detail`
@@ -642,40 +618,38 @@ Total count: returns countAllResults() when $limit is false
 ```
 GET /wapi/employee/user-detail
 ```
-
 ### Auth
-JWT required. `$this->request->id` = logged-in user.
+JWT required. `req.auth.id` = logged-in user.
 
 ### DB Queries
-Calls `GeneralApi::getStatitcs($user_id)` which returns a massive profile object. Key queries:
+Calls `getStatitcs`(user_id)` which returns a massive profile object. Key queries:
 
 ```
-1. UserModel::get_user_detail($user_id)
+1. get_user_detail(user_id)
    → Full user row
 
-2. ProfilePercentage($user_id)
+2. ProfilePercentage(user_id)
    → Completion percentage breakdown
 
 3. IF user_type = 1 (individual):
-   - UserModel::get_user_future_experience_coming($user_id)
+   - get_user_future_experience_coming(user_id)
      → Future-dated experience records (for reminder badge)
    - MainModel::fs('user_experience', where still_working=1)
      → Current job
-   - UserModel::get_user_experience_detail($stillWorking->id)
+   - get_user_experience_detail(stillWorking->id)
      → Current job details
    - MainModel::fs('account_delete_requests', where user_id)
      → Account deletion status
-   - UserModel::get_total_follower_count($user_id)
-   - UserModel::check_manual_verify_apply($user_id)
+   - get_total_follower_count(user_id)
+   - check_manual_verify_apply(user_id)
 
 4. IF user_type = 2 (company):
-   - UserModel::get_all_connection($user_id)
+   - get_all_connection(user_id)
    - MainModel::fs('company_job', where company + status=1)
      → exploreTalent flag
-   - UserModel::check_relation_record_exit($user_id)
-   - UserModel::check_event_permission($user_id, $login_user_id)
+   - check_relation_record_exit(user_id)
+   - check_event_permission(user_id, loginUserId)
 ```
-
 ### Request
 No body params (user identified from JWT).
 
@@ -747,7 +721,6 @@ No body params (user identified from JWT).
   }
 }
 ```
-
 ### Response — Company (user_type = 2)
 ```json
 {
@@ -778,7 +751,6 @@ No body params (user identified from JWT).
   }
 }
 ```
-
 ---
 
 ## Cross-Language Porting Notes
@@ -786,7 +758,7 @@ No body params (user identified from JWT).
 ### companyDetail
 - Slug lookup with permission guard — port the `checkMenuAccess` helper or replicate its logic (DB-based menu permission check).
 - Response uses `json_encode()` not framework response object — raw JSON output.
-- Company profile uses `UserModel::get_company_detail()` — port the full JOIN query.
+- Company profile uses `get_company_detail()` — port the full JOIN query.
 
 ### markViewed
 - Simple UPDATE with two WHERE conditions (`receiver` + `id`).
@@ -827,7 +799,7 @@ No body params (user identified from JWT).
 - Only returns companies with `claim_status = 1`.
 
 ### user-detail
-- Calls `GeneralApi::getStatitcs()` — a massive function returning user profile + stats.
+- Calls `getStatitcs`()` — a massive function returning user profile + stats.
 - Response shape varies by `user_type` (individual vs company).
 - Individual response includes: profile percentage, exploring state, future experience reminders, follower count, account deletion status.
 - Company response includes: connection count, event permissions, explore-talent flag, user-relation status.

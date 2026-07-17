@@ -1,15 +1,19 @@
-
 # Employee All Employment New Endpoint
 
-**Base path:** `/wapi` (JWT Bearer token required)
-
----
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Full path:** `GET /wapi/employee/allEmployementNew`  
+> **Route:** `employee.route.ts`  
+> **Controller:** `employee.controller.ts` → `allEmployementNew`  
+> **Service:** `employee.service.ts`  
+> **Repo:** `employee.repositery.ts`
 
 ## Route
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| GET | `employee/allEmployementNew` | `IndividualApi::allEmployementNew` | All employment history grouped by company |
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| GET | `/wapi/employee/allEmployementNew` | `allEmployementNew` | Employment history grouped by company |
+
+Auth: JWT · `req.auth.user_id` = employee.
 
 ---
 
@@ -19,42 +23,40 @@
 ```
 GET /wapi/employee/allEmployementNew
 ```
-
 ### Auth
-JWT Bearer token required. `$this->request->id` = authenticated user.
+JWT Bearer token required. `req.auth.id` = authenticated user.
 
 ### Description
 Returns the authenticated user's full employment history, grouped by company. Each company group contains all designations held at that company with per-designation ratings, skills, documents, salary, and verification process. This is the "new" version — the old `allEmployement` endpoint no longer exists in the codebase.
 
 ### DB Queries
 ```
-1. UserModel::get_unique_experience_id($filter)
+1. get_unique_experience_id(filter)
    → Unique experience IDs grouped by company for user
    → SELECT DISTINCT company, id FROM user_experience WHERE user = ? AND is_deleted = 0
 
-2. For each experience ID, calls get_experience_detail($id, NULL, NULL, NULL, true, true, $user, $user_id):
-   a. UserModel::get_experience_detail($experienceId)
+2. For each experience ID, calls get_experience_detail(id, NULL, NULL, NULL, true, true, user, user_id):
+   a. get_experience_detail(experienceId)
       → Full JOIN across user_experience, user (company), designation, department, employement_type
 
-   b. UserModel::user_approve_company_list($userId)
+   b. user_approve_company_list(userId)
       → Companies where user has approved experiences (for sendReminder flag)
 
-   c. UserModel::get_unique_user_experience($filter)
+   c. get_unique_user_experience(filter)
       → All designations at the same company for the same user
 
    d. For each designation row:
-      - UserModel::get_experience_rating_count([$row->id], $authuser)
-      - UserModel::get_skill($row->skill)
-      - UserModel::get_certificate($row->certificate) (if showReview)
-      - UserModel::get_employment_status($row->id)
-      - UserModel::get_experience_basic_update_list($row->id)
-      - UserModel::getAverageRatingBySkill($row->id) (designation_score)
-      - UserModel::get_rating_general($row->id, $authtype) or get_rating($row->id)
-      - UserModel::get_verification_process_details($row->id)
+      - get_experience_rating_count([row->id], authuser)
+      - get_skill(row->skill)
+      - get_certificate(row->certificate) (if showReview)
+      - get_employment_status(row->id)
+      - get_experience_basic_update_list(row->id)
+      - getAverageRatingBySkill(row->id) (designation_score)
+      - get_rating_general(row->id, authtype) or get_rating(row->id)
+      - get_verification_process_details(row->id)
 
-   e. UserModel::getAllEmploymentScore($userId, $companyId)
+   e. getAllEmploymentScore(userId, companyId)
 ```
-
 ### Request
 No body params. Auth only.
 
@@ -122,7 +124,6 @@ No body params. Auth only.
   ]
 }
 ```
-
 ### Key Logic Notes
 - `get_experience_detail()` is called with `showSalary=true, showReview=true` — salary and review data are always included for the authenticated user's own profile.
 - `authtype` for rating access: `1` = self (full access), `2` = granted access user (restricted via `get_rating_general`), `false` = public (uses `get_rating`).

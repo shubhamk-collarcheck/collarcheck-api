@@ -1,14 +1,46 @@
-
 # Company Employee Request, Messaging, Dashboard & Misc Endpoints
 
-Brief docs for company employee management, messaging, dashboard, and miscellaneous endpoints. Already-documented endpoints are referenced, not duplicated.
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** mostly `/wapi/company` · some `/wapi/general` · `/wapi/company-list`  
+> **Route files:** `company.route.ts`, `general.route.ts`, `root.route.ts`  
+> **Controller:** `company-employee-request.controller.ts` (+ general message/follow handlers)  
+> **Service / repo:** `company-employee-request.service.ts` · `company-employee-request.repositery.ts`  
+> **Types:** `company-employee-request.types.ts`
+
+## Routes Summary
+
+| Method | Full path | Handler | Description |
+|--------|-----------|---------|-------------|
+| GET | `/wapi/company/user-detail` | `companyDetail` | Auth company profile summary |
+| POST | `/wapi/company/addEmployee` | `addEmployee` | Invite/add employee |
+| POST | `/wapi/company/addEmployee/:id` | `addEmployeeUpdate` | Update employee request |
+| GET | `/wapi/company/employeeDetail/:id` | `employeeDetail` | Employee request detail |
+| PUT | `/wapi/company/rejectEmployement/:id` | `rejectEmployment` | Reject employment |
+| DELETE | `/wapi/company/rejectPromotion/:id` | `rejectPromotion` | Reject promotion |
+| POST | `/wapi/company/leaveExperience` | `leaveExperience` | Leave/promotion flow |
+| GET | `/wapi/company/reviewUniqueUsers` | `reviewUniqueUsers` | Unique review users |
+| GET | `/wapi/company/validToReview/:id` | `validToReview` | Can review user? |
+| GET | `/wapi/company/followRequestList` | `followRequestList` | Follow requests |
+| GET | `/wapi/company/dashboard` | `dashboard` | Company dashboard |
+| GET | `/wapi/company/sidebar-count` | `sidebarCount` | Sidebar badges |
+| GET | `/wapi/company/employement-request` | `employmentRequest` | Employment requests |
+| POST | `/wapi/company/add-company` | `inviteCompany` | Register/invite company |
+| POST | `/wapi/company/add-company/:id` | `inviteCompany` | Update invite |
+| POST | `/wapi/company/invite-company` | `inviteCompany` | Invite company |
+| POST | `/wapi/company/revoke-delete-account` | `revokeDeleteAccount` | Revoke account deletion |
+| GET | `/wapi/company-list` | `companyList` | User’s companies list |
+| GET | `/wapi/general/all-message-company` | `allMessageList` | Company message threads |
+| POST | `/wapi/general/send-message-company` | `addMessage` | Send message |
+| PUT | `/wapi/general/chatMessageReadCompany/:id` | `chatMessageRead` | Mark read |
+| GET | `/wapi/general/company-followDataList` | `followDataList` | Follow data |
+| GET | `/wapi/general/company-verificationStatus` | `verificationStatus` | Verification status |
 
 ---
 
 ## 1. Company Profile (Authenticated)
 
 **Route:** `POST /wapi/company/company_detail`
-**Controller:** `CompanyApi::company_detail` (line 34)
+**Controller:** `company_detail` ()
 
 Returns the authenticated company's full profile with verification status, domains, emails, connections, and role info.
 
@@ -56,7 +88,6 @@ Returns the authenticated company's full profile with verification status, domai
   }
 }
 ```
-
 **Side effects:** On first call, if no domains exist, scrapes website URL via AI domain scraper and inserts suggested domains/emails into `user_domains`.
 
 ---
@@ -64,7 +95,7 @@ Returns the authenticated company's full profile with verification status, domai
 ## 2. Add Employee
 
 **Route:** `POST /wapi/company/add-employee`
-**Controller:** `CompanyApi::addEmployee` (line 4924)
+**Controller:** `addEmployee` ()
 
 Company adds an employee by email/phone. Creates or finds user, creates `user_experience` record with `approved=3` (pending).
 
@@ -87,13 +118,12 @@ Company adds an employee by email/phone. Creates or finds user, creates `user_ex
 ```json
 {"status": true, "messages": "Employee added successfully!"}
 ```
-
 ---
 
 ## 3. Employee Detail
 
 **Route:** `PUT /wapi/company/employeeDetail`
-**Controller:** `CompanyApi::employeeDetail` (line 5424)
+**Controller:** `employeeDetail` ()
 
 Get full detail of a single employee experience record for a company.
 
@@ -118,13 +148,12 @@ Get full detail of a single employee experience record for a company.
   }
 }
 ```
-
 ---
 
 ## 4. Reject Employment
 
 **Route:** `PUT /wapi/company/reject-employement`
-**Controller:** `CompanyApi::rejectEmployement` (line 5483)
+**Controller:** `rejectEmployement` ()
 
 Reject a pending employment request (`approved=3` → `approved=2`).
 
@@ -140,13 +169,12 @@ Reject a pending employment request (`approved=3` → `approved=2`).
 ```json
 {"status": true, "messages": "Reject successfully!"}
 ```
-
 ---
 
 ## 5. Reject Promotion
 
 **Route:** `PUT /wapi/company/reject-promotion`
-**Controller:** `CompanyApi::rejectPromotion` (line 5529)
+**Controller:** `rejectPromotion` ()
 
 Reject a pending promotion/update request. Deletes the `user_update_experience` record.
 
@@ -162,13 +190,12 @@ Reject a pending promotion/update request. Deletes the `user_update_experience` 
 ```json
 {"status": true, "messages": "Reject successfully!"}
 ```
-
 ---
 
 ## 6. Leave Experience (Company Action)
 
 **Route:** `PUT /wapi/company/leave-experience`
-**Controller:** `CompanyApi::leaveExperience` (line 5618)
+**Controller:** `leaveExperience` ()
 
 Company processes employee leave/promotion. Three modes:
 - `type=1` (leave): Sets `still_working=0`, sets `worked_till_date`, auto-reviews via internal curl to `add-review`, updates user's `current_company`/`current_position`. Sets `expiry` to 72 hours from leave date.
@@ -195,13 +222,12 @@ Company processes employee leave/promotion. Three modes:
 ```json
 {"status": true, "messages": "Update successfully !"}
 ```
-
 ---
 
 ## 7. Review Unique Users
 
 **Route:** `GET /wapi/company/review-unique-user`
-**Controller:** `CompanyApi::reviewUniqueUsers` (line 5898)
+**Controller:** `reviewUniqueUsers` ()
 
 List unique employees who have reviews or are still working, with aggregated rating stats and explore status.
 
@@ -227,13 +253,12 @@ List unique employees who have reviews or are still working, with aggregated rat
   ]
 }
 ```
-
 ---
 
 ## 8. Valid To Review
 
 **Route:** `GET /wapi/company/valid-to-review/{userid}`
-**Controller:** `CompanyApi::validToReview` (line 6078)
+**Controller:** `validToReview` ()
 
 Check if a company can review a specific user (must have approved employment).
 
@@ -249,13 +274,12 @@ Check if a company can review a specific user (must have approved employment).
   }
 }
 ```
-
 ---
 
 ## 9. Follow Request List
 
 **Route:** `GET /wapi/company/follow-request-list`
-**Controller:** `CompanyApi::followRequestList` (line 6133)
+**Controller:** `followRequestList` ()
 
 List pending (unapproved) follower requests for a company.
 
@@ -279,13 +303,12 @@ List pending (unapproved) follower requests for a company.
   }
 }
 ```
-
 ---
 
 ## 10. Company Dashboard
 
 **Route:** `GET /wapi/company/dashboard`
-**Controller:** `CompanyApi::dashboard` (line 6187)
+**Controller:** `dashboard` ()
 
 Aggregated dashboard data: posted jobs count, applications, current employees, unread messages, pending employment requests, profile percentage, most applied jobs, and recent applications list.
 
@@ -310,13 +333,12 @@ Aggregated dashboard data: posted jobs count, applications, current employees, u
   }
 }
 ```
-
 ---
 
 ## 11. Sidebar Count
 
 **Route:** `GET /wapi/company/sidebarCount`
-**Controller:** `CompanyApi::sidebarCount` (line 6521)
+**Controller:** `sidebarCount` ()
 
 Badge counts for sidebar navigation.
 
@@ -331,13 +353,12 @@ Badge counts for sidebar navigation.
   }
 }
 ```
-
 ---
 
 ## 12. Company List
 
 **Route:** `GET /wapi/company/company_list`
-**Controller:** `CompanyApi::company_list` (line 6533)
+**Controller:** `company_list` ()
 
 List all companies the authenticated user has a relation with (via `user_relation`). Returns company details, follow status, explore talent flag, user groups, and company users.
 
@@ -372,13 +393,12 @@ List all companies the authenticated user has a relation with (via `user_relatio
   }
 }
 ```
-
 ---
 
 ## 13. Invite Company
 
 **Route:** `POST /wapi/company/invite_company/{id}`
-**Controller:** `CompanyApi::invite_company` (line 6748)
+**Controller:** `invite_company` ()
 
 Invite or add a company. Two modes:
 - If `company_name` is an integer ID: links existing unclaimed company to user via `user_relation`.
@@ -411,13 +431,12 @@ Invite or add a company. Two modes:
   "phone": "..."
 }
 ```
-
 ---
 
 ## 14. Employment Request List (Mobile)
 
 **Route:** `POST /wapi/company/employement_request`
-**Controller:** `CompanyMobileController::employement_request` (line 290)
+**Controller:** `CompanyMobileController::employement_request` ()
 
 Mobile-optimized employment request list with pending/approved/rejected tabs and basic update list.
 
@@ -442,13 +461,12 @@ Mobile-optimized employment request list with pending/approved/rejected tabs and
   }
 }
 ```
-
 ---
 
 ## 15. All Message List
 
 **Route:** `POST /wapi/allMessageList`
-**Controller:** `GeneralApi::allMessageList` (line 1070)
+**Controller:** `allMessageList` ()
 
 Chat list for authenticated user. If `slug` param is provided, creates a new message connection if none exists. Returns all chat threads with unread counts and full message history.
 
@@ -492,13 +510,12 @@ Chat list for authenticated user. If `slug` param is provided, creates a new mes
   ]
 }
 ```
-
 ---
 
 ## 16. Add Message
 
 **Route:** `POST /wapi/addMessage`
-**Controller:** `GeneralApi::addMessage` (line 1437)
+**Controller:** `addMessage` ()
 
 Send a message (with optional file attachment). Creates message connection if needed. Checks receiver's message privacy setting (`messages` in `account_settings`). Also pushes to GraphQL/Node.js for real-time.
 
@@ -517,13 +534,12 @@ Send a message (with optional file attachment). Creates message connection if ne
 ```json
 {"status": true, "messages": "Successfully added"}
 ```
-
 ---
 
 ## 17. Chat Message Read
 
 **Route:** `PUT /wapi/chatMessageRead/{message_id}`
-**Controller:** `GeneralApi::chatMessageRead` (line 1951)
+**Controller:** `chatMessageRead` ()
 
 Mark all messages in a chat thread as read for the authenticated user.
 
@@ -533,13 +549,12 @@ Mark all messages in a chat thread as read for the authenticated user.
 ```json
 {"status": true, "messages": "Successfully updated"}
 ```
-
 ---
 
 ## 18. Follow Data List
 
 **Route:** `GET /wapi/followDataList`
-**Controller:** `GeneralApi::followDataList` (line 5878)
+**Controller:** `followDataList` ()
 
 Get follower and following lists for a user/company with counts. Includes explore status, follow-back status, and verification.
 
@@ -569,13 +584,12 @@ Get follower and following lists for a user/company with counts. Includes explor
   }
 }
 ```
-
 ---
 
 ## 19. Verification Status
 
 **Route:** `GET /wapi/verificationStatus`
-**Controller:** `GeneralApi::verificationStatus` (line 6680)
+**Controller:** `verificationStatus` ()
 
 Get the verification status of authenticated user. For companies: checks claim status, email/phone verify, manual verify. For users: checks email/phone verify, document verify, job apply limit (max 5 if unverified).
 
@@ -602,13 +616,12 @@ Get the verification status of authenticated user. For companies: checks claim s
   }
 }
 ```
-
 ---
 
 ## 20. Claim Company
 
 **Route:** `POST /wapi/claim_company`
-**Controller:** `Frontend::claim_company` (line 1310)
+**Controller:** `claim_company` ()
 
 Submit a company claim request. Inserts into `claim_company_enquires` and `company_invite`.
 
@@ -628,13 +641,12 @@ Submit a company claim request. Inserts into `claim_company_enquires` and `compa
 ```json
 {"status": true, "msg": "Record saved Successfully"}
 ```
-
 ---
 
 ## 21. Revoke Delete Account
 
 **Route:** `POST /wapi/revoke_delete_account`
-**Controller:** `AccountController::revoke_delete_account` (line 20)
+**Controller:** `AccountController::revoke_delete_account` ()
 
 Cancel a pending account deletion request. If `company_id` is provided, revokes that company's deletion; otherwise revokes own.
 
@@ -649,18 +661,17 @@ Cancel a pending account deletion request. If `company_id` is provided, revokes 
 ```json
 {"status": true, "messages": "Account revoked successfully"}
 ```
-
 ---
 
 ## Cross-Language Porting Notes
 
 - All endpoints use the same JWT Bearer auth pattern (`Authenticate` filter in `wapi` route group).
-- `$this->request->id` = authenticated user ID; `$this->request->user_id` = original JWT user (when `X-Company` header is used).
+- `req.auth.id` = authenticated user ID; `req.auth.user_id` = original JWT user (when `X-Company` header is used).
 - `user_experience.approved` states: `1`=approved, `2`=rejected, `3`=pending.
 - `user_experience.type`: `1`=leave, `2`=promotion, `3`=other update.
 - Message content is encrypted with `encrypt_url()`/`decrypt_url()` — replicate the same encryption in the new language.
-- File uploads go to S3 via `$this->s3fileUploads($file, 'path/')` — replace with your S3 client.
-- Helper `checkMenuAccess($userId, $companyId, $menuId)` checks permission group access — replicate the permission logic.
-- Helper `accountSetting($userId)` reads `account_settings` table for privacy flags.
+- File uploads go to S3 via `this->s3fileUploads(file, 'path/')` — replace with your S3 client.
+- Helper `checkMenuAccess(userId, companyId, menuId)` checks permission group access — replicate the permission logic.
+- Helper `accountSetting(userId)` reads `account_settings` table for privacy flags.
 - SQS service (`SqsService`) pushes email/WhatsApp jobs to queues — replace with your queue client.
-- `show_exploring($userId, $companyId)` checks if user is actively exploring at a company — replicate the query logic.
+- `show_exploring(userId, companyId)` checks if user is actively exploring at a company — replicate the query logic.

@@ -1,16 +1,13 @@
+# General & Dashboard List Endpoints
 
-# General, Dashboard, Dropdown & Search Endpoints
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base paths:** `/wapi/dashboard`, `/wapi/general`  
+> **Route files:** `dashboard.route.ts`, `general.route.ts`, `root.route.ts`  
+> **Controllers:** `dashboard.controller.ts`, `general.controller.ts`  
+> **Services:** `dashboard.service.ts`, `general.service.ts`, `job.service.ts`  
 
-**Stack:** Node.js + Express 5 + TypeScript + Drizzle ORM (MySQL)
-**Base path:** `/wapi` (most endpoints require JWT Bearer token; some are public)
-**Architecture:** Route → Controller → Service → Repository (DB access via Drizzle)
-
-- Routes: `src/routes/general.route.ts`, `src/routes/dashboard.route.ts`
-- Controllers: `src/controllers/general.controller.ts`, `src/controllers/dashboard.controller.ts`
-- Services: `src/services/general.service.ts`, `src/services/dashboard.service.ts`, `src/services/job.service.ts`, `src/services/common-auth.service.ts`
-- Validation: Zod schemas in `src/types/*.types.ts`, applied by `validateData()` middleware (`src/middlewares/validation.middleware.ts`)
-
----
+Public list endpoints generally do **not** require JWT unless noted.  
+Auth endpoints use `Authorization` middleware.
 
 ## Routes Summary
 
@@ -100,7 +97,6 @@ Aggregates multiple dropdown lists for the dashboard: work types, random compani
   }
 }
 ```
-
 ---
 
 ## 2. GET `dashboard/employmentList`
@@ -126,7 +122,6 @@ Aggregates dropdowns for employment page: designations, departments, salaries, d
   }
 }
 ```
-
 ---
 
 ## 3. GET `dashboard/jobDataList`
@@ -153,7 +148,6 @@ Aggregates dropdowns for job posting/search: industries, role types, salaries, t
   }
 }
 ```
-
 ---
 
 ## 4. GET `dashboard/jobFilterDataList`
@@ -187,7 +181,6 @@ Dynamic filter data for job list page. Reads `job_meta` by `?slug=` to get pre-s
   }
 }
 ```
-
 ---
 
 ## 5. GET `general/employeeFilterDataList`
@@ -216,7 +209,6 @@ Dynamic filter data for employee search page. Builds filtered lists from actual 
   }
 }
 ```
-
 ---
 
 ## 6–28. Dropdown / Reference List Endpoints
@@ -231,9 +223,9 @@ All follow the same pattern: `SELECT id, name FROM {table} WHERE status = 1`. Re
 | 9 | `general/department` | `department` | RAND(), limit 30 |
 | 10 | `general/jobType` | `job_mode` | |
 | 11 | `general/all-skill` | `skill` | RAND(), limit 30 |
-| 12 | `general/skill/{id}` | `skill` | WHERE `category = $id`. Response includes `department` field |
+| 12 | `general/skill/{id}` | `skill` | WHERE `category = id`. Response includes `department` field |
 | 13 | `general/city` | `cities` | Optional `?state=` filter; limit 100 if no state |
-| 14 | `general/allcity/{id}` | `cities` | WHERE `state = $id` |
+| 14 | `general/allcity/{id}` | `cities` | WHERE `state = id` |
 | 15 | `general/state` | `state` | Optional `?country=` filter |
 | 16 | `general/turnover` | `turnover` | |
 | 17 | `general/period_list` | `notice_period` | Required `?type=` filter |
@@ -286,10 +278,9 @@ Job search with extensive filters. Uses MySQL search via `get_search_job_list` (
   }
 }
 ```
-
 ---
 
-## 32. GET `general/job-detail/(:any)`
+## 32. GET `general/job-detail/:slug`
 
 **Controller:** `job_detail` — `src/controllers/general.controller.ts` (service: `get_job_detail_service` in `src/services/job.service.ts`)
 
@@ -308,10 +299,9 @@ Job detail by slug. Returns full job info, related jobs (max 4, same skills), an
   }
 }
 ```
-
 ---
 
-## 33. GET `general/suggestion/(:any)/(:any)`
+## 33. GET `general/suggestion/:slug/:slug`
 
 **Controller:** `searchSuggestion` — `src/controllers/general.controller.ts`
 
@@ -321,7 +311,6 @@ Search suggestions by `usertype` and `keyword`. Queries `cyb_skill` for matching
 ```json
 {"status": true, "data": [...]}
 ```
-
 ---
 
 ## 34. GET `general/globalSearch`
@@ -346,7 +335,6 @@ Global search across users, companies, and jobs. Uses MySQL search via `globalSe
   }
 }
 ```
-
 ---
 
 ## 35. GET `general/ratingFilter`
@@ -361,10 +349,9 @@ Filter reviews for an employment record. Sort by: `order=2` (highest first), `or
 ```json
 {"status": true, "data": [{"id":1, "rating":5, "review":"...", ...}]}
 ```
-
 ---
 
-## 36. GET `general/starRatingEmployies/(:num)`
+## 36. GET `general/starRatingEmployies/:id`
 
 **Controller:** `starRatingEmployees` — `src/controllers/general.controller.ts` (service: `starRatingEmployeesService` in `src/services/general.service.ts`)
 
@@ -374,7 +361,7 @@ Employees filtered by star rating bucket (computed from `cyb_user.percentage`). 
 
 ---
 
-## 37. GET `general/user-profile/(:any)`
+## 37. GET `general/user-profile/:slug`
 
 **Controller:** `userProfile` — `src/controllers/general.controller.ts` (service: `publicUserProfileService` in `src/services/common-auth.service.ts`)
 
@@ -399,7 +386,6 @@ Public user profile by slug. Returns full profile with employment history (appro
   }
 }
 ```
-
 ---
 
 ## 38. GET `people-list-signup`
@@ -427,7 +413,6 @@ People list for signup/exploring flow. Reads `user_details.exploring_details` (J
   }
 }
 ```
-
 ---
 
 ## 39. POST `general/add-suggestion`
@@ -449,10 +434,9 @@ Submit a suggestion/feedback. Inserts into `suggestion` table and sends email to
 ```json
 {"status": true, "messages": "Successfully added"}
 ```
-
 ---
 
-## 40. GET `general/inviteDetail/(:any)`
+## 40. GET `general/inviteDetail/:slug`
 
 **Controller:** `inviteDetail` — `src/controllers/general.controller.ts` (service: `inviteDetailService` in `src/services/general.service.ts`)
 
@@ -464,7 +448,6 @@ Fetch invite details by ID from `cyb_company_invite`. (Legacy PHP used `decrypt_
 ```json
 {"status": true, "data": {"id":1, "company":123, "email":"...", ...}}
 ```
-
 ---
 
 ## 41–42. NOT IMPLEMENTED

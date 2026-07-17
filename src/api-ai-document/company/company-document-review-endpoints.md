@@ -1,23 +1,24 @@
-
 # Company Document, Review, Help & Application Endpoints
 
-**Base path:** `/wapi` (all endpoints in `wapi` group with `Auth` filter, JWT Bearer token required)
-
----
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi/company`  
+> **Route file:** `src/routes/company.route.ts`  
+> **Controllers:** `company.controller.ts` (document), `company-review.controller.ts`  
+> **Services:** `company.service.ts`, `company-review.service.ts`
 
 ## Routes Summary
 
-| Method | Route | Handler | Node | Description |
-|--------|-------|---------|------|-------------|
-| POST | `company/add-document` | `CompanyApi::addDocument` | **Yes** | Upload company documents (multipart) |
-| GET | `company/all-review` | `CompanyApi::allReview` | Yes | List all reviews for company's employees |
-| POST | `company/add-review` | `CompanyApi::addReview` | Yes | Create new review |
-| POST | `company/add-review/(:num)` | `CompanyApi::addReview/$1` | Yes | Update existing review |
-| PUT | `company/rejectReview/(:num)` | `CompanyApi::rejectReview/$1` | Yes | Reject a review request |
-| GET | `company/view-review/(:num)` | `CompanyApi::view_review_Detail/$1` | Yes | View reviews for specific experience |
-| POST | `company/add-help` | `CompanyApi::addHelp` | Yes | Submit help request for experience |
-| GET | `company/allapplication` | `CompanyApi::allApplication` | Yes | List job applications |
-| PUT | `company/updateBasicExperience/(:num)` | `CompanyApi::updateBasicExperience/$1` | Yes | Approve employee experience update |
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| POST | `/add-document` | `addCompanyDocument` | Multipart company docs → `cyb_company_document` |
+| GET | `/all-review` | `allReview` | Company employee reviews |
+| POST | `/add-review` | `addReview` | Create review |
+| POST | `/add-review/:id` | `addReviewUpdate` | Update review |
+| PUT | `/rejectReview/:id` | `rejectReview` | Reject review |
+| GET | `/view-review/:id` | `viewReviewDetail` | Review detail |
+| POST | `/add-help` | `addHelp` | Help request |
+| GET | `/allapplication` | `allApplication` | Job applications |
+| PUT | `/updateBasicExperience/:id` | `updateBasicExperience` | Approve experience update |
 
 ---
 
@@ -37,7 +38,6 @@
 ```json
 { "status": true, "messages": "Successfully added" }
 ```
-
 ### Errors (legacy strings)
 ```json
 { "status": false, "messages": "Doc Type field is required" }
@@ -48,7 +48,6 @@
 ```json
 { "status": false, "messages": "Something Went Wrong" }
 ```
-
 Full contract: [remaining-misc-crud-endpoints.md §5](../remaining-misc-crud-endpoints.md).
 
 ---
@@ -59,29 +58,27 @@ Full contract: [remaining-misc-crud-endpoints.md §5](../remaining-misc-crud-end
 ```
 GET /wapi/company/all-review
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
-1. UserModel::get_all_user_experience($filter) with lastReview=2 (exclude lastReview)
+1. get_all_user_experience(filter) with lastReview=2 (exclude lastReview)
    → All approved employment records for company
 
-2. UserModel::get_all_user_experience($filter) with lastReview=1 (only lastReview)
+2. get_all_user_experience(filter) with lastReview=1 (only lastReview)
    → Employment records flagged for last review
 
-3. For each experience: CompanyModel::get_all_experience_rating($experienceId)
+3. For each experience: CompanyModel::get_all_experience_rating(experienceId)
    → All reviews for that experience
 
 4. For each review:
-   - UserModel::get_skill_based_rating_average($reviewId) → average rating
-   - UserModel::get_reviews_with_skills($reviewId) → skill-based ratings
-   - UserModel::get_rating_history($reviewId) → edit history
+   - get_skill_based_rating_average(reviewId) → average rating
+   - get_reviews_with_skills(reviewId) → skill-based ratings
+   - get_rating_history(reviewId) → edit history
 
 5. Experiences with no reviews but approved employment: status = 'employment'
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
@@ -128,7 +125,6 @@ JWT required. `$this->request->id` = company ID.
   }
 }
 ```
-
 ### Notes
 - Three categories: `pendingData` (approved=0), `completeData` (approved=1), `allEmployee` (all including employment-only).
 - `status`: `"complete"` (approved=1), `"pending"` (approved=0), `"employment"` (no review yet, just employment record).
@@ -144,9 +140,8 @@ JWT required. `$this->request->id` = company ID.
 POST /wapi/company/add-review         → Create new review
 POST /wapi/company/add-review/{id}    → Update existing review
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### Side Effects (Non-CRUD)
 Triggers notifications via SQS:
@@ -159,15 +154,15 @@ Triggers notifications via SQS:
 ```
 1. Validate experience exists: SELECT * FROM user_experience WHERE id = {experienceId}
 
-2. IF update ($id provided):
-   a. SELECT * FROM user_experience_rating WHERE id = {$id}
-   b. Check edit count: SELECT COUNT(*) FROM user_experience_rating_history WHERE rating_id = {$id}
+2. IF update (id provided):
+   a. SELECT * FROM user_experience_rating WHERE id = {id}
+   b. Check edit count: SELECT COUNT(*) FROM user_experience_rating_history WHERE rating_id = {id}
       → Max 3 edits allowed
    c. Check expiry: IF expiry < NOW() → "Can't modify after 72 hours"
    d. UPDATE user_experience_rating SET approved=1, show_review, create_date=NOW()
    e. INSERT INTO user_experience_rating_history
 
-3. IF create (no $id):
+3. IF create (no id):
    a. Check if experience already has review (for still_working=0, max 2 history entries)
    b. INSERT INTO user_experience_rating (company, experience, rating, review, link, doc, expiry=+72h, approved=1)
    c. INSERT INTO user_experience_rating_history (alias entry)
@@ -176,7 +171,6 @@ Triggers notifications via SQS:
 4. INSERT INTO notifications
 5. SQS push: SEND_PUSH, SEND_EMAIL (employee + company), SEND_WHATSAPP
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -196,7 +190,6 @@ Triggers notifications via SQS:
 { "status": false, "messages": "Can't modify after 72 hours" }
 { "status": false, "messages": "rating,review are required." }
 ```
-
 ### Notes
 - **72-hour edit window**: review can be edited within 72 hours of creation.
 - **Max 3 edits**: after 3 history entries, no more edits allowed.
@@ -207,16 +200,16 @@ Triggers notifications via SQS:
 
 ---
 
-## 4. PUT `company/rejectReview/(:num)`
+## 4. PUT `company/rejectReview/:id`
 
 ### Route
 ```
 PUT /wapi/company/rejectReview/{id}
 ```
-- `(:num)` → `$id` — review ID
+- `:id` → `id` — review ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### Side Effects (Non-CRUD)
 Triggers emails via SQS:
@@ -231,16 +224,15 @@ Triggers emails via SQS:
 2. UPDATE user_experience_rating SET approved = 2 WHERE id = {reviewId}
    → Rejected status
 
-3. UserModel::get_user_experience_detail($experienceId)
+3. get_user_experience_detail(experienceId)
    → Get employee details for email
 
 4. SQS push: SEND_EMAIL (employee + company)
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Review ID |
+| `id` | URL segment | Yes | Review ID |
 
 ### Response
 ```json
@@ -249,40 +241,38 @@ Triggers emails via SQS:
 ```json
 { "status": false, "messages": "Access Denied! " }
 ```
-
 ### Notes
 - Sets `approved = 2` (rejected). Different from `0` (pending) and `1` (approved).
 - Sends rejection notification to both employee and company.
 
 ---
 
-## 5. GET `company/view-review/(:num)`
+## 5. GET `company/view-review/:id`
 
 ### Route
 ```
 GET /wapi/company/view-review/{id}
 ```
-- `(:num)` → `$id` — experience ID
+- `:id` → `id` — experience ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
-1. UserModel::get_experience_detail($id)
+1. get_experience_detail(id)
    → Experience + user details
 
-2. UserModel::get_all_experience_rating($filter)
+2. get_all_experience_rating(filter)
    → All reviews for this experience
 
-3. For each review: UserModel::get_rating_history($reviewId)
+3. For each review: get_rating_history(reviewId)
    → Edit history
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Experience ID |
+| `id` | URL segment | Yes | Experience ID |
 
 ### Response
 ```json
@@ -315,12 +305,10 @@ JWT required. `$this->request->id` = company ID.
   }
 }
 ```
-
 ### Error Responses
 ```json
 { "status": false, "messages": "No experience found!" }
 ```
-
 ### Notes
 - Returns all reviews for a specific experience (employee's work history).
 - `history` array is ordered by `id DESC` (latest first).
@@ -333,9 +321,8 @@ JWT required. `$this->request->id` = company ID.
 ```
 POST /wapi/company/add-help
 ```
-
 ### Auth
-**Custom auth** — extracts token from `Authorization` header (does not use `$this->request->id`).
+**Custom auth** — extracts token from `Authorization` header (does not use `req.auth.id`).
 
 ### DB Queries
 ```
@@ -344,7 +331,6 @@ POST /wapi/company/add-help
 
 2. INSERT INTO help (company, experience, subject, message, create_date)
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -362,9 +348,8 @@ POST /wapi/company/add-help
 { "status": false, "messages": "Token is missing" }
 { "status": false, "messages": "Method Not Found" }   // if not POST
 ```
-
 ### Notes
-- Uses legacy auth (token header lookup) instead of `$this->request->id`.
+- Uses legacy auth (token header lookup) instead of `req.auth.id`.
 - Creates a help/support ticket tied to an experience.
 
 ---
@@ -375,28 +360,26 @@ POST /wapi/company/add-help
 ```
 GET /wapi/company/allapplication
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 Checks collaborator access — if user is a collaborator, verifies job belongs to their assigned jobs.
 
 ### DB Queries
 ```
-1. CompanyModel::get_colloborator_companyIds($userId)
+1. CompanyModel::get_colloborator_companyIds(userId)
    → Get company IDs and job IDs where user is a collaborator
 
-2. CompanyModel::getAllApplication($filter)
+2. CompanyModel::getAllApplication(filter)
    → Paginated list of applications for the job
 
    For each applicant:
-   - UserModel::user_verified($userId) → is_verified
-   - UserModel::get_user_rating($userId) → rating
-   - UserModel::getoverallprofileScore($userId) → userRating
+   - user_verified(userId) → is_verified
+   - get_user_rating(userId) → rating
+   - getoverallprofileScore(userId) → userRating
    - show_exploring() → on_explore visibility
 
-3. CompanyModel::getAllApplication($filter) without limit → total count
+3. CompanyModel::getAllApplication(filter) without limit → total count
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
@@ -447,7 +430,6 @@ Checks collaborator access — if user is a collaborator, verifies job belongs t
   "totalCounts": 25
 }
 ```
-
 ### Notes
 - `job` param is comma-separated; only the first value is used.
 - Collaborators can only see applications for jobs they're assigned to.
@@ -456,27 +438,27 @@ Checks collaborator access — if user is a collaborator, verifies job belongs t
 
 ---
 
-## 8. PUT `company/updateBasicExperience/(:num)`
+## 8. PUT `company/updateBasicExperience/:id`
 
 ### Route
 ```
 PUT /wapi/company/updateBasicExperience/{id}
 ```
-- `(:num)` → `$id` — `user_update_experience` record ID
+- `:id` → `id` — `user_update_experience` record ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
 1. SELECT * FROM user_update_experience WHERE id = {id}
-   → $row (pending update request from employee)
+   → row (pending update request from employee)
 
 2. SELECT * FROM user WHERE id = {row->user}
-   → $userCurrentDetail
+   → userCurrentDetail
 
 3. SELECT * FROM user_experience WHERE id = {row->experience_id}
-   → $experiencDetail
+   → experiencDetail
 
 4. IF type = 1 (leave/end employment):
    a. UPDATE user_experience SET still_working=0, worked_till_date={date}
@@ -495,11 +477,10 @@ JWT required. `$this->request->id` = company ID.
 6. DELETE FROM user_update_experience WHERE id = {id}
    → Remove the pending request after applying
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | user_update_experience record ID |
+| `id` | URL segment | Yes | user_update_experience record ID |
 
 ### Response
 ```json
@@ -509,7 +490,6 @@ JWT required. `$this->request->id` = company ID.
 { "status": false, "messages": "Record not found!" }
 { "status": false, "messages": "Access denied" }
 ```
-
 ### Notes
 - **Two types of updates**: `type=1` = leave employment, `type=2` = promotion/salary change.
 - On leave: clears `current_company` and `current_possition` on user profile.

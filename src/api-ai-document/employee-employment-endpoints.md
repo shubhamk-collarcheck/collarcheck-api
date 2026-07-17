@@ -1,9 +1,16 @@
-
 # Employee Employment Experience API Endpoints
+
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Route file:** `src/routes/employee.route.ts`  
+> **Controller:** `src/controllers/employee.controller.ts`  
+> **Service:** `src/services/employee.service.ts`  
+> **Types:** `src/types/employee.types.ts`
+
 
 ## Overview
 
-Five REST endpoints for managing employee employment experience (CRUD: Create/Update, Read list, Read detail, Soft-delete). All endpoints require JWT authentication and operate on the `cyb_user_experience` table with joins to `cybCompanies`, `cybDesignation`, `cybDepartment`, `cybCities`, `cybStates`, and `cybCountries`.
+Employment experience CRUD endpoints for managing employee employment experience (CRUD: Create/Update, Read list, Read detail, Soft-delete). All endpoints require JWT authentication and operate on `cyb_user_experience` with joins (companies via `cyb_user`, designation, department, cities, states, countries), `cybDesignation`, `cybDepartment`, `cybCities`, `cybStates`, and `cybCountries`.
 
 ---
 
@@ -33,7 +40,6 @@ src/
 ├── routes/employee.route.ts          # Route registration (uploadToS3 middleware)
 └── utils/uploadToS3.ts               # S3 multer config (PDF/TXT, 2MB, max 5 files)
 ```
-
 ---
 
 ## Zod Validation Schemas
@@ -69,13 +75,11 @@ z.object({
   })
 })
 ```
-
 ### commonIdParamsSchema (List/Detail/Delete)
 
 ```typescript
 z.object({ params: z.object({ id: z.number() }) })
 ```
-
 ---
 
 ## Middleware
@@ -198,7 +202,6 @@ deleteByUserAndId(id: number, userId: number)
 getExperienceRating(experienceId: number)
   → SELECT * FROM cyb_user_experience_rating WHERE experience = :experienceId LIMIT 1
 ```
-
 ---
 
 ## Service Methods
@@ -277,7 +280,6 @@ async (req, res) => {
   return res.status(200).json(result)
 }
 ```
-
 ### allExperience
 
 ```typescript
@@ -290,7 +292,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### detailExperience
 
 ```typescript
@@ -304,7 +305,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### deleteExperience
 
 ```typescript
@@ -317,7 +317,6 @@ async (req, res) => {
   })
 }
 ```
-
 ---
 
 ## Response Mapping
@@ -346,7 +345,6 @@ async (req, res) => {
   ]
 }
 ```
-
 | Key              | Source / Logic                                                                  |
 |------------------|---------------------------------------------------------------------------------|
 | `id`             | `cyb_user_experience.id`                                                        |
@@ -420,7 +418,6 @@ curl -X POST http://localhost:3000/wapi/employee/add-employement \
     "city": 456
   }'
 ```
-
 ### Success Response
 
 ```json

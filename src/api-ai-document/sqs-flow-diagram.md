@@ -1,5 +1,8 @@
 # SQS Email Queue Flow Diagram
 
+> **Stack:** Node.js API + SQS · worker under `src/worker/`  
+> **Related:** [sendCompanyInvite.md](./sendCompanyInvite.md) · `utils/sqs.ts`
+
 ## Overview
 
 This diagram shows how the `sendCompanyInvite` endpoint uses AWS SQS to send email notifications asynchronously.
@@ -14,7 +17,7 @@ sequenceDiagram
     participant API as Node.js API
     participant DB as MySQL Database
     participant SQS as AWS SQS Queue
-    participant Worker as SQS Worker (PHP)
+    participant Worker as SQS Worker (Node src/worker)
     participant Email as Email Service
 
     E->>API: POST /wapi/employee/sendCompanyInvite
@@ -55,7 +58,6 @@ sequenceDiagram
 
     Worker->>DB: INSERT INTO trigger_email (optional logging)
 ```
-
 ---
 
 ## Architecture Diagram
@@ -110,7 +112,6 @@ graph TB
     Worker -->|Push| Firebase
     Service -.->|File uploads| S3
 ```
-
 ---
 
 ## SQS Message Format
@@ -149,7 +150,6 @@ graph LR
     Vars --> URL
     Vars --> Name
 ```
-
 ---
 
 ## SQS Worker Processing Flow
@@ -194,7 +194,6 @@ flowchart TD
     
     Continue --> Receive
 ```
-
 ---
 
 ## Environment Variables
@@ -223,7 +222,6 @@ graph LR
     AWS_SQS_URL --> API
     REACT_SITE --> API
 ```
-
 ---
 
 ## Key Points

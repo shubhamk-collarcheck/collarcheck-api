@@ -1,5 +1,12 @@
 
-# CollarCheck API Documentation (for AI Recreation)
+# CollarCheck General / Social / Notification API
+
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Route files:** `general.route.ts`, `root.route.ts`, `user.route.ts`  
+> **Controllers:** `general.controller.ts`, `user.controller.ts`  
+> **Services:** `general.service.ts`, `user.service.ts`
+
 
 > This document describes all API endpoints, their HTTP methods, request/response patterns, and the business logic behind each endpoint. Use this to recreate the API in any tech stack.
 
@@ -30,7 +37,6 @@ All endpoints (except where noted) require a JWT token in the `Authorization` he
 ```
 /wapi
 ```
-
 > **Node note:** All paths below are under `/wapi` (not `/api`). Example: `GET /wapi/general/verify-authtoken`.
 
 ---
@@ -62,35 +68,30 @@ Most general/auth/notification/follow endpoints in this doc are implemented unde
 
 ## Common Response Envelope
 
-All endpoints wrap responses in a consistent envelope:
+Legacy CollarCheck envelope (prefer this over REST status codes):
 
 **Success:**
 ```json
 {
-  "success": true,
-  "data": { ... }
+  "status": true,
+  "messages": "…",
+  "data": { }
 }
 ```
 
-**Error:**
+**Business error (usually HTTP 200):**
 ```json
 {
-  "success": false,
-  "error": "Error description",
-  "code": "ERROR_CODE"
+  "status": false,
+  "messages": "…"
 }
 ```
 
-**Common HTTP Status Codes:**
-- `200` — Success
-- `400` — Bad Request / Validation Error
-- `401` — Unauthorized (invalid/missing token)
-- `403` — Forbidden (insufficient permissions)
-- `404` — Not Found
-- `409` — Conflict (duplicate data)
-- `500` — Internal Server Error
+**Auth failure:** HTTP **401** from `Authorization` middleware.  
+**Menu permission:** HTTP **403** with `{ "status": false, "message": "…" }` (singular `message`).
 
----
+Validation via Zod may return HTTP **400** with `{ "error": "Invalid data", "details": […] }`.
+
 
 ## GET Endpoints
 
@@ -105,7 +106,6 @@ All endpoints wrap responses in a consistent envelope:
 GET /wapi/general/verify-authtoken
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -122,7 +122,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Error Response (401):**
 ```json
 {
@@ -131,7 +130,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   "code": "AUTH_TOKEN_INVALID"
 }
 ```
-
 **Implementation Notes:**
 - Decode the JWT token (using secret key)
 - Look up user by the ID/subject from the token
@@ -186,7 +184,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Error Response (400):**
 ```json
 {
@@ -195,7 +192,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   "code": "INVALID_PAGE"
 }
 ```
-
 **Implementation Notes:**
 - Calls `fs/all_fetch` service
 - Returns paginated document list
@@ -213,7 +209,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 GET /wapi/general/all-message
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -256,7 +251,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Implementation Notes:**
 - Database reads from messages table
 - If no connection/room row exists between the authenticated user and another party, create one
@@ -275,7 +269,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 GET /wapi/general/all-notification
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -314,7 +307,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Implementation Notes:**
 - Database read from notifications table filtered by authenticated user
 - Ordered by `created_at` descending
@@ -333,7 +325,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 GET /wapi/general/verificationStatus
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -352,7 +343,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Implementation Notes:**
 - Database reads from user verification/status tables
 
@@ -369,7 +359,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 GET /wapi/general/followDataList
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -402,7 +391,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Implementation Notes:**
 - Database reads from follow relationships table
 
@@ -426,7 +414,6 @@ Content-Type: application/json
   "refresh_token": "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
 }
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -436,7 +423,6 @@ Content-Type: application/json
   }
 }
 ```
-
 **Implementation Notes:**
 - Update refresh token to null/invalidated in user record
 - Insert record into login_history table (action = 'logout', timestamp, user_id)
@@ -469,7 +455,6 @@ Content-Type: application/json
   }
 }
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -491,7 +476,6 @@ Content-Type: application/json
   }
 }
 ```
-
 **Error Response (400):**
 ```json
 {
@@ -500,7 +484,6 @@ Content-Type: application/json
   "code": "VALIDATION_ERROR"
 }
 ```
-
 **Implementation Notes:**
 - Multi-table write operation:
   1. Insert/update into documents table
@@ -527,7 +510,6 @@ Content-Type: application/json
   "country_code": "+1"
 }
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -539,7 +521,6 @@ Content-Type: application/json
   }
 }
 ```
-
 **Error Response (409):**
 ```json
 {
@@ -548,7 +529,6 @@ Content-Type: application/json
   "code": "PHONE_DUPLICATE"
 }
 ```
-
 **Error Response (400):**
 ```json
 {
@@ -557,7 +537,6 @@ Content-Type: application/json
   "code": "PHONE_INVALID"
 }
 ```
-
 **Implementation Notes:**
 - Validate phone number format
 - Check if phone number already exists in users table (excluding current user)
@@ -583,7 +562,6 @@ Content-Type: application/json
   "email": "newemail@example.com"
 }
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -595,7 +573,6 @@ Content-Type: application/json
   }
 }
 ```
-
 **Error Response (409):**
 ```json
 {
@@ -604,7 +581,6 @@ Content-Type: application/json
   "code": "EMAIL_DUPLICATE"
 }
 ```
-
 **Error Response (400):**
 ```json
 {
@@ -613,7 +589,6 @@ Content-Type: application/json
   "code": "EMAIL_INVALID"
 }
 ```
-
 **Implementation Notes:**
 - Validate email format (RFC 5322 or similar)
 - Check if email already exists in users table (excluding current user)
@@ -636,7 +611,6 @@ Content-Type: application/json
 PUT /wapi/general/allReadNotification
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -647,7 +621,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Implementation Notes:**
 - Use `updateData` utility to bulk update notifications table
 - Set `is_read = true` for all notifications where `user_id = authenticated_user_id`
@@ -678,7 +651,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Error Response (404):**
 ```json
 {
@@ -687,7 +659,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   "code": "MESSAGE_NOT_FOUND"
 }
 ```
-
 **Implementation Notes:**
 - Use `updateData` utility to update messages table
 - Set `is_read = true` where `id = :id` and user is the receiver
@@ -713,7 +684,6 @@ Content-Type: application/json
   "id": 5001
 }
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -724,7 +694,6 @@ Content-Type: application/json
   }
 }
 ```
-
 **Error Response (404):**
 ```json
 {
@@ -733,7 +702,6 @@ Content-Type: application/json
   "code": "NOTIFICATION_NOT_FOUND"
 }
 ```
-
 **Implementation Notes:**
 - Insert into `clear_notification` table (soft delete pattern)
 - Do NOT physically delete from notifications table
@@ -752,7 +720,6 @@ Content-Type: application/json
 DELETE /wapi/notifications/clear-all-notification
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -763,7 +730,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Implementation Notes:**
 - Read all active notification IDs for the authenticated user
 - Insert batch into `clear_notification` table
@@ -794,7 +760,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Error Response (404):**
 ```json
 {
@@ -803,7 +768,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   "code": "NOTIFICATION_NOT_FOUND"
 }
 ```
-
 **Implementation Notes:**
 - Same as endpoint #13
 - Insert into `clear_notification` table
@@ -833,7 +797,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Error Response (404):**
 ```json
 {
@@ -842,7 +805,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   "code": "FOLLOW_NOT_FOUND"
 }
 ```
-
 **Implementation Notes:**
 - Use `updateData` to set `is_deleted = true` in the follow relationships table
 - Where `follower_id = authenticated_user_id` AND `following_id = :id`
@@ -873,7 +835,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   }
 }
 ```
-
 **Error Response (404):**
 ```json
 {
@@ -882,7 +843,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   "code": "FOLLOW_NOT_FOUND"
 }
 ```
-
 **Implementation Notes:**
 - Use `updateData` to set `is_deleted = true` in the follow relationships table
 - Where `follower_id = :id` AND `following_id = authenticated_user_id`
@@ -906,7 +866,6 @@ Content-Type: application/json
   "user_ids": [103, 104, 105]
 }
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -918,7 +877,6 @@ Content-Type: application/json
   }
 }
 ```
-
 **Implementation Notes:**
 - Loop through `user_ids` array
 - For each user ID, use `updateData` to set `is_deleted = true`
@@ -943,7 +901,6 @@ Content-Type: application/json
   "user_ids": [102, 104, 106]
 }
 ```
-
 **Success Response (200):**
 ```json
 {
@@ -955,7 +912,6 @@ Content-Type: application/json
   }
 }
 ```
-
 **Implementation Notes:**
 - Loop through `user_ids` array
 - For each user ID, use `updateData` to set `is_deleted = true`

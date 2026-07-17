@@ -1,70 +1,111 @@
-# CollarCheck API AI Docs
+# CollarCheck API — AI / Porting Docs (Node)
 
-Contracts and porting notes for the Node Express API in this repo.  
-**Live base path:** `/wapi`  
-**Collection:** repo root `collarcheck.postman_collection.json`
+Documentation for the **Node.js** CollarCheck API in this repository.
 
-## How code is structured
+| | |
+|--|--|
+| Runtime | Node.js + Express |
+| ORM | Drizzle (MySQL) |
+| Base path | `/wapi` |
+| Auth | `src/middlewares/Authorization.ts` (JWT `uid`) |
+| Company context | Header `X-Company: {companyId}` |
+| Validation | Zod + `validateData` middleware |
+| Postman | `collarcheck.postman_collection.json` (repo root) |
+| OpenAPI UI | `/api-docs` |
+
+## Layering
 
 ```
-src/routes/*.ts        → mount paths + auth/validation
-src/controllers/*.ts   → thin handlers
-src/services/*.ts      → business logic + response messages
-src/repositery/*.ts    → Drizzle queries
-src/types/*.ts         → Zod schemas
-src/db/schema.ts       → table definitions
+src/routes/*.ts       → path + middleware (auth, upload, validate)
+src/controllers/*.ts  → req/res, call service
+src/services/*.ts     → business rules + response messages
+src/repositery/*.ts   → Drizzle queries
+src/types/*.ts        → Zod schemas + TS types
+src/db/schema.ts      → table definitions
+src/worker/           → SQS consumers
 ```
 
-Auth: `Authorization: Bearer <jwt>` (raw token also accepted).  
-Acting company: header `X-Company: {companyId}` (see `Authorization` middleware).
+## Doc index
 
-## Module index
+### Shared / auth
+| Doc | Coverage |
+|-----|----------|
+| [common-auth-endpoints.md](./common-auth-endpoints.md) | User settings, auth profiles, people-list, view-request |
+| [remaining-misc-crud-endpoints.md](./remaining-misc-crud-endpoints.md) | 19 misc CRUD (follow, wishlist writes, company-list, multi-*, etc.) — **all implemented** |
+| [sendCompanyInvite.md](./sendCompanyInvite.md) | Employee → company invite + SQS |
+| [sqs-flow-diagram.md](./sqs-flow-diagram.md) | SQS worker flow |
 
-| Module | Doc | Route file(s) |
-|--------|-----|----------------|
-| Auth / settings / people-list | [common-auth-endpoints.md](./common-auth-endpoints.md) | `auth.route.ts`, `user.route.ts`, `root.route.ts` |
-| Employee employment | [employee-employment-endpoints.md](./employee-employment-endpoints.md) | `employee.route.ts` |
-| Employee employment (new list) | [employee-all-employment-new-endpoints.md](./employee-all-employment-new-endpoints.md) | `employee.route.ts` |
-| Education / documents / language | [employee-document-language-endpoints.md](./employee-document-language-endpoints.md) | `employee.route.ts` |
-| Skills / portfolio / certificate | portfolio / certificate docs | `employee.route.ts` |
-| Profile / review | [employee-profile-review-endpoints.md](./employee-profile-review-endpoints.md) | `employee.route.ts` |
-| Jobs / dashboard / view requests | [employee-job-dashboard-viewrequest-endpoints.md](./employee-job-dashboard-viewrequest-endpoints.md) | `employee.route.ts`, `root.route.ts` (multi) |
-| Misc employee | [employee-misc-endpoints.md](./employee-misc-endpoints.md) | `employee.route.ts`, `hired.route.ts` |
-| Company settings / connection / wishlist | [company/company-endpoints.md](./company/company-endpoints.md) | `company.route.ts` |
-| Company jobs | [company/company-job-endpoints.md](./company/company-job-endpoints.md) | `company.route.ts` |
-| Company reviews / applications | [company/company-document-review-endpoints.md](./company/company-document-review-endpoints.md) | `company.route.ts` |
-| Benefits / gallery | [company/company-benefit-gallery-endpoints.md](./company/company-benefit-gallery-endpoints.md) | `company.route.ts` |
-| Company employee requests | [company/company-employee-request-endpoints.md](./company/company-employee-request-endpoints.md) | `company.route.ts` |
-| Dashboard lists | [general/general-dashboard-endpoints.md](./general/general-dashboard-endpoints.md) | `dashboard.route.ts`, `general.route.ts` |
-| General social / notify / token | [general/half-of-next-general-api.md](./general/half-of-next-general-api.md) | `general.route.ts`, `root.route.ts` |
-| Remaining misc CRUD (all 19 done) | [remaining-misc-crud-endpoints.md](./remaining-misc-crud-endpoints.md) | see that doc’s Node map |
-| Company invite | [sendCompanyInvite.md](./sendCompanyInvite.md) | `employee.route.ts` |
-| SQS workers | [sqs-flow-diagram.md](./sqs-flow-diagram.md) | `src/worker/` |
+### Employee (`/wapi/employee`)
+| Doc | Coverage |
+|-----|----------|
+| [employee-employment-endpoints.md](./employee-employment-endpoints.md) | Employment CRUD (`add-employement`, …) |
+| [employee-all-employment-new-endpoints.md](./employee-all-employment-new-endpoints.md) | `allEmployementNew` |
+| [employee-document-language-endpoints.md](./employee-document-language-endpoints.md) | Documents + languages (`add_language`, `allLanguage`) |
+| [employee-certificate-endpoints.md](./employee-certificate-endpoints.md) | Certificates |
+| [employee-portfolio-endpoints.md](./employee-portfolio-endpoints.md) | Portfolio |
+| [employee-profile-review-endpoints.md](./employee-profile-review-endpoints.md) | Reviews + edit-user + changeEmploymentBasic |
+| [employee-job-dashboard-viewrequest-endpoints.md](./employee-job-dashboard-viewrequest-endpoints.md) | Jobs, dashboard, view requests, multi-view |
+| [employee-misc-endpoints.md](./employee-misc-endpoints.md) | Sidebar, exploring, CV, company search, hired |
 
-## Path names that match PHP (important)
+### Company (`/wapi/company`)
+| Doc | Coverage |
+|-----|----------|
+| [company/company-endpoints.md](./company/company-endpoints.md) | Settings, connections, wishlist |
+| [company/company-job-endpoints.md](./company/company-job-endpoints.md) | Jobs + templates + bulk |
+| [company/company-document-review-endpoints.md](./company/company-document-review-endpoints.md) | Docs, reviews, applications |
+| [company/company-benefit-gallery-endpoints.md](./company/company-benefit-gallery-endpoints.md) | Benefits + gallery |
+| [company/company-employee-request-endpoints.md](./company/company-employee-request-endpoints.md) | Employees, dashboard, invites, messaging |
 
-These Node paths follow the legacy PHP spelling / method:
+### General / dashboard
+| Doc | Coverage |
+|-----|----------|
+| [general/general-dashboard-endpoints.md](./general/general-dashboard-endpoints.md) | Dropdown lists, jobs, search, profiles |
+| [general/half-of-next-general-api.md](./general/half-of-next-general-api.md) | Token, notifications, follow, logout, OTP notes |
 
-| Client path | Notes |
-|-------------|--------|
-| `POST employee/add-employement` | typo `employement` |
-| `POST employee/add_language` | underscore |
-| `GET employee/allLanguage` | camelCase |
-| `DELETE employee/language/:id` | not `delete-language` |
-| `GET logout` | not POST |
-| `POST claim-company` | under `/wapi` root |
-| `DELETE employee/removeNotification` | body `{ id }` |
-| `DELETE notifications/clear-all-notification` | under `/wapi` |
-| `DELETE removeNotification/:id` | under `/wapi` root |
-| `POST multi-unfollow` | under `/wapi` root |
-| `POST general/multi-remove-follower` | POST not DELETE |
+## Route mounts (`src/app.ts`)
 
-## Still not in this port
+| Mount | File |
+|-------|------|
+| `/wapi/general` | `general.route.ts` |
+| `/wapi/dashboard` | `dashboard.route.ts` |
+| `/wapi/employee` | `employee.route.ts` |
+| `/wapi/hired` | `hired.route.ts` |
+| `/wapi/user` | `user.route.ts` |
+| `/wapi/auth` | `auth.route.ts` |
+| `/wapi/company` | `company.route.ts` |
+| `/wapi` | `root.route.ts` (people-list, company-list, multi-*, logout, claim-company, …) |
 
-OTP / email OTP, KYC stack (`verifyDocument`, `verifyAadhar`, `verifyGst`, `verifyDigilocker`, pre-registration verify endpoints).
+## PHP path compatibility (keep these spellings)
 
-## Response conventions (legacy)
+| Path | Notes |
+|------|--------|
+| `POST /wapi/employee/add-employement` | Legacy typo |
+| `POST /wapi/employee/add_language` | Underscore |
+| `GET /wapi/employee/allLanguage` | camelCase |
+| `DELETE /wapi/employee/language/:id` | Not `delete-language` |
+| `GET /wapi/logout` | GET, not POST |
+| `POST /wapi/claim-company` | Root mount |
+| `POST /wapi/multi-unfollow` | POST + body |
+| `POST /wapi/company/addBenafit` | Legacy typo |
+| `DELETE /wapi/notifications/clear-all-notification` | Root under `/wapi` |
+
+## Response conventions
 
 - Prefer **HTTP 200** + `{ status: true|false, messages|message, data? }`
-- **403** only for menu permission failures (`message` singular)
-- Keep known typos in success strings when clients match them (`Sucessfully`, `Veiw`, etc.)
+- Use **403** + `{ status: false, message }` only for menu permission (when enforced)
+- Preserve legacy message strings / typos when clients match them
+
+## Not ported yet (out of scope in these docs)
+
+- OTP / email OTP (`sendOtp`, `verifyOtp`, `sendEmailOtp`, `verifyEmailOtp`)
+- KYC: `verifyDocument`, `verifyAadhar`, `verifyGst`, `verifyDigilocker`
+- Pre-registration: `verify-document-before-registration`, `verify-gst-before-registration`
+
+## How to update these docs
+
+When you add a route:
+
+1. Register in the correct `src/routes/*.ts` file  
+2. Add types / service / controller in the matching layer  
+3. Update the module doc route table + Postman collection  
+4. Keep path names aligned with the PHP client where required  

@@ -2442,6 +2442,35 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "allEmployementNew",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/employee/allEmployementNew",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "allEmployementNew"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{shubham-token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -2925,25 +2954,6 @@
                 "wapi",
                 "general",
                 "work-status"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "jobDataList",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{URL}}/wapi/general/jobDataList",
-              "host": [
-                "{{URL}}"
-              ],
-              "path": [
-                "wapi",
-                "general",
-                "jobDataList"
               ]
             }
           },
@@ -4047,6 +4057,224 @@
             }
           },
           "response": []
+        },
+        {
+          "name": "all-job",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/all-job?keyword=&limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "all-job"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "globalSearch",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/globalSearch?keyword=developer&type=all&limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "globalSearch"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "developer"
+                },
+                {
+                  "key": "type",
+                  "value": "all"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "suggestion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/suggestion/user/dev",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "suggestion",
+                "user",
+                "dev"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ratingFilter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/ratingFilter?rating=4&limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "ratingFilter"
+              ],
+              "query": [
+                {
+                  "key": "rating",
+                  "value": "4"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "starRatingEmployies",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/starRatingEmployies/5",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "starRatingEmployies",
+                "5"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "inviteDetail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/inviteDetail/sample-token",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "inviteDetail",
+                "sample-token"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "user-profile (public)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/user-profile/john-doe",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "user-profile",
+                "john-doe"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "add-suggestion",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/general/add-suggestion",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "add-suggestion"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John\",\n  \"email\": \"john@example.com\",\n  \"message\": \"Suggestion text\",\n  \"type\": \"feedback\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
         }
       ]
     },
@@ -4105,6 +4333,39 @@
                 "wapi",
                 "dashboard",
                 "jobDataList"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "jobFilterDataList",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/dashboard/jobFilterDataList?keyword=&limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "dashboard",
+                "jobFilterDataList"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
               ]
             }
           },

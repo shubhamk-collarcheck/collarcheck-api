@@ -1,5 +1,12 @@
-
 # Employee Document & Language API Endpoints
+
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Route file:** `src/routes/employee.route.ts`  
+> **Controller:** `src/controllers/document/language controllers`  
+> **Service:** `src/services/document/language services`  
+> **Types:** `src/types/document.types.ts / language.types.ts`
+
 
 ## Overview
 
@@ -46,7 +53,6 @@ src/
 ├── routes/employee.route.ts          # Route registration
 └── utils/educationUpload.ts          # S3 multer config (PDF/PNG/JPG/JPEG/DOC/DOCX, 2MB, max 5 files)
 ```
-
 ---
 
 ## Zod Validation Schemas
@@ -60,19 +66,16 @@ z.object({
   doctype: z.coerce.number().int().positive("Document type is required"),
 })
 ```
-
 #### documentRequestSchema (Add)
 
 ```typescript
 z.object({ body: newDocumentSchema })
 ```
-
 #### documentDeleteRequestSchema (Delete)
 
 ```typescript
 z.object({ params: commonIdParamsSchema.shape.params })
 ```
-
 ### Language Schemas
 
 #### newLanguageSchema (Add/Upsert)
@@ -87,19 +90,16 @@ z.object({
   written: z.string().trim().min(1, "Written proficiency is required"),
 })
 ```
-
 #### languageRequestSchema (Add/Upsert)
 
 ```typescript
 z.object({ body: newLanguageSchema })
 ```
-
 #### languageDeleteRequestSchema (Delete)
 
 ```typescript
 z.object({ params: commonIdParamsSchema.shape.params })
 ```
-
 ---
 
 ## Middleware
@@ -195,7 +195,6 @@ update(id, data)
 deleteByUserAndId(userId: number, id: number)
   → UPDATE cyb_user_document SET is_deleted = 1 WHERE id = :id AND user = :userId
 ```
-
 ### Language Repository
 
 ```typescript
@@ -227,7 +226,6 @@ update(id, data)
 hardDelete(userId: number, id: number)
   → DELETE FROM cyb_user_language WHERE id = :id AND user = :userId
 ```
-
 ---
 
 ## Service Methods
@@ -317,7 +315,6 @@ async (req, res) => {
   })
 }
 ```
-
 #### allDocumentList
 
 ```typescript
@@ -333,7 +330,6 @@ async (req, res) => {
   })
 }
 ```
-
 #### documentDetail
 
 ```typescript
@@ -350,7 +346,6 @@ async (req, res) => {
   })
 }
 ```
-
 #### deleteDocument
 
 ```typescript
@@ -366,7 +361,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### Language Controllers
 
 #### addLanguage
@@ -384,7 +378,6 @@ async (req, res) => {
   })
 }
 ```
-
 #### allLanguageList
 
 ```typescript
@@ -400,7 +393,6 @@ async (req, res) => {
   })
 }
 ```
-
 #### languageDetail
 
 ```typescript
@@ -417,7 +409,6 @@ async (req, res) => {
   })
 }
 ```
-
 #### deleteLanguage
 
 ```typescript
@@ -433,7 +424,6 @@ async (req, res) => {
   })
 }
 ```
-
 ---
 
 ## Response Mapping
@@ -449,7 +439,6 @@ async (req, res) => {
   "create_date": "2024-01-15 10:30:00"
 }
 ```
-
 | Key           | Source / Logic                                                                  |
 |---------------|---------------------------------------------------------------------------------|
 | `id`          | `cyb_user_document.id`                                                          |
@@ -480,7 +469,6 @@ Same as List, plus additional fields:
   "create_date": "2024-01-15 10:30:00"
 }
 ```
-
 | Key           | Source / Logic                                                                  |
 |---------------|---------------------------------------------------------------------------------|
 | `id`          | `cyb_user_language.id`                                                          |
@@ -517,7 +505,6 @@ curl -X POST http://localhost:3000/wapi/employee/add-document \
   -F "doctype=1" \
   -F "document=@/path/to/document.pdf"
 ```
-
 ### Success Response
 
 ```json
@@ -526,7 +513,6 @@ curl -X POST http://localhost:3000/wapi/employee/add-document \
   "messages": "Successfully Added !"
 }
 ```
-
 ### Add Language
 
 ```bash
@@ -539,7 +525,6 @@ curl -X POST http://localhost:3000/wapi/employee/add_language \
     "written": "Native"
   }'
 ```
-
 ### Success Response
 
 ```json

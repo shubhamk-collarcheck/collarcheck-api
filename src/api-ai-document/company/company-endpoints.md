@@ -1,26 +1,26 @@
-
 # Company Endpoints — Settings, Edit, Connections, Employment, Wishlist
 
-**Base path:** `/wapi` (all endpoints in `wapi` group with `Auth` filter, JWT Bearer token required)
-
----
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi/company`  
+> **Route file:** `src/routes/company.route.ts`  
+> **Auth:** `Authorization` · `X-Company` for company context  
 
 ## Routes Summary
 
-| Method | Route | Handler | Node | Description |
-|--------|-------|---------|------|-------------|
-| GET | `company/getSetting` | `IndividualApi::getSetting` | Yes | Get company account settings |
-| POST | `company/saveSetting` | `IndividualApi::saveSetting` | Yes | Save/update company account settings |
-| POST | `company/edit-user` | `CompanyApi::editCompany` | Yes | Edit company profile (multi-step) |
-| GET | `company/all-connection` | `CompanyApi::allConnection` | Yes | List current + past employees |
-| POST | `company/add-connection` | `CompanyApi::addConnection` | **Yes** | Add connection (`company.route.ts`) |
-| GET | `company/all-employement` | `CompanyApi::companyWiseEmploymentDetails` | Yes | Employment verification list |
-| PUT | `company/update-employement/(:num)` | `CompanyApi::updateEmployement/$1` | Yes | Approve employment request |
-| GET | `company/all-wishlist` | `CompanyApi::allWishlist` | Yes | Company's wishlisted users |
-| POST | `company/add-wishlist` | `CompanyApi::addWishlist` | **Yes** | Add user to wishlist |
-| DELETE | `company/delete-wishlist/(:num)` | `CompanyApi::deleteWishlist/$1` | **Yes** | Soft-delete wishlist row |
+| Method | Path | Controller | Service | Description |
+|--------|------|------------|---------|-------------|
+| GET | `/getSetting` | `getCompanySetting` | `getCompanySettingService` | Account settings |
+| POST | `/saveSetting` | `saveCompanySetting` | `saveCompanySettingService` | Save settings |
+| POST | `/edit-user` | `editCompany` | `editCompanyService` | Edit company profile (multipart) |
+| GET | `/all-connection` | `allConnection` | `allConnectionService` | Current + past employees |
+| POST | `/add-connection` | `addConnection` | `addConnectionService` | Add connection |
+| GET | `/all-employement` | `allEmployment` | `allEmploymentService` | Employment verification list |
+| PUT | `/update-employement/:id` | `updateEmployment` | `updateEmploymentService` | Approve employment |
+| GET | `/all-wishlist` | `allWishlist` | `allWishlistService` | Wishlist list |
+| POST | `/add-wishlist` | `addWishlist` | `addWishlistService` | Add to wishlist |
+| DELETE | `/delete-wishlist/:id` | `deleteWishlist` | `deleteWishlistService` | Soft-delete wishlist |
 
-See also [remaining-misc-crud-endpoints.md](../remaining-misc-crud-endpoints.md) for write contracts (#2–#4).
+**Types:** `src/types/company.types.ts` · **Repo:** `src/repositery/company.repositery.ts`
 
 ---
 
@@ -48,9 +48,8 @@ Identical to `POST wapi/user/saveSetting`. See [common-auth-endpoints.md](../com
 ```
 POST /wapi/company/edit-user
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company user ID.
+JWT required. `req.auth.id` = company user ID.
 
 ### Multi-Step Update
 Uses `type` parameter to determine which fields to update:
@@ -64,7 +63,7 @@ Uses `type` parameter to determine which fields to update:
 ### DB Queries
 ```
 Type 1:
-  1. unique_website($websiteurl, $id) — check website uniqueness
+  1. unique_website(websiteurl, id) — check website uniqueness
   2. UPDATE user SET fname, contact_person, company_size, email, ...
   3. Parse website URL → extract domain → INSERT INTO user_domains (if not exists)
   4. If industry is string (not int): INSERT INTO industries (if not exists), then use ID
@@ -82,7 +81,6 @@ Type 3:
 Always:
   UPDATE user SET claim_status = 1, user_type = 2, modify_date = NOW()
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -119,11 +117,10 @@ Always:
 { "status": false, "messages": "Invalid Param" }
 { "status": false, "messages": "Access denied" }
 ```
-
 ### Notes
 - Website uniqueness checked via `unique_website()` helper (skips own record on edit).
 - New industries/cities created with `user_defined = 1` flag.
-- Lat/long geocoded from `present_address` via `$this->Cronjob->get_lat_long()`.
+- Lat/long geocoded from `present_address` via `this->Cronjob->get_lat_long()`.
 - Company name change triggers `verify_document.verify = 0` (re-verification required).
 
 ---
@@ -134,14 +131,13 @@ Always:
 ```
 GET /wapi/company/all-connection
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
-**Permission guard:** `checkMenuAccess($login_user_id, $companyId, 5)`. Returns **403** if denied.
+JWT required. `req.auth.id` = company ID.
+**Permission guard:** `checkMenuAccess(loginUserId, companyId, 5)`. Returns **403** if denied.
 
 ### DB Queries
 ```
-MainModel::getAllCollections($companyId, $keyword, $sort_by, $type, $limit, $offset)
+MainModel::getAllCollections(companyId, keyword, sort_by, type, limit, offset)
   → SELECT us.*, ue.id as experience_id, ue.still_working, ue.approved,
     ue.create_date as connectiondate, ds.name as designation
     FROM user us
@@ -158,10 +154,9 @@ MainModel::getAllCollections($companyId, $keyword, $sort_by, $type, $limit, $off
 Called twice: once for current (type=1) and once for past employees.
 
 For each employee:
-  - UserModel::getoverallprofileScore($id) → userRating
-  - show_exploring($userId, $companyId) → on_explore visibility
+  - getoverallprofileScore(id) → userRating
+  - show_exploring(userId, companyId) → on_explore visibility
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
@@ -221,7 +216,6 @@ For each employee:
   }
 }
 ```
-
 ### Notes
 - Two separate queries: current employees (`still_working=1`) and past (`still_working=0`).
 - Both require `approved=1`.
@@ -237,29 +231,27 @@ For each employee:
 ```
 GET /wapi/company/all-employement
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
-**Permission guard:** `checkMenuAccess($login_user_id, $user_id, 6)`. Returns **403** if denied.
+JWT required. `req.auth.id` = company ID.
+**Permission guard:** `checkMenuAccess(loginUserId, user_id, 6)`. Returns **403** if denied.
 
 ### DB Queries
 ```
-1. UserModel::get_company_experience_list($user_id)
+1. get_company_experience_list(user_id)
    → All employment records where company = {companyId} (approved + pending)
 
    For each record:
-   a. UserModel::get_skill($skill) → skill names
-   b. UserModel::get_update_experience($id) → pending update requests
-   c. UserModel::get_certificate($certificate) → document URL
-   d. UserModel::get_rating($id) → rating for this employment
-   e. UserModel::get_employment_status($id) → verification status
-   f. UserModel::get_employment_history($id) → update history
+   a. get_skill(skill) → skill names
+   b. get_update_experience(id) → pending update requests
+   c. get_certificate(certificate) → document URL
+   d. get_rating(id) → rating for this employment
+   e. get_employment_status(id) → verification status
+   f. get_employment_history(id) → update history
    g. show_exploring() → on_explore visibility
 
-2. UserModel::get_basic_experience_update_list($user_id)
+2. get_basic_experience_update_list(user_id)
    → Basic info update requests (salary/designation changes from employee)
 ```
-
 ### Request
 No body params (company identified from JWT).
 
@@ -325,7 +317,6 @@ No body params (company identified from JWT).
   ]
 }
 ```
-
 ### Notes
 - `data` = all employment records for the company (both approved and pending).
 - `newUpdateList` = basic info change requests (salary/designation updates proposed by employees).
@@ -335,16 +326,16 @@ No body params (company identified from JWT).
 
 ---
 
-## 6. PUT `company/update-employement/(:num)`
+## 6. PUT `company/update-employement/:id`
 
 ### Route
 ```
 PUT /wapi/company/update-employement/{id}
 ```
-- `(:num)` → `$id` — experience ID
+- `:id` → `id` — experience ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### Side Effects (Non-CRUD)
 Triggers **4 notifications** via SQS:
@@ -363,10 +354,10 @@ Triggers **4 notifications** via SQS:
    WHERE company = {companyId} AND id = {experienceId}
 
 3. SELECT * FROM user_experience WHERE id = {experienceId}
-   → $Detail (with joined user + company names)
+   → Detail (with joined user + company names)
 
 4. SELECT * FROM user WHERE id = {Detail->user}
-   → $userDetail
+   → userDetail
 
 5. IF userDetail.current_company IS NULL:
    UPDATE user SET current_company = {company}, current_possition = {designation}
@@ -376,11 +367,10 @@ Triggers **4 notifications** via SQS:
 
 7. SQS push: SEND_PUSH, SEND_EMAIL, SEND_WHATSAPP
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Experience ID to approve |
+| `id` | URL segment | Yes | Experience ID to approve |
 
 ### Response
 ```json
@@ -390,7 +380,6 @@ Triggers **4 notifications** via SQS:
 { "status": false, "messages": "Try again something went wrong " }
 { "status": false, "messages": "Access denied" }
 ```
-
 ### Notes
 - Approval auto-sets `current_company` and `current_possition` on the user's profile if they don't have one.
 - Triggers Level 3 verification emails (domain verification prompt for company).
@@ -404,28 +393,26 @@ Triggers **4 notifications** via SQS:
 ```
 GET /wapi/company/all-wishlist
 ```
-
 ### Auth
-**Custom auth** — extracts token from `Authorization` header, validates against `user.token` directly (does not use `$this->request->id`).
+**Custom auth** — extracts token from `Authorization` header, validates against `user.token` directly (does not use `req.auth.id`).
 
 ### DB Queries
 ```
 1. SELECT * FROM user WHERE token = ? AND status = 1
-   → $row (company)
+   → row (company)
 
 2. SELECT * FROM company_wishlist WHERE status = 1 AND company = {companyId} ORDER BY id DESC
    → All wishlist entries
 
    For each entry:
    a. SELECT * FROM user WHERE id = {wishlist.user}
-      → $employee_detail
+      → employee_detail
    b. IF employee has current_company:
       SELECT * FROM user WHERE id = {current_company}
-      → $companyname
+      → companyname
    c. SELECT * FROM designation WHERE id = {employee.current_possition}
-      → $designationdetail
+      → designationdetail
 ```
-
 ### Request
 No body params (company identified from JWT token).
 
@@ -445,7 +432,6 @@ No body params (company identified from JWT token).
   ]
 }
 ```
-
 ### Error Responses
 ```json
 { "status": false, "messages": "Token is missing" }
@@ -453,9 +439,8 @@ No body params (company identified from JWT token).
 { "status": false, "messages": "Method Not Found" }   // if not GET
 { "status": false, "messages": "Access denied" }
 ```
-
 ### Notes
-- Uses legacy auth pattern (token lookup) instead of `$this->request->id`.
+- Uses legacy auth pattern (token lookup) instead of `req.auth.id`.
 - Only returns users who are on the company's wishlist.
 - Company name comes from employee's `current_company` lookup (not stored on wishlist).
 
@@ -495,6 +480,6 @@ No body params (company identified from JWT token).
 - Email/WhatsApp for acceptance itself are commented out (only Level 3 notifications active).
 
 ### allWishlist
-- Uses legacy auth (token header lookup) instead of `$this->request->id`.
+- Uses legacy auth (token header lookup) instead of `req.auth.id`.
 - Returns wishlisted users with profile, designation, and current company name.
 - Company name resolved via `user.current_company` → `user.name` lookup.

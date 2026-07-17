@@ -1,5 +1,40 @@
+# Employee Job, Dashboard & View Request Endpoints
 
-# Employee Job, Dashboard & View Request API Endpoints
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi/employee` (+ multi routes on `/wapi`)  
+> **Route files:** `employee.route.ts`, `root.route.ts`  
+> **Controller:** `job-dashboard.controller.ts` · `misc.controller.ts` (`allUser`)  
+> **Service:** `job-dashboard.service.ts` · `misc.service.ts`  
+> **Types:** `job-dashboard.types.ts`
+
+## Authentication
+
+- **Middleware:** `Authorization` (`src/middlewares/Authorization.ts`)
+- **Header:** `Authorization: Bearer <jwt>`
+- **Optional:** `X-Company: {companyId}` swaps acting `req.auth.id`
+- **Acting user:** `req.auth.user_id` / `req.auth.id`
+
+## Routes Summary
+
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| POST | `/wapi/employee/apply-job` | `applyJob` | Apply to job |
+| GET | `/wapi/employee/all-user` | `allUser` | User list |
+| GET | `/wapi/employee/applyJobList` | `applyJobList` | Applied job IDs |
+| GET | `/wapi/employee/ProfilePercentage` | `profilePercentage` | Profile % |
+| PUT | `/wapi/employee/approvedEmployment/:id` | `approvedEmployment` | Approve employment |
+| GET | `/wapi/employee/AllViewRequest` | `allViewRequest` | View requests |
+| POST | `/wapi/employee/approvedVeiwRequest` | `approvedVeiwRequest` | Approve view request |
+| PUT | `/wapi/employee/rejectVeiwRequest/:id` | `rejectVeiwRequest` | Reject view request |
+| DELETE | `/wapi/employee/deleteViewRequest/:id` | `deleteViewRequest` | Soft-delete view request |
+| GET | `/wapi/employee/checkCurrentCompany` | `checkCurrentCompany` | Current employment check |
+| GET | `/wapi/employee/dashboard` | `dashboard` | Employee dashboard |
+| GET | `/wapi/employee/appliedjob` | `appliedjob` | Paginated applications |
+| DELETE | `/wapi/employee/remove-resume` | `removeResume` | Clear resume |
+| POST | `/wapi/multi-deleteViewRequest` | `multiDeleteViewRequest` | Bulk delete view requests |
+| POST | `/wapi/multi-approvedVeiwRequest` | `multiApprovedVeiwRequest` | Approve (single id body) |
+
+---
 
 ## Overview
 
@@ -9,11 +44,11 @@ Thirteen REST endpoints for job applications, dashboard summary, profile view re
 
 ## Authentication
 
-- **Filter:** `Authenticate` (CodeIgniter 4 filter applied to route group `wapi`)
+- **Filter:** `Authorization` middleware (`src/middlewares/Authorization.ts`)
 - **Header:** `Authorization: Bearer <jwt_token>`
-- **JWT decode:** Extract `uid` claim → look up `user` table WHERE `id = uid`, `status = 1`, `is_deleted = 0`
+- **JWT decode:** Extract `uid` claim → `get_user_detail(uid)` (`users.service.ts`)
 - **Optional override:** Send `X-Company` header with a different user ID to act on behalf of that user
-- **Injected request property:** `$this->request->id` → the acting user ID
+- **Injected request property:** `req.auth.id` → the acting user ID
 
 ---
 
@@ -21,19 +56,19 @@ Thirteen REST endpoints for job applications, dashboard summary, profile view re
 
 | Method   | Path                                        | Controller Method                       | Node | Description                           |
 |----------|---------------------------------------------|-----------------------------------------|------|---------------------------------------|
-| `POST`   | `/wapi/employee/apply-job`                  | `IndividualApi::applyJob`               | Yes | Apply to a job                        |
-| `GET`    | `/wapi/employee/all-user`                   | `IndividualApi::allUser`                | **Yes** | User list (`allUserService`)     |
-| `GET`    | `/wapi/employee/applyJobList`               | `IndividualApi::applyJobList`           | Yes | List all applied job IDs              |
-| `GET`    | `/wapi/employee/ProfilePercentage`          | `IndividualApi::ProfilePercentage`      | Yes | Get profile completion percentage     |
-| `PUT`    | `/wapi/employee/approvedEmployment/{id}`    | `IndividualApi::approvedEmployment`     | Yes | Approve employment verification       |
-| `GET`    | `/wapi/employee/AllViewRequest`             | `IndividualApi::AllViewRequest`         | Yes | List all profile view requests        |
-| `POST`   | `/wapi/employee/approvedVeiwRequest`        | `IndividualApi::approvedVeiwRequest`    | Yes | Approve a profile view request        |
-| `PUT`    | `/wapi/employee/rejectVeiwRequest/{id}`     | `IndividualApi::rejectVeiwRequest`      | Yes | Reject a profile view request         |
-| `DELETE` | `/wapi/employee/deleteViewRequest/{id}`     | `IndividualApi::deleteViewRequest`      | Yes | Soft-delete a view request            |
-| `GET`    | `/wapi/employee/checkCurrentCompany`        | `IndividualApi::checkCurrentCompany`    | Yes | Check current company employment      |
-| `GET`    | `/wapi/employee/dashboard`                  | `IndividualApi::dashboard`              | Yes | Dashboard summary data                |
-| `GET`    | `/wapi/employee/appliedjob`                 | `IndividualApi::appliedjob`             | Yes | Paginated list of applied jobs        |
-| `DELETE` | `/wapi/employee/remove-resume`              | `IndividualApi::removeResume`           | Yes | Remove uploaded resume                |
+| `POST`   | `/wapi/employee/apply-job`                  | `applyJob`               | Yes | Apply to a job                        |
+| `GET`    | `/wapi/employee/all-user`                   | `allUser`                | **Yes** | User list (`allUserService`)     |
+| `GET`    | `/wapi/employee/applyJobList`               | `applyJobList`           | Yes | List all applied job IDs              |
+| `GET`    | `/wapi/employee/ProfilePercentage`          | `ProfilePercentage`      | Yes | Get profile completion percentage     |
+| `PUT`    | `/wapi/employee/approvedEmployment/{id}`    | `approvedEmployment`     | Yes | Approve employment verification       |
+| `GET`    | `/wapi/employee/AllViewRequest`             | `AllViewRequest`         | Yes | List all profile view requests        |
+| `POST`   | `/wapi/employee/approvedVeiwRequest`        | `approvedVeiwRequest`    | Yes | Approve a profile view request        |
+| `PUT`    | `/wapi/employee/rejectVeiwRequest/{id}`     | `rejectVeiwRequest`      | Yes | Reject a profile view request         |
+| `DELETE` | `/wapi/employee/deleteViewRequest/{id}`     | `deleteViewRequest`      | Yes | Soft-delete a view request            |
+| `GET`    | `/wapi/employee/checkCurrentCompany`        | `checkCurrentCompany`    | Yes | Check current company employment      |
+| `GET`    | `/wapi/employee/dashboard`                  | `dashboard`              | Yes | Dashboard summary data                |
+| `GET`    | `/wapi/employee/appliedjob`                 | `appliedjob`             | Yes | Paginated list of applied jobs        |
+| `DELETE` | `/wapi/employee/remove-resume`              | `removeResume`           | Yes | Remove uploaded resume                |
 | `POST`   | `/wapi/multi-deleteViewRequest`             | multi delete view requests              | **Yes** | Soft-delete many (`root.route.ts`) |
 | `POST`   | `/wapi/multi-approvedVeiwRequest`           | multi approve (single id body)          | **Yes** | Approve one via multi route        |
 
@@ -86,7 +121,6 @@ SELECT * FROM application WHERE job = :jobId AND user = :authUserId
 INSERT INTO application (job, user, create_date, modify_date)
 VALUES (:jobId, :authUserId, NOW(), NOW())
 ```
-
 ### Response (Success)
 ```json
 {
@@ -94,7 +128,6 @@ VALUES (:jobId, :authUserId, NOW(), NOW())
   "messages": "Successfully Applied"
 }
 ```
-
 ### Response (Already Applied)
 ```json
 {
@@ -102,7 +135,6 @@ VALUES (:jobId, :authUserId, NOW(), NOW())
   "messages": "Already Applied"
 }
 ```
-
 ### Response (Invalid Job)
 ```json
 {
@@ -110,7 +142,6 @@ VALUES (:jobId, :authUserId, NOW(), NOW())
   "messages": "Invalid Job id"
 }
 ```
-
 ### Response (Validation Error)
 ```json
 {
@@ -118,7 +149,6 @@ VALUES (:jobId, :authUserId, NOW(), NOW())
   "messages": "The Job field is required."
 }
 ```
-
 ### Response (Exception)
 ```json
 {
@@ -126,7 +156,6 @@ VALUES (:jobId, :authUserId, NOW(), NOW())
   "messages": "Access denied"
 }
 ```
-
 ---
 
 ## Endpoint 2: GET All User
@@ -158,7 +187,6 @@ VALUES (:jobId, :authUserId, NOW(), NOW())
   }
 }
 ```
-
 Full contract: [remaining-misc-crud-endpoints.md §1](./remaining-misc-crud-endpoints.md).
 
 ---
@@ -177,7 +205,6 @@ LEFT JOIN company_job cj ON app.job = cj.id
 WHERE cj.status = 1
   AND app.user = :authUserId
 ```
-
 ### Response
 ```json
 {
@@ -186,7 +213,6 @@ WHERE cj.status = 1
   "data": [42, 87, 103]
 }
 ```
-
 ### Response (Exception)
 ```json
 {
@@ -194,7 +220,6 @@ WHERE cj.status = 1
   "messages": "Access denied"
 }
 ```
-
 ---
 
 ## Endpoint 4: GET Profile Percentage
@@ -263,7 +288,6 @@ Returns the profile completion percentage with breakdown. Logic differs for `use
   }
 }
 ```
-
 | Key          | Type             | Description                                    |
 |--------------|------------------|------------------------------------------------|
 | `total`      | int              | Total points accumulated (not percentage)      |
@@ -305,7 +329,6 @@ UPDATE user_experience SET status = 1 WHERE id = :id
 -- 4. If user has no current_company and still_working = 1:
 UPDATE user SET current_possition = :designation, current_company = :company WHERE id = :authUserId
 ```
-
 ### Response (Success)
 ```json
 {
@@ -313,7 +336,6 @@ UPDATE user SET current_possition = :designation, current_company = :company WHE
   "messages": "Approved successfully!"
 }
 ```
-
 ### Response (Not Found / No Permission)
 ```json
 {
@@ -321,7 +343,6 @@ UPDATE user SET current_possition = :designation, current_company = :company WHE
   "messages": "The requested employment details could not be found, or you do not have permission to access them."
 }
 ```
-
 ### Response (Exception)
 ```json
 {
@@ -329,7 +350,6 @@ UPDATE user SET current_possition = :designation, current_company = :company WHE
   "messages": "Access denied"
 }
 ```
-
 ---
 
 ## Endpoint 6: GET All View Requests
@@ -378,7 +398,6 @@ LEFT JOIN designation dg ON ur.current_possition = dg.id
 WHERE fl.follower_id = :authUserId AND fl.status = 0 AND fl.is_deleted = 0
 LIMIT :limit OFFSET :offset
 ```
-
 ### Response Shape
 ```json
 {
@@ -426,7 +445,6 @@ LIMIT :limit OFFSET :offset
   }
 }
 ```
-
 | Key                | Type             | Description                                  |
 |--------------------|------------------|----------------------------------------------|
 | `viewReqest`       | object[]         | Profile view requests from companies         |
@@ -480,7 +498,6 @@ SET status = :toggledStatus,
     access = :accessJson     -- JSON array
 WHERE id = :id
 ```
-
 ### Response (Success)
 ```json
 {
@@ -488,7 +505,6 @@ WHERE id = :id
   "messages": "Approved successfully!"
 }
 ```
-
 ### Response (Not Found)
 ```json
 {
@@ -496,7 +512,6 @@ WHERE id = :id
   "messages": "Record not found!"
 }
 ```
-
 ### Response (Validation Error)
 ```json
 {
@@ -504,7 +519,6 @@ WHERE id = :id
   "messages": "The id field is required."
 }
 ```
-
 ### Response (Exception)
 ```json
 {
@@ -512,7 +526,6 @@ WHERE id = :id
   "messages": "Access denied"
 }
 ```
-
 ---
 
 ## Endpoint 8: PUT Reject View Request
@@ -527,7 +540,6 @@ SELECT * FROM user_profile_view_request WHERE userid = :authUserId AND id = :id
 
 UPDATE user_profile_view_request SET status = 0 WHERE id = :id
 ```
-
 ### Response (Success)
 ```json
 {
@@ -535,7 +547,6 @@ UPDATE user_profile_view_request SET status = 0 WHERE id = :id
   "messages": "Reject successfully!"
 }
 ```
-
 ### Response (Not Found)
 ```json
 {
@@ -543,7 +554,6 @@ UPDATE user_profile_view_request SET status = 0 WHERE id = :id
   "messages": "Record not found!"
 }
 ```
-
 ### Response (Exception)
 ```json
 {
@@ -551,7 +561,6 @@ UPDATE user_profile_view_request SET status = 0 WHERE id = :id
   "messages": "Access denied"
 }
 ```
-
 ---
 
 ## Endpoint 9: DELETE View Request (Soft-Delete)
@@ -569,7 +578,6 @@ SELECT * FROM user_profile_view_request WHERE userid = :authUserId AND id = :id 
 -- 2. Soft-delete
 UPDATE user_profile_view_request SET is_deleted = 1 WHERE userid = :authUserId AND id = :id
 ```
-
 ### Response (Success)
 ```json
 {
@@ -577,7 +585,6 @@ UPDATE user_profile_view_request SET is_deleted = 1 WHERE userid = :authUserId A
   "messages": "Delete successfully!"
 }
 ```
-
 ### Response (Not Found)
 ```json
 {
@@ -585,7 +592,6 @@ UPDATE user_profile_view_request SET is_deleted = 1 WHERE userid = :authUserId A
   "messages": "Record not found!!"
 }
 ```
-
 ### Response (Exception)
 ```json
 {
@@ -593,7 +599,6 @@ UPDATE user_profile_view_request SET is_deleted = 1 WHERE userid = :authUserId A
   "messages": "Access denied"
 }
 ```
-
 ---
 
 ## Endpoint 10: GET Check Current Company
@@ -615,7 +620,6 @@ WHERE user = :authUserId
   AND still_working = 1
   AND is_deleted = 0
 ```
-
 Filters out the row matching `employment_id` from the results.
 
 ### Response Shape
@@ -635,7 +639,6 @@ Filters out the row matching `employment_id` from the results.
   }
 }
 ```
-
 | Key              | Type             | Description                                  |
 |------------------|------------------|----------------------------------------------|
 | `currentWorking` | boolean          | `true` if other current employments exist     |
@@ -648,7 +651,6 @@ Filters out the row matching `employment_id` from the results.
   "messages": "<exception message>"
 }
 ```
-
 ---
 
 ## Endpoint 11: GET Dashboard
@@ -697,7 +699,6 @@ Returns a comprehensive dashboard summary with counts, skills, pending follow re
   }
 }
 ```
-
 | Key              | Type             | Description                                    |
 |------------------|------------------|------------------------------------------------|
 | `jobsApplieds`   | int              | Total count of jobs applied                    |
@@ -716,7 +717,6 @@ Returns a comprehensive dashboard summary with counts, skills, pending follow re
   "messages": "<exception message>"
 }
 ```
-
 ---
 
 ## Endpoint 12: GET Applied Jobs (Paginated)
@@ -765,7 +765,6 @@ Returns a paginated list of jobs the user has applied to, with full job details.
   }
 }
 ```
-
 | Key         | Type    | Description                              |
 |-------------|---------|------------------------------------------|
 | `totalCount`| int     | Total applied jobs (across all pages)    |
@@ -777,7 +776,6 @@ Returns a paginated list of jobs the user has applied to, with full job details.
   "messages": "<exception message>"
 }
 ```
-
 ---
 
 ## Endpoint 13: DELETE Remove Resume
@@ -794,7 +792,6 @@ SELECT * FROM user WHERE id = :authUserId
 -- 2. If resume exists, clear it
 UPDATE user SET resume = '', resumeName = '' WHERE id = :authUserId
 ```
-
 ### Response (Success)
 ```json
 {
@@ -802,9 +799,8 @@ UPDATE user SET resume = '', resumeName = '' WHERE id = :authUserId
   "messages": "Resume delete successfull!"
 }
 ```
-
 ### Response (No Resume)
-Returns nothing (function exits early without setting `$response`).
+Returns nothing (function exits early without setting `response`).
 
 ### Response (Exception)
 ```json
@@ -813,7 +809,6 @@ Returns nothing (function exits early without setting `$response`).
   "messages": "<exception message>"
 }
 ```
-
 ---
 
 ## Implementation Notes for Cross-Language Porting
@@ -830,4 +825,4 @@ Returns nothing (function exits early without setting `$response`).
 10. **`ProfilePercentage` scoring differs by user type:** Individual users get different point allocations than company users (e.g., experience_approved is 10 for domestic, 15 for international).
 11. **`removeResume` exits early without response:** If no resume exists, the function returns nothing (no JSON). Frontend should handle empty response body.
 12. **Pagination uses 1-based offset:** Both `AllViewRequest` and `appliedjob` treat `offset` as a page number. `offset = 0` or `offset = 1` both return the first page.
-13. **Exception messages exposed:** `applyJob`, `appliedjob`, `checkCurrentCompany`, `dashboard` expose `$ex->getMessage()` in error responses. Other endpoints use generic `"Access denied"`.
+13. **Exception messages exposed:** `applyJob`, `appliedjob`, `checkCurrentCompany`, `dashboard` expose `ex->getMessage()` in error responses. Other endpoints use generic `"Access denied"`.

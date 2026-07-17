@@ -1,25 +1,30 @@
-
 # Company Job Endpoints — CRUD, Templates, Bulk Actions
 
-**Base path:** `/wapi` (all endpoints in `wapi` group with `Auth` filter, JWT Bearer token required)
-
----
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi/company`  
+> **Route file:** `src/routes/company.route.ts`  
+> **Controller:** `src/controllers/company-job.controller.ts`  
+> **Service:** `src/services/company-job.service.ts`  
+> **Types:** `src/types/company-job.types.ts`  
+> **Repo:** `src/repositery/company-job.repositery.ts`
 
 ## Routes Summary
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| GET | `company/all-job` | `CompanyApi::allJob` | List all jobs (draft/published/cancelled) |
-| POST | `company/add-job` | `CompanyApi::addJob` | Create new job or template |
-| POST | `company/add-job/(:num)` | `CompanyApi::addJob/$1` | Update existing job |
-| PUT | `company/jobStatusChange/(:num)` | `CompanyApi::jobStatusChange/$1` | Toggle job publish/unpublish |
-| DELETE | `company/delete-job/(:num)` | `CompanyApi::deleteJob/$1` | Soft-delete a job |
-| DELETE | `company/cancel-job/(:num)` | `CompanyApi::cancelJob/$1` | Cancel/close a job + notify applicants |
-| GET | `company/job-detail/(:num)` | `CompanyApi::jobDetail/$1` | Single job detail |
-| GET | `company/job-template-detail/(:any)` | `CompanyApi::jobTemplateDetail/$1` | Single template detail |
-| GET | `company/job-template` | `CompanyApi::jobTemplate` | List all templates |
-| POST | `company/multi-cancel-job` | `CompanyApi::multi_cancelJob` | Bulk cancel jobs |
-| POST | `company/multi-jobStatusChange` | `CompanyApi::multi_jobStatusChange` | Bulk status toggle |
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| GET | `/all-job` | `allJob` | List jobs |
+| POST | `/add-job` | `addJob` | Create job (multipart docs) |
+| POST | `/add-job/:id` | `addJobUpdate` | Update job |
+| PUT | `/jobStatusChange/:id` | `jobStatusChange` | Publish/unpublish |
+| DELETE | `/delete-job/:id` | `deleteJob` | Soft-delete |
+| DELETE | `/cancel-job/:id` | `cancelJob` | Cancel job |
+| GET | `/job-detail/:id` | `jobDetail` | Job detail |
+| GET | `/job-template-detail/:id` | `jobTemplateDetail` | Template detail |
+| GET | `/job-template` | `jobTemplate` | List templates |
+| POST | `/multi-cancel-job` | `multiCancelJob` | Bulk cancel |
+| POST | `/multi-jobStatusChange` | `multiJobStatusChange` | Bulk status |
+
+Auth: JWT · `req.auth.id` = company (or via `X-Company`).
 
 ---
 
@@ -29,13 +34,12 @@
 ```
 GET /wapi/company/all-job
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
-**Permission guard:** `checkMenuAccess($login_user_id, $companyId, 7)`. Returns **403** if denied.
+JWT required. `req.auth.id` = company ID.
+**Permission guard:** `checkMenuAccess(loginUserId, companyId, 7)`. Returns **403** if denied.
 
 ### DB Queries
-Calls `UserModel::get_all_job_list($filter)` three times for each status:
+Calls `get_all_job_list(filter)` three times for each status:
 
 ```
 get_all_job_list() query:
@@ -47,12 +51,11 @@ get_all_job_list() query:
   ORDER BY cj.modify_date DESC
   LIMIT {limit} OFFSET {offset}
 
-  For each result: calls get_job_detail($id, NULL, $status, companyview=true)
+  For each result: calls get_job_detail(id, NULL, status, companyview=true)
     → Full JOIN across: cities, state, country, industries, job_experiences,
       role_types, department, designation, application, job_mode, user, salary
     → Returns job detail with applicationCount, collaborator list
 ```
-
 Called with status: `3` = draft (stored as 0), `1` = published, `2` = cancelled.
 
 ### Request
@@ -104,7 +107,6 @@ Called with status: `3` = draft (stored as 0), `1` = published, `2` = cancelled.
   }
 }
 ```
-
 ### Notes
 - Status mapping: `3` → stored as `0` (draft), `1` → `1` (published), `2` → `2` (cancelled).
 - `*JobsCounts` fields are total counts (without pagination) for tab badges.
@@ -119,9 +121,8 @@ Called with status: `3` = draft (stored as 0), `1` = published, `2` = cancelled.
 POST /wapi/company/add-job         → Create new job
 POST /wapi/company/add-job/{id}    → Update existing job
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
@@ -144,7 +145,6 @@ JWT required. `$this->request->id` = company ID.
      INSERT INTO company_job
      Slug auto-generated: {job_title}-{state}-{designation}-{experience}-{date}{random}
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -184,7 +184,6 @@ JWT required. `$this->request->id` = company ID.
 { "status": false, "messages": "job_title,job_description are required." }
 { "status": false, "messages": "Invalid Company !" }
 ```
-
 ### Notes
 - `status=3` saves to `job_template` table instead of `company_job`.
 - Slug includes state, designation, experience, date, and random number for uniqueness.
@@ -193,16 +192,16 @@ JWT required. `$this->request->id` = company ID.
 
 ---
 
-## 3. PUT `company/jobStatusChange/(:num)`
+## 3. PUT `company/jobStatusChange/:id`
 
 ### Route
 ```
 PUT /wapi/company/jobStatusChange/{id}
 ```
-- `(:num)` → `$id` — job ID
+- `:id` → `id` — job ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
@@ -213,11 +212,10 @@ JWT required. `$this->request->id` = company ID.
    IF current status = 1 → set to 0 (unpublish)
    IF current status != 1 → set to 1 (publish) + update create_date
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Job ID |
+| `id` | URL segment | Yes | Job ID |
 
 ### Response
 ```json
@@ -226,23 +224,22 @@ JWT required. `$this->request->id` = company ID.
 ```json
 { "status": false, "messages": "Invalid Record !" }
 ```
-
 ### Notes
 - Simple toggle: `1` ↔ `0`. Does NOT affect cancelled jobs (status=2).
 - When publishing (0→1), `create_date` is reset to now (re-ranks in listings).
 
 ---
 
-## 4. DELETE `company/delete-job/(:num)`
+## 4. DELETE `company/delete-job/:id`
 
 ### Route
 ```
 DELETE /wapi/company/delete-job/{id}
 ```
-- `(:num)` → `$id` — job ID
+- `:id` → `id` — job ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
@@ -252,11 +249,10 @@ JWT required. `$this->request->id` = company ID.
 2. UPDATE company_job SET is_deleted = 1 WHERE company = {companyId} AND id = {id}
    → Soft delete
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Job ID |
+| `id` | URL segment | Yes | Job ID |
 
 ### Response
 ```json
@@ -265,23 +261,22 @@ JWT required. `$this->request->id` = company ID.
 ```json
 { "status": false, "messages": "Try again something went wrong " }
 ```
-
 ### Notes
 - Soft delete only (`is_deleted = 1`). Job still exists in DB.
 - No notifications sent.
 
 ---
 
-## 5. DELETE `company/cancel-job/(:num)`
+## 5. DELETE `company/cancel-job/:id`
 
 ### Route
 ```
 DELETE /wapi/company/cancel-job/{id}
 ```
-- `(:num)` → `$id` — job ID
+- `:id` → `id` — job ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### Side Effects (Non-CRUD)
 Triggers notifications via SQS:
@@ -295,24 +290,23 @@ Triggers notifications via SQS:
 
 2. UPDATE company_job SET status = 2 WHERE company = {companyId} AND id = {jobId}
 
-3. UserModel::get_user_company_detail($companyId, $jobId)
+3. get_user_company_detail(companyId, jobId)
    → Company + job details for email template
 
 4. SQS push: SEND_EMAIL (company), SEND_WHATSAPP (company)
 
-5. UserModel::get_applied_detail($jobId)
+5. get_applied_detail(jobId)
    → All users who applied to this job
 
 6. For each applicant:
-   UserModel::get_user_applied_details($userId)
+   get_user_applied_details(userId)
    → User details for email
    SQS push: SEND_EMAIL (applicant)
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Job ID |
+| `id` | URL segment | Yes | Job ID |
 
 ### Response
 ```json
@@ -321,38 +315,36 @@ Triggers notifications via SQS:
 ```json
 { "status": false, "messages": "Try again something went wrong " }
 ```
-
 ### Notes
 - Sets `status = 2` (cancelled/closed).
 - Notifies company AND all applicants that the position is closed.
-- Uses `$this->response->setJSON()` (not `json_encode()`).
+- Uses `this->response->setJSON()` (not `json_encode()`).
 
 ---
 
-## 6. GET `company/job-detail/(:num)`
+## 6. GET `company/job-detail/:id`
 
 ### Route
 ```
 GET /wapi/company/job-detail/{id}
 ```
-- `(:num)` → `$id` — job ID
+- `:id` → `id` — job ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
 1. SELECT * FROM company_job WHERE id = {id} AND company = {companyId} AND is_deleted = 0
 
-2. UserModel::get_job_detail($id, NULL, NULL, companyview=1)
+2. get_job_detail(id, NULL, NULL, companyview=1)
    → Full JOIN query across 12 tables
    → Includes: applicationCount, collaborator list, gallery images, is_verified
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Job ID |
+| `id` | URL segment | Yes | Job ID |
 
 ### Response
 ```json
@@ -401,38 +393,35 @@ JWT required. `$this->request->id` = company ID.
   }
 }
 ```
-
 ### Error Responses
 ```json
 { "status": false, "messages": "No Record found!" }
 { "status": false, "messages": "Exception message" }
 ```
-
 ---
 
-## 7. GET `company/job-template-detail/(:any)`
+## 7. GET `company/job-template-detail/:slug`
 
 ### Route
 ```
 GET /wapi/company/job-template-detail/{id}
 ```
-- `(:any)` → `$id` — template ID
+- `:slug` → `id` — template ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
-UserModel::get_job_template_detail($id, $companyId)
+get_job_template_detail(id, companyId)
   → SELECT jt.*, joined with: cities, state, country, industries,
     job_experiences, role_types, department, designation, job_mode, user, salary
   → WHERE jt.id = {id} AND jt.company = {companyId} AND jt.is_deleted = 0
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | Template ID |
+| `id` | URL segment | Yes | Template ID |
 
 ### Response
 ```json
@@ -465,7 +454,6 @@ UserModel::get_job_template_detail($id, $companyId)
   }
 }
 ```
-
 ### Notes
 - Same structure as `jobDetail` but reads from `job_template` table.
 - No application count or collaborator data.
@@ -479,19 +467,17 @@ UserModel::get_job_template_detail($id, $companyId)
 ```
 GET /wapi/company/job-template
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
-CompanyModel::get_template_list($companyId)
+CompanyModel::get_template_list(companyId)
   SELECT jt.id, jt.template_name FROM job_template AS jt
   WHERE jt.company = {companyId}
   GROUP BY jt.template_name
   ORDER BY jt.id ASC
 ```
-
 ### Request
 No body params.
 
@@ -509,7 +495,6 @@ No body params.
 ```json
 { "status": false, "messages": "No Record found!" }
 ```
-
 ### Notes
 - Returns only `id` and `template_name` — lightweight list for dropdowns.
 - Grouped by `template_name` to avoid duplicates.
@@ -522,18 +507,16 @@ No body params.
 ```
 POST /wapi/company/multi-cancel-job
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
-1. $ids = $this->request->getVar('id')  → array of job IDs
+1. ids = req.getVar('id')  → array of job IDs
 
-2. For each $id:
-   UPDATE company_job SET status = 2 WHERE company = {companyId} AND id = {$id}
+2. For each id:
+   UPDATE company_job SET status = 2 WHERE company = {companyId} AND id = {id}
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -547,7 +530,6 @@ JWT required. `$this->request->id` = company ID.
 { "status": false, "messages": "Id Required" }
 { "status": false, "messages": "Try again something went wrong " }
 ```
-
 ### Notes
 - Bulk version of `cancelJob` — no notifications sent (unlike single cancel).
 - Only sets `status = 2`.
@@ -560,22 +542,20 @@ JWT required. `$this->request->id` = company ID.
 ```
 POST /wapi/company/multi-jobStatusChange
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
-1. $ids = $this->request->getVar('id')  → array of job IDs
-2. $status = $this->request->getVar('status')  → target status
+1. ids = req.getVar('id')  → array of job IDs
+2. status = req.getVar('status')  → target status
 
-3. For each $id:
-   SELECT * FROM company_job WHERE id = {$id} AND company = {companyId}
+3. For each id:
+   SELECT * FROM company_job WHERE id = {id} AND company = {companyId}
    → Verify ownership
 
-4. UPDATE company_job SET status = {$status} WHERE id = {$id}
+4. UPDATE company_job SET status = {status} WHERE id = {id}
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -591,7 +571,6 @@ JWT required. `$this->request->id` = company ID.
 { "status": false, "messages": "Invalid Record !" }
 { "status": false, "messages": "Try again something went wrong " }
 ```
-
 ### Notes
 - Unlike single `jobStatusChange` (toggle), this sets an explicit target status.
 - Validates each job belongs to the company before updating.

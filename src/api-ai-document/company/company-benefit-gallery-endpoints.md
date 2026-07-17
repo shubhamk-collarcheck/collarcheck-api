@@ -1,29 +1,31 @@
-
 # Company Benefits & Gallery Endpoints
 
-**Base path:** `/wapi` (all endpoints in `wapi` group with `Auth` filter, JWT Bearer token required)
-
----
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi/company`  
+> **Route file:** `src/routes/company.route.ts`  
+> **Controller:** `company-benefit-gallery.controller.ts`  
+> **Service / repo:** `company-benefit-gallery.service.ts` · `company-benefit-gallery.repositery.ts`  
+> **Types:** `company-benefit-gallery.types.ts`
 
 ## Routes Summary
 
-### Benefits
+### Benefits (legacy spelling `Benafit`)
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| GET | `company/benefit` | `CompanyApi::benefit` | List company benefits |
-| POST | `company/addBenafit` | `CompanyApi::addBenafit` | Add new benefit |
-| POST | `company/addBenafit/(:num)` | `CompanyApi::addBenafit/$1` | Update existing benefit |
-| DELETE | `company/deleteBenafit/(:num)` | `CompanyApi::deleteBenafit/$1` | Soft-delete a benefit |
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| GET | `/benefit` | `getBenefit` | List benefits |
+| POST | `/addBenafit` | `addBenefit` | Add benefit |
+| POST | `/addBenafit/:id` | `addBenefitUpdate` | Update benefit |
+| DELETE | `/deleteBenafit/:id` | `deleteBenefit` | Soft-delete benefit |
 
 ### Gallery
 
-| Method | Route | Handler | Description |
-|--------|-------|---------|-------------|
-| GET | `company/gallery` | `CompanyApi::gallery` | List gallery images |
-| POST | `company/addGallery` | `CompanyApi::addGallery` | Upload gallery images |
-| POST | `company/addGallery/(:num)` | `CompanyApi::addGallery/$1` | Update gallery (not implemented — always creates) |
-| DELETE | `company/deleteGallery/(:num)` | `CompanyApi::deleteGallery/$1` | Soft-delete a gallery image |
+| Method | Path | Handler | Description |
+|--------|------|---------|-------------|
+| GET | `/gallery` | `getGallery` | List gallery |
+| POST | `/addGallery` | `addGallery` | Upload images (`uploadToS3.array("file")`) |
+| POST | `/addGallery/:id` | `addGalleryUpdate` | Update gallery item |
+| DELETE | `/deleteGallery/:id` | `deleteGallery` | Soft-delete image |
 
 ---
 
@@ -37,20 +39,18 @@
 ```
 GET /wapi/company/benefit
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
-**Permission guard:** `checkMenuAccess($login_user_id, $companyId, 10)`. Returns **403** if denied.
+JWT required. `req.auth.id` = company ID.
+**Permission guard:** `checkMenuAccess(loginUserId, companyId, 10)`. Returns **403** if denied.
 
 ### DB Queries
 ```
-UserModel::get_company_benefit($companyId)
+get_company_benefit(companyId)
   → SELECT * FROM company_benefits
     JOIN benefits ON company_benefits.benefit_id = benefits.id
     WHERE company_benefits.company_id = {companyId}
     AND company_benefits.is_deleted = 0
 ```
-
 ### Request
 No body params.
 
@@ -69,7 +69,6 @@ No body params.
   ]
 }
 ```
-
 ---
 
 ## 2. POST `company/addBenafit` (Create / Update)
@@ -79,9 +78,8 @@ No body params.
 POST /wapi/company/addBenafit         → Create new benefit
 POST /wapi/company/addBenafit/{id}    → Update existing benefit
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
@@ -95,13 +93,12 @@ JWT required. `$this->request->id` = company ID.
    WHERE company_id = {companyId} AND benefit_id = {benefitId} AND is_deleted = 0
    → If exists: "Record Already added!"
 
-4. IF $id provided (update):
-   UPDATE company_benefits SET benefit_id, sortOrder, description, modify_date WHERE id = {$id}
+4. IF id provided (update):
+   UPDATE company_benefits SET benefit_id, sortOrder, description, modify_date WHERE id = {id}
 
 5. ELSE (create):
    INSERT INTO company_benefits (company_id, benefit_id, sortOrder, description, create_date, modify_date)
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -117,24 +114,23 @@ JWT required. `$this->request->id` = company ID.
 { "status": false, "messages": "benefit_id is required." }
 { "status": false, "messages": "Record Already added!" }
 ```
-
 ### Notes
 - `benefit_id` accepts either an existing ID (int) or a new name (string) — auto-creates if new.
 - Duplicate check: same company + same benefit_id = rejected.
-- Update mode (`$id`) does NOT check for duplicates (allows updating existing).
+- Update mode (`id`) does NOT check for duplicates (allows updating existing).
 
 ---
 
-## 3. DELETE `company/deleteBenafit/(:num)`
+## 3. DELETE `company/deleteBenafit/:id`
 
 ### Route
 ```
 DELETE /wapi/company/deleteBenafit/{id}
 ```
-- `(:num)` → `$id` — company_benefits record ID
+- `:id` → `id` — company_benefits record ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
@@ -144,11 +140,10 @@ JWT required. `$this->request->id` = company ID.
 2. UPDATE company_benefits SET is_deleted = 1 WHERE id = {id} AND company_id = {companyId}
    → Soft delete
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | company_benefits record ID |
+| `id` | URL segment | Yes | company_benefits record ID |
 
 ### Response
 ```json
@@ -158,7 +153,6 @@ JWT required. `$this->request->id` = company ID.
 { "status": false, "message": "Id is required!" }
 { "status": false, "messages": "Invalid Id" }
 ```
-
 ---
 
 ## GALLERY
@@ -171,17 +165,15 @@ JWT required. `$this->request->id` = company ID.
 ```
 GET /wapi/company/gallery
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
-**Permission guard:** `checkMenuAccess($login_user_id, $companyId, 9)`. Returns **403** if denied.
+JWT required. `req.auth.id` = company ID.
+**Permission guard:** `checkMenuAccess(loginUserId, companyId, 9)`. Returns **403** if denied.
 
 ### DB Queries
 ```
-MainModel::all_fetch('galleries', array('company_id' => $companyId, 'is_deleted' => 0))
+MainModel::all_fetch('galleries', array('company_id' => companyId, 'is_deleted' => 0))
   → SELECT * FROM galleries WHERE company_id = {companyId} AND is_deleted = 0
 ```
-
 ### Request
 No body params.
 
@@ -200,7 +192,6 @@ No body params.
   ]
 }
 ```
-
 ---
 
 ## 5. POST `company/addGallery` (Upload)
@@ -209,19 +200,17 @@ No body params.
 ```
 POST /wapi/company/addGallery
 ```
-
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
 1. Validate: file uploaded, max 3MB, JPG/JPEG/PNG/WEBP only
 
 2. For each uploaded file:
-   a. S3 upload via s3fileUploads($file, 'uploads/images/')
+   a. S3 upload via s3fileUploads(file, 'uploads/images/')
    b. INSERT INTO galleries (company_id, name, image, create_date, modify_date)
 ```
-
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
@@ -238,25 +227,24 @@ JWT required. `$this->request->id` = company ID.
 ```json
 { "status": false, "messages": "You must upload file as png,jpg," }
 ```
-
 ### Notes
 - Supports **multiple file upload** — each file creates a separate `galleries` row.
 - `title` can be a string (same name for all) or array (individual names per image).
-- Update mode (`$id` route) exists in routes but the handler **always creates** new records (update code is commented out).
+- Update mode (`id` route) exists in routes but the handler **always creates** new records (update code is commented out).
 - Images uploaded to S3 via `s3fileUploads()`.
 
 ---
 
-## 6. DELETE `company/deleteGallery/(:num)`
+## 6. DELETE `company/deleteGallery/:id`
 
 ### Route
 ```
 DELETE /wapi/company/deleteGallery/{id}
 ```
-- `(:num)` → `$id` — galleries record ID
+- `:id` → `id` — galleries record ID
 
 ### Auth
-JWT required. `$this->request->id` = company ID.
+JWT required. `req.auth.id` = company ID.
 
 ### DB Queries
 ```
@@ -266,11 +254,10 @@ JWT required. `$this->request->id` = company ID.
 2. UPDATE galleries SET is_deleted = 1 WHERE id = {id} AND company_id = {companyId}
    → Soft delete
 ```
-
 ### Request
 | Field | Source | Required | Notes |
 |-------|--------|----------|-------|
-| `$id` | URL segment | Yes | galleries record ID |
+| `id` | URL segment | Yes | galleries record ID |
 
 ### Response
 ```json
@@ -280,7 +267,6 @@ JWT required. `$this->request->id` = company ID.
 { "status": false, "message": "Id is required!" }
 { "status": false, "messages": "Invalid Id" }
 ```
-
 ---
 
 ## Cross-Language Porting Notes

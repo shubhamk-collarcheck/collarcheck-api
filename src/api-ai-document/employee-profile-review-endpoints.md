@@ -1,5 +1,12 @@
-
 # Employee Profile & Review API Endpoints
+
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Route file:** `src/routes/employee.route.ts`  
+> **Controller:** `src/controllers/profile-review.controller.ts`  
+> **Service:** `src/services/profile-review.service.ts`  
+> **Types:** `src/types/profile-review.types.ts`
+
 
 ## Overview
 
@@ -40,7 +47,6 @@ src/
 ├── routes/employee.route.ts               # Route registration
 └── utils/educationUpload.ts               # S3 multer config (PDF/PNG/JPG/JPEG/DOC/DOCX, 2MB, max 5 files)
 ```
-
 ---
 
 ## Zod Validation Schemas
@@ -57,13 +63,11 @@ z.object({
   link: z.string().optional(),
 })
 ```
-
 #### reviewRequestSchema (Add)
 
 ```typescript
 z.object({ body: reviewBodySchema })
 ```
-
 #### reviewUpdateRequestSchema (Update)
 
 ```typescript
@@ -72,7 +76,6 @@ z.object({
   body: reviewBodySchema,
 })
 ```
-
 #### reviewRemoveDocumentQuerySchema (Remove Document)
 
 ```typescript
@@ -83,13 +86,11 @@ z.object({
   }),
 })
 ```
-
 #### showHomeReviewRequestSchema (Toggle Visibility)
 
 ```typescript
 z.object({ params: commonIdParamsSchema.shape.params })
 ```
-
 ### Profile Schemas
 
 #### editUserBasicSchema (type = 1)
@@ -105,7 +106,6 @@ z.object({
   profile_description: z.string().optional(),
 })
 ```
-
 #### editUserAddressSchema (type = 2)
 
 ```typescript
@@ -120,7 +120,6 @@ z.object({
   country: z.string().optional(),
 })
 ```
-
 #### editUserWorkStatusSchema (type = 3)
 
 ```typescript
@@ -141,7 +140,6 @@ z.object({
   noticeEmployments: z.string().optional(),
 })
 ```
-
 #### editUserSocialLinksSchema (type = 4)
 
 ```typescript
@@ -154,7 +152,6 @@ z.object({
   twitter: z.string().optional(),
 })
 ```
-
 #### changeEmploymentBasicBodySchema
 
 ```typescript
@@ -169,7 +166,6 @@ z.object({
   lastReview: z.boolean().default(false),
 })
 ```
-
 ---
 
 ## Middleware
@@ -301,7 +297,6 @@ getDesignationsByCompany(userId: number, companyId: number)
     WHERE ue.user = :userId AND ue.company = :companyId AND ue.still_working = 1 AND ue.status = 1 AND ue.is_deleted = 0
     GROUP BY ue.designation, dg.name
 ```
-
 ### Review Methods
 
 ```typescript
@@ -324,7 +319,6 @@ hardDeleteRating(id)
 removeDocumentFromRating(id, docJson)
   → UPDATE cyb_user_experience_rating SET doc = :docJson WHERE id = :id
 ```
-
 ### User Profile Methods
 
 ```typescript
@@ -346,7 +340,6 @@ getVerifyDocument(userId: number)
 updateVerifyDocument(userId, verify)
   → UPDATE cyb_verify_document SET verify = :verify WHERE user_id = :userId
 ```
-
 ### Change Employment Basic Methods
 
 ```typescript
@@ -371,7 +364,6 @@ updateExperienceStillWorking(experienceId, stillWorking)
 clearUserCurrentPosition(userId)
   → UPDATE cyb_user SET current_company = NULL, current_possition = NULL WHERE id = :userId
 ```
-
 ---
 
 ## Service Methods
@@ -443,7 +435,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### addReview / updateReview
 
 ```typescript
@@ -458,7 +449,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### deleteReview
 
 ```typescript
@@ -472,7 +462,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### reviewRemoveDocument
 
 ```typescript
@@ -486,7 +475,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### showHomeReview
 
 ```typescript
@@ -500,7 +488,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### editUser
 
 ```typescript
@@ -515,7 +502,6 @@ async (req, res) => {
   })
 }
 ```
-
 ### changeEmploymentBasic
 
 ```typescript
@@ -529,7 +515,6 @@ async (req, res) => {
   })
 }
 ```
-
 ---
 
 ## Response Mapping
@@ -552,7 +537,6 @@ async (req, res) => {
   ]
 }
 ```
-
 ### Review Response
 
 ```json
@@ -561,7 +545,6 @@ async (req, res) => {
   "messages": "Review submit successfully!"
 }
 ```
-
 ### Delete Review Response
 
 ```json
@@ -570,7 +553,6 @@ async (req, res) => {
   "messages": "Review delete successfully!"
 }
 ```
-
 ### Toggle Show Home Response
 
 ```json
@@ -579,7 +561,6 @@ async (req, res) => {
   "messages": "Review show successfully!"
 }
 ```
-
 ### Edit User Response
 
 ```json
@@ -588,7 +569,6 @@ async (req, res) => {
   "messages": "Successfully Updated"
 }
 ```
-
 ### Change Employment Basic Response
 
 ```json
@@ -597,7 +577,6 @@ async (req, res) => {
   "messages": "Request Submit Successfully!"
 }
 ```
-
 ---
 
 ## Implementation Notes
@@ -627,7 +606,6 @@ curl -X POST http://localhost:3000/wapi/employee/add-review \
   -F "link=https://example.com" \
   -F "document=@/path/to/review.pdf"
 ```
-
 ### Success Response
 
 ```json
@@ -636,7 +614,6 @@ curl -X POST http://localhost:3000/wapi/employee/add-review \
   "messages": "Review submit successfully!"
 }
 ```
-
 ### Edit User Profile (Basic Info)
 
 ```bash
@@ -653,7 +630,6 @@ curl -X POST http://localhost:3000/wapi/employee/edit-user \
     "profile_description": "Software developer"
   }'
 ```
-
 ### Success Response
 
 ```json
@@ -662,7 +638,6 @@ curl -X POST http://localhost:3000/wapi/employee/edit-user \
   "messages": "Successfully Updated"
 }
 ```
-
 ### Change Employment Basic
 
 ```bash
@@ -678,7 +653,6 @@ curl -X POST http://localhost:3000/wapi/employee/changeEmploymentBasic \
     "designation": "Senior Developer"
   }'
 ```
-
 ### Success Response
 
 ```json

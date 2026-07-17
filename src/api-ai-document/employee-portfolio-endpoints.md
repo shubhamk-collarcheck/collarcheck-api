@@ -1,5 +1,10 @@
 # Employee Portfolio API Endpoints
 
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Auth:** `Authorization` middleware · optional `X-Company` header  
+> **Layers:** `routes → controllers → services → repositery` · types in `src/types/`
+
 ## Overview
 
 Five REST endpoints for managing employee portfolio items (CRUD: Create, Read list, Read detail, Update, Soft-delete). All endpoints require JWT authentication and operate on the `cyb_user_protfolio` table.
@@ -10,7 +15,7 @@ Five REST endpoints for managing employee portfolio items (CRUD: Create, Read li
 
 - **Middleware:** `Authorization` (JWT validation)
 - **Header:** `Authorization: Bearer <jwt_token>`
-- **JWT decode:** Extract `uid` claim → look up `user` table WHERE `id = uid`, `status = 1`, `is_deleted = 0`
+- **JWT decode:** Extract `uid` claim → `get_user_detail(uid)` (`users.service.ts`)
 - **Injected request property:** `req.auth.user_id` → the acting user ID (used as `user` filter in all queries)
 
 ---
@@ -25,7 +30,6 @@ src/
 ├── controllers/portfolio.controller.ts # Request handlers
 └── routes/employee.route.ts          # Route definitions
 ```
-
 ---
 
 ## Base URL / Route Prefix
@@ -34,7 +38,6 @@ All routes are grouped under:
 ```
 /wapi/employee/...
 ```
-
 ### Routes
 
 | Method   | Path                                    | Controller Method   | Validation Schema                | Description           |
@@ -83,7 +86,6 @@ export enum PORTFOLIO_TYPE {
   PDF = 4
 }
 ```
-
 ---
 
 ## Zod Validation Schemas
@@ -104,13 +106,11 @@ z.object({
   // type 3 (URL): url is required
 })
 ```
-
 ### `portfolioRequestSchema` (add)
 
 ```typescript
 z.object({ body: newPortfolioSchema })
 ```
-
 ### `portfolioUpdateRequestSchema` (update)
 
 ```typescript
@@ -119,7 +119,6 @@ z.object({
   body: newPortfolioSchema,
 })
 ```
-
 ---
 
 ## Type-Based Response Field Mapping
@@ -137,7 +136,6 @@ Response object keys differ depending on `type`. Implemented in `mapPortfolioIte
   "description": "Project description here"
 }
 ```
-
 | Key           | Source                                          |
 |---------------|------------------------------------------------|
 | `id`          | `cyb_user_protfolio.id`                        |
@@ -158,7 +156,6 @@ Response object keys differ depending on `type`. Implemented in `mapPortfolioIte
   "youtube": "dQw4w9WgXcQ"
 }
 ```
-
 | Key           | Source                                                    |
 |---------------|----------------------------------------------------------|
 | `id`          | `cyb_user_protfolio.id`                                  |
@@ -182,7 +179,6 @@ Response object keys differ depending on `type`. Implemented in `mapPortfolioIte
   "description": "Link description"
 }
 ```
-
 | Key           | Source                      |
 |---------------|----------------------------|
 | `id`          | `cyb_user_protfolio.id`    |
@@ -202,7 +198,6 @@ Response object keys differ depending on `type`. Implemented in `mapPortfolioIte
   "description": "PDF description"
 }
 ```
-
 | Key           | Source                                        |
 |---------------|----------------------------------------------|
 | `id`          | `cyb_user_protfolio.id`                      |
@@ -240,7 +235,6 @@ Response object keys differ depending on `type`. Implemented in `mapPortfolioIte
   "messages": "Successfully Added!"
 }
 ```
-
 ### Response (Error - via error handler)
 
 ```json
@@ -249,7 +243,6 @@ Response object keys differ depending on `type`. Implemented in `mapPortfolioIte
   "messages": "Something Went Wrong"
 }
 ```
-
 ### Implementation
 
 - **Controller:** `src/controllers/portfolio.controller.ts` → `addPortfolio()`
@@ -282,7 +275,6 @@ Same as Add endpoint.
   "messages": "Successfully Updated!"
 }
 ```
-
 ### Response (Error - via error handler)
 
 ```json
@@ -291,7 +283,6 @@ Same as Add endpoint.
   "messages": "Portfolio not found"
 }
 ```
-
 ### Implementation
 
 - **Controller:** `src/controllers/portfolio.controller.ts` → `updatePortfolio()`
@@ -317,7 +308,6 @@ WHERE user = :authenticated_user_id
   AND is_deleted = 0
 ORDER BY sort_order DESC
 ```
-
 ### Response (Success - 200)
 
 ```json
@@ -357,7 +347,6 @@ ORDER BY sort_order DESC
   ]
 }
 ```
-
 ### Response (Error/Exception - via error handler)
 
 ```json
@@ -366,7 +355,6 @@ ORDER BY sort_order DESC
   "messages": "Access denied"
 }
 ```
-
 ### Implementation
 
 - **Controller:** `src/controllers/portfolio.controller.ts` → `allPortfolioList()`
@@ -398,7 +386,6 @@ WHERE id = :id
   AND is_deleted = 0
 LIMIT 1
 ```
-
 ### Response (Found - 200)
 
 ```json
@@ -414,7 +401,6 @@ LIMIT 1
   }
 }
 ```
-
 ### Response (Not Found - via error handler)
 
 ```json
@@ -423,7 +409,6 @@ LIMIT 1
   "messages": "No record found!"
 }
 ```
-
 ### Implementation
 
 - **Controller:** `src/controllers/portfolio.controller.ts` → `portfolioDetail()`
@@ -453,7 +438,6 @@ SET is_deleted = 1
 WHERE id = :id
   AND user = :authenticated_user_id
 ```
-
 > Note: Does NOT check `status` or `is_deleted` in the WHERE clause — it will update regardless of current state.
 
 ### Response (Success - 200)
@@ -464,7 +448,6 @@ WHERE id = :id
   "messages": "Deleted Sucessfully"
 }
 ```
-
 ### Response (Failure - via error handler)
 
 ```json
@@ -473,7 +456,6 @@ WHERE id = :id
   "messages": "Try again something went wrong"
 }
 ```
-
 ### Implementation
 
 - **Controller:** `src/controllers/portfolio.controller.ts` → `deletePortfolio()`
@@ -508,7 +490,6 @@ try {
   next(error)
 }
 ```
-
 The error handler returns:
 ```json
 {
@@ -516,7 +497,6 @@ The error handler returns:
   "messages": "<error message>"
 }
 ```
-
 ---
 
 ## Implementation Notes
