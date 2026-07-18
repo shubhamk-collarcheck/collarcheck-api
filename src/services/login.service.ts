@@ -279,12 +279,7 @@ export async function getStatistics(userId: number, loginauth?: string) {
 	};
 }
 
-async function sendOtpQuietly(params: {
-	phone?: string;
-	email?: string;
-	name?: string;
-	otp: string;
-}) {
+async function sendOtpQuietly(params: { phone?: string; email?: string; name?: string; otp: string; }) {
 	// Persist OTP always
 	await loginRepositery.upsertOtp({
 		phone: params.phone,

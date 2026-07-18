@@ -31,8 +31,789 @@
       ]
     },
     {
+      "name": "login",
+      "description": "Login & OTP flows: unified login, legacy send/verify OTP, social login. Public endpoints.",
+      "item": [
+        {
+          "name": "login (unified send OTP)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uniqueId\": \"9876543210\",\n  \"methodType\": \"app\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "login (unified send OTP - email)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uniqueId\": \"john@example.com\",\n  \"methodType\": \"app\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "login (signup uniqueness check)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uniqueId\": \"9876543210\",\n  \"checkUnique\": 1,\n  \"methodType\": \"app\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verify-otp (unified)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login/verify-otp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login",
+                "verify-otp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uniqueId\": \"9876543210\",\n  \"otp\": \"123456\",\n  \"device_id\": \"postman-device-1\",\n  \"login\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "sendOtp (legacy login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login/sendOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login",
+                "sendOtp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"methodType\": \"app\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "sendOtp (legacy signup)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login/sendOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login",
+                "sendOtp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"email\": \"john@example.com\",\n  \"checkUnique\": 1,\n  \"name\": \"John Doe\",\n  \"methodType\": \"app\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "sendOtp (international email)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login/sendOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login",
+                "sendOtp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"international\": 1,\n  \"name\": \"John Doe\",\n  \"methodType\": \"app\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verifyOtp (legacy login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login/verifyOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login",
+                "verifyOtp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"otp\": \"123456\",\n  \"login\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verifyOtp (pre-register, no login)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login/verifyOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login",
+                "verifyOtp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "googlelogin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login/googlelogin",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login",
+                "googlelogin"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"name\": \"John Doe\",\n  \"profile\": \"https://example.com/avatar.jpg\",\n  \"type\": \"google\",\n  \"pageType\": \"login\",\n  \"method_type\": \"Website\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "social-login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/login/social-login",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "login",
+                "social-login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"name\": \"John Doe\",\n  \"profile\": \"https://example.com/avatar.jpg\",\n  \"type\": \"apple\",\n  \"apple_id\": \"apple.sub.identifier\",\n  \"pageType\": \"login\",\n  \"method_type\": \"Website\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "employees",
       "item": [
+        {
+          "name": "register (legacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/employee/register",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fname\": \"John\",\n  \"lname\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"9876543210\",\n  \"gender\": \"1\",\n  \"country\": \"101\",\n  \"work_status\": \"1\",\n  \"method_type\": \"Website\",\n  \"register_type\": \"form\",\n  \"referral_code\": \"\",\n  \"pan\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "signup (modern step 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/employee/signup",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "signup"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fname\": \"John\",\n  \"lname\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"9876543210\",\n  \"country\": \"101\",\n  \"state\": \"21\",\n  \"city\": \"400001\",\n  \"dob\": \"1995-01-01\",\n  \"gender\": \"1\",\n  \"work_status\": \"1\",\n  \"method_type\": \"Website\",\n  \"phone_verified\": \"1\",\n  \"email_verified\": \"0\",\n  \"referral_code\": \"\",\n  \"company_id\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "final-signup (currently working)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "user_id",
+                  "value": "101",
+                  "type": "text"
+                },
+                {
+                  "key": "user_token",
+                  "value": "{{token}}",
+                  "type": "text"
+                },
+                {
+                  "key": "user_register_type",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "on_explore",
+                  "value": "0",
+                  "type": "text"
+                },
+                {
+                  "key": "on_immediate",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "on_notice",
+                  "value": "0",
+                  "type": "text"
+                },
+                {
+                  "key": "notice_period",
+                  "value": "",
+                  "type": "text"
+                },
+                {
+                  "key": "current_position",
+                  "value": "Engineer",
+                  "type": "text"
+                },
+                {
+                  "key": "current_company",
+                  "value": "Acme Corp",
+                  "type": "text"
+                },
+                {
+                  "key": "joining_date",
+                  "value": "2024-01-15",
+                  "type": "text"
+                },
+                {
+                  "key": "still_working",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/employee/final-signup",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "final-signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "final-signup (fresher education)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "user_id",
+                  "value": "101",
+                  "type": "text"
+                },
+                {
+                  "key": "user_token",
+                  "value": "{{token}}",
+                  "type": "text"
+                },
+                {
+                  "key": "user_register_type",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "on_explore",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "university",
+                  "value": "Mumbai University",
+                  "type": "text"
+                },
+                {
+                  "key": "course_type",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "course",
+                  "value": "B.Tech",
+                  "type": "text"
+                },
+                {
+                  "key": "starting_date",
+                  "value": "2018-06-01",
+                  "type": "text"
+                },
+                {
+                  "key": "ending_date",
+                  "value": "2022-05-31",
+                  "type": "text"
+                },
+                {
+                  "key": "state",
+                  "value": "21",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "400001",
+                  "type": "text"
+                },
+                {
+                  "key": "country",
+                  "value": "101",
+                  "type": "text"
+                },
+                {
+                  "key": "ishighest",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "ongoing",
+                  "value": "0",
+                  "type": "text"
+                },
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/employee/final-signup",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "final-signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "final-signup (company onboarding)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "user_id",
+                  "value": "101",
+                  "type": "text"
+                },
+                {
+                  "key": "user_token",
+                  "value": "{{token}}",
+                  "type": "text"
+                },
+                {
+                  "key": "company_name",
+                  "value": "Acme Corp",
+                  "type": "text"
+                },
+                {
+                  "key": "contact_person",
+                  "value": "Jane Doe",
+                  "type": "text"
+                },
+                {
+                  "key": "company_email",
+                  "value": "hr@acme.com",
+                  "type": "text"
+                },
+                {
+                  "key": "company_phone",
+                  "value": "9876543211",
+                  "type": "text"
+                },
+                {
+                  "key": "incorporate_date",
+                  "value": "2020-01-01",
+                  "type": "text"
+                },
+                {
+                  "key": "website",
+                  "value": "https://acme.com",
+                  "type": "text"
+                },
+                {
+                  "key": "industry",
+                  "value": "1",
+                  "type": "text"
+                },
+                {
+                  "key": "job_title",
+                  "value": "Software Engineer",
+                  "type": "text"
+                },
+                {
+                  "key": "job_description",
+                  "value": "Build APIs",
+                  "type": "text"
+                },
+                {
+                  "key": "roles_responsibility",
+                  "value": "Backend development",
+                  "type": "text"
+                },
+                {
+                  "key": "department",
+                  "value": "Engineering",
+                  "type": "text"
+                },
+                {
+                  "key": "city",
+                  "value": "400001",
+                  "type": "text"
+                },
+                {
+                  "key": "state",
+                  "value": "21",
+                  "type": "text"
+                },
+                {
+                  "key": "country",
+                  "value": "101",
+                  "type": "text"
+                },
+                {
+                  "key": "salary",
+                  "value": "1000000",
+                  "type": "text"
+                },
+                {
+                  "key": "vacancy",
+                  "value": "2",
+                  "type": "text"
+                },
+                {
+                  "key": "profile",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/employee/final-signup",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "final-signup"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "upload-resume",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "user_id",
+                  "value": "101",
+                  "type": "text"
+                },
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/employee/upload-resume",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "upload-resume"
+              ]
+            }
+          },
+          "response": []
+        },
         {
           "name": "add-employement",
           "request": {
@@ -4376,6 +5157,50 @@
     {
       "name": "company",
       "item": [
+        {
+          "name": "register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/company/register",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "company",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company_name\": \"Acme Corp\",\n  \"email\": \"hr@acme.com\",\n  \"phone\": \"9876543210\",\n  \"contact_person\": \"Jane Doe\",\n  \"company_size\": \"1\",\n  \"country\": \"101\",\n  \"method_type\": \"Website\",\n  \"referral_code\": \"\",\n  \"invite\": \"\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
         {
           "name": "sendUserProfileViewRequest",
           "request": {
