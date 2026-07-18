@@ -50,8 +50,7 @@ const employRouter = Router()
 // Login / registration (public; final-signup + upload-resume use body user_id)
 employRouter.post("/register", validateData(employeeRegisterSchema), employeeRegister);
 employRouter.post("/signup", validateData(employeeSignupSchema), employeeSignup);
-employRouter.post(
-	"/final-signup",
+employRouter.post("/final-signup",
 	educationUpload.fields([
 		{ name: "resume", maxCount: 1 },
 		{ name: "profile", maxCount: 1 },
@@ -60,12 +59,7 @@ employRouter.post(
 	validateData(finalSignupSchema),
 	finalSignup
 );
-employRouter.post(
-	"/upload-resume",
-	resumeUpload.single("resume"),
-	validateData(uploadResumeSchema),
-	uploadResume
-);
+employRouter.post("/upload-resume", resumeUpload.single("resume"), validateData(uploadResumeSchema), uploadResume);
 
 employRouter.post("/add-employement", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), addExperience)
 employRouter.post("/add-employement/:employment_id", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), updateExperience)

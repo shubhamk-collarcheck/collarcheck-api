@@ -25,9 +25,11 @@ AI porting guide for public (and one auth-gated) auth flows. Target: Node/other 
 | 6 | POST | `login/verify-otp` | `GeneralApi::verify_common_otp` | Public | Unified verify-OTP + session |
 | 7 | POST | `employee/register` | `IndividualApi::addIndividual` | Public | Legacy employee form register |
 | 8 | POST | `company/register` | `CompanyApi::addCompany` | **JWT Auth** | Company form register |
-| 9 | POST | `employee/signup` | `ModuleController::indivisualSignup` | Public | Modern employee signup step 1 |
-| 10 | POST | `employee/final-signup` | `ModuleController::final_Signup` | Public* | Onboarding step 2 (user/company/job) |
-| 11 | POST | `employee/upload-resume` | `ModuleController::upload_resume` | Public* | Upload resume by `user_id` |
+| 9 | POST | `employee/signup` | `employeeSignup` → `employeeSignupService` | Public | Modern employee signup step 1 |
+| 10 | POST | `employee/final-signup` | `finalSignup` → `finalSignupService` | Public* | Onboarding step 2 (user/company/job) |
+| 11 | POST | `employee/upload-resume` | `uploadResume` → `uploadResumeService` | Public* | Upload resume by `user_id` |
+
+> **Deep dive for #9–#11:** see [`employee-signup-endpoints.md`](./employee-signup-endpoints.md) (Node implementation details).
 
 \* Not Auth-filter protected; identify user via body `user_id` (+ `user_token` for internal API calls).
 

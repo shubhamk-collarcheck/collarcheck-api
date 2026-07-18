@@ -3,7 +3,7 @@ import loginRepositery from "../repositery/login.repositery";
 import usersRepositery, { USER_PREFIX, USER_TYPE } from "../repositery/users.repositery";
 import { get_user_detail, user_verified, get_all_connection } from "./users.service";
 import { profilePercentageService } from "./job-dashboard.service";
-import { createEducationService } from "./education.service";
+import { createEducationService, updateEducationService } from "./education.service";
 import { addJobService } from "./company-job.service";
 import { sendEmailViaSQS, sendSQSMessage } from "../utils/sqs";
 import { otpSend, maskMobile } from "../utils/msg91";
@@ -778,7 +778,8 @@ export async function verifyCommonOtpService(
 	const phone = emailPath ? undefined : uniqueId;
 	const email = emailPath ? uniqueId.toLowerCase() : undefined;
 
-	if (!emailPath && phone && !/^\d{8,15}$/.test(phone)) {
+	if (!emailPath && phone && !/^\+?\d{8,15}$/.test(phone)) {
+		console.log("reaching this place")
 		return { status: false, message: "invalid phone no." };
 	}
 	if (emailPath && email && !isEmail(email)) {
@@ -796,11 +797,9 @@ export async function verifyCommonOtpService(
 	if (!user && email) user = await loginRepositery.findAnyByEmail(email);
 
 	// Prefer employee over company
-	if (user?.userType === 2) {
-		const emp = phone
-			? await loginRepositery.findEmployeeByPhone(phone)
-			: email
-				? await loginRepositery.findEmployeeByEmail(email)
+	if (user?.userType === USER_TYPE.COMPANY) {
+		const emp = phone ? await loginRepositery.findEmployeeByPhone(phone) :
+			email ? await loginRepositery.findEmployeeByEmail(email)
 				: null;
 		if (emp) user = emp;
 	}
@@ -865,9 +864,6 @@ export async function verifyCommonOtpService(
 	};
 }
 
-// ============================================================================
-// 7. POST /wapi/employee/register
-// ============================================================================
 
 export async function employeeRegisterService(body: EmployeeRegisterBody) {
 	const email = body.email.trim().toLowerCase();
@@ -1192,11 +1188,13 @@ export async function employeeSignupService(body: EmployeeSignupBody) {
 	}
 
 	try {
+		// Template 48: Thank You for Joining · WhatsApp 162 · Template 46: Verified Career Journey
 		await sendEmailViaSQS(email, 48, { name: body.fname }, { user_id: user.id, type: "welcome", status: 1 });
 		await sendSQSMessage({
 			type: "SEND_WHATSAPP",
 			payload: { phone, template: 162, vars: { name: body.fname } },
 		});
+		await sendEmailViaSQS(email, 46, { name: body.fname }, { user_id: user.id, type: "onboarding", status: 1 });
 	} catch (err) {
 		console.error("signup side-effect error:", err);
 	}
@@ -1215,6 +1213,22 @@ export async function employeeSignupService(body: EmployeeSignupBody) {
 // 10. POST /wapi/employee/final-signup
 // ============================================================================
 
+function normalizeWebsite(website?: string | null): string | null {
+	if (!website) return null;
+	const w = website.trim();
+	if (!w) return null;
+	if (w.startsWith("http://") || w.startsWith("https://")) return w;
+	return `https://${w}`;
+}
+
+function resolveIdOrName(value: string | number | undefined | null): { asId: number | null; asName: string | null } {
+	if (value === undefined || value === null || value === "") return { asId: null, asName: null };
+	const str = String(value).trim();
+	const asNum = Number(str);
+	if (!Number.isNaN(asNum) && String(asNum) === str) return { asId: asNum, asName: null };
+	return { asId: null, asName: str };
+}
+
 export async function finalSignupService(
 	body: FinalSignupBody,
 	files?: { resume?: Express.MulterS3.File; profile?: Express.MulterS3.File; document?: Express.MulterS3.File[] }
@@ -1232,49 +1246,258 @@ export async function finalSignupService(
 	let companyId = 0;
 	let jobId = 0;
 
-	// Branch B — company onboarding
+	// Branch A — employee profile (career type + explore flags + education/experience)
+	if (body.user_register_type !== undefined && body.user_register_type !== null && body.user_register_type !== "") {
+		const regType = Number(body.user_register_type);
+		const onImmediate = isTruthy(body.on_immediate);
+		const onNotice = isTruthy(body.on_notice);
+
+		const updates: Record<string, unknown> = {
+			userRegisterType: regType,
+			onExplore: isTruthy(body.on_explore) ? 1 : 0,
+			onImmediate: onImmediate ? 1 : 0,
+			onNotice: onNotice ? 1 : 0,
+			modifyDate: nowStr(),
+		};
+
+		// Empty immediate → clear notice_period; empty notice → clear notice_date
+		if (onImmediate) {
+			if (body.notice_period !== undefined && body.notice_period !== "") {
+				updates.noticePeriod = Number(body.notice_period);
+			}
+		} else {
+			updates.noticePeriod = null;
+		}
+		if (onNotice) {
+			if (body.notice_date) updates.noticeDate = body.notice_date;
+		} else {
+			updates.noticeDate = null;
+		}
+
+		if (files?.resume) {
+			updates.resume = files.resume.key;
+			updates.resumeName = files.resume.originalname;
+			updates.cvPop = 1;
+		}
+
+		if (body.exploring_option !== undefined) {
+			try {
+				const exploring =
+					typeof body.exploring_option === "string"
+						? body.exploring_option
+						: JSON.stringify(body.exploring_option);
+				await loginRepositery.updateUserDetails(userId, { exploringOption: exploring });
+			} catch {
+				return { status: false, messages: "Exploring not save" };
+			}
+		}
+
+		// Type 2 or 3 — employment history
+		if (regType === 2 || regType === 3) {
+			let positionId: number | null = null;
+			let companyExpId: number | null = null;
+
+			const pos = resolveIdOrName(body.current_position);
+			if (pos.asId != null) {
+				positionId = pos.asId;
+			} else if (pos.asName) {
+				const designationRepositery = (await import("../repositery/designation.repositery")).default;
+				const existing = await designationRepositery.findByName(pos.asName);
+				if (existing.length > 0) {
+					positionId = existing[0].id;
+				} else {
+					const slug = await designationRepositery.generateSlug(pos.asName);
+					const created = await designationRepositery.create({
+						name: pos.asName,
+						userDefined: 1,
+						userId,
+						status: 1,
+						slug,
+					});
+					positionId = created.id;
+				}
+			}
+
+			const co = resolveIdOrName(body.current_company);
+			if (co.asId != null) {
+				companyExpId = co.asId;
+			} else if (co.asName) {
+				const existing = await usersRepositery.findByName(co.asName, USER_TYPE.COMPANY);
+				if (existing.length > 0) {
+					companyExpId = existing[0].id;
+				} else {
+					const individualId = await usersRepositery.generateUniqueId(USER_PREFIX.COMPANY);
+					const slug = await usersRepositery.generateSlug(`${co.asName}-${individualId}`);
+					const created = await usersRepositery.create({
+						fname: co.asName,
+						userType: USER_TYPE.COMPANY,
+						userDefinedCompany: 1,
+						claimStatus: 0,
+						createdBy: userId,
+						status: 1,
+						individualId,
+						slug,
+						createDate: nowStr(),
+						modifyDate: nowStr(),
+					});
+					companyExpId = created.id;
+				}
+			}
+
+			if (regType === 3 && body.joining_date && body.worked_till_date) {
+				if (new Date(body.worked_till_date) <= new Date(body.joining_date)) {
+					return {
+						status: false,
+						messages: "work till date not less then or equal to joining date",
+					};
+				}
+			}
+
+			try {
+				const expPayload = {
+					user: userId,
+					company: companyExpId,
+					designation: positionId,
+					joiningDate: body.joining_date || null,
+					workedTillDate: regType === 3 ? body.worked_till_date || null : null,
+					stillWorking: regType === 2 ? 1 : 0,
+					status: 1,
+					isDeleted: 0,
+					approved: 0,
+					modifyDate: nowStr(),
+				};
+
+				if (companyExpId) {
+					const existingExp = await loginRepositery.findExperienceByUserAndCompany(userId, companyExpId);
+					if (existingExp) {
+						await loginRepositery.updateExperience(existingExp.id, expPayload);
+					} else {
+						await loginRepositery.createExperience({
+							...expPayload,
+							createDate: nowStr(),
+						});
+					}
+				} else {
+					await loginRepositery.createExperience({
+						...expPayload,
+						createDate: nowStr(),
+					});
+				}
+
+				// DB column spelling: current_possition
+				updates.currentPossition = positionId;
+				updates.currentCompany = companyExpId;
+			} catch (err) {
+				console.error("final-signup experience error:", err);
+				return { status: false, messages: "Experience not added!" };
+			}
+		}
+
+		// Type 1 — education (fresher): create or update existing row
+		if (regType === 1 && body.university && body.course) {
+			try {
+				const eduBody = {
+					university: isNaN(Number(body.university)) ? body.university : Number(body.university),
+					course: isNaN(Number(body.course)) ? body.course : Number(body.course),
+					course_type: body.course_type ? Number(body.course_type) : 0,
+					starting_date: body.starting_date || "",
+					ending_date: body.ending_date,
+					state: body.state ? Number(body.state) : undefined,
+					city: body.city
+						? isNaN(Number(body.city))
+							? body.city
+							: Number(body.city)
+						: undefined,
+					country: body.country ? Number(body.country) : undefined,
+					ishighest: isTruthy(body.ishighest),
+					ongoing: isTruthy(body.ongoing),
+				} as any;
+
+				const existingEdu = await loginRepositery.findFirstEducation(userId);
+				if (existingEdu) {
+					await updateEducationService(userId, existingEdu.id, eduBody, files?.document);
+				} else {
+					await createEducationService(userId, eduBody, files?.document);
+				}
+			} catch (err) {
+				console.error("final-signup education error:", err);
+				return { status: false, messages: "Education not added!" };
+			}
+		}
+
+		try {
+			const updated = await loginRepositery.updateUser(userId, updates);
+			if (!updated) {
+				return { status: false, messages: "Exploring not save" };
+			}
+		} catch (err) {
+			console.error("final-signup user update error:", err);
+			return { status: false, messages: "Exploring not save" };
+		}
+	}
+
+	// Branch B — company onboarding (in-process; create or update existing relation company)
 	if (body.company_name) {
 		try {
-			const individualId = await usersRepositery.generateUniqueId(USER_PREFIX.COMPANY);
-			const slug = await usersRepositery.generateSlug(
-				`${body.company_name}-${individualId}`.toLowerCase()
-			);
-			let website = body.website || "";
-			if (website && !website.startsWith("http://") && !website.startsWith("https://")) {
-				website = `https://${website}`;
+			let website = normalizeWebsite(body.website);
+			const existingRelation = await loginRepositery.getFirstUserRelation(userId);
+
+			if (existingRelation?.companyId) {
+				// Update existing company linked to employee
+				companyId = existingRelation.companyId;
+				await loginRepositery.updateUser(companyId, {
+					fname: body.company_name,
+					email: body.company_email?.toLowerCase() || undefined,
+					phone: body.company_phone || undefined,
+					contactPerson: body.contact_person || undefined,
+					incorporateDate: body.incorporate_date || undefined,
+					website: website || undefined,
+					industry: body.industry ? Number(body.industry) : undefined,
+					...(files?.profile?.key ? { profile: files.profile.key } : {}),
+					claimStatus: 1,
+					modifyDate: nowStr(),
+				});
+			} else {
+				const individualId = await usersRepositery.generateUniqueId(USER_PREFIX.COMPANY);
+				const slug = await usersRepositery.generateSlug(
+					`${body.company_name}-${individualId}`.toLowerCase()
+				);
+
+				const company = await loginRepositery.createUser({
+					userType: USER_TYPE.COMPANY,
+					fname: body.company_name,
+					email: body.company_email?.toLowerCase() || null,
+					phone: body.company_phone || null,
+					contactPerson: body.contact_person || null,
+					incorporateDate: body.incorporate_date || null,
+					website: website,
+					industry: body.industry ? Number(body.industry) : null,
+					profile: files?.profile?.key || null,
+					claimStatus: 1,
+					registerType: "form",
+					acceptTerm: 1,
+					individualId,
+					slug,
+					status: 1,
+					isDeleted: 0,
+					createdBy: userId,
+					createDate: nowStr(),
+					modifyDate: nowStr(),
+				});
+
+				if (!company) {
+					return { status: false, messages: "Company not added!" };
+				}
+				companyId = company.id;
+				await loginRepositery.createDefaultSettings(companyId);
+				await loginRepositery.createUserRelation(userId, companyId, 1);
 			}
 
-			const company = await loginRepositery.createUser({
-				userType: USER_TYPE.COMPANY,
-				fname: body.company_name,
-				email: body.company_email?.toLowerCase() || null,
-				phone: body.company_phone || null,
-				contactPerson: body.contact_person || null,
-				incorporateDate: body.incorporate_date || null,
-				website: website || null,
-				industry: body.industry ? Number(body.industry) : null,
-				profile: files?.profile?.key || null,
-				claimStatus: 1,
-				registerType: "form",
-				acceptTerm: 1,
-				individualId,
-				slug,
-				status: 1,
-				isDeleted: 0,
-				createdBy: userId,
-				createDate: nowStr(),
-				modifyDate: nowStr(),
-			});
-
-			if (!company) {
-				return { status: false, messages: "Company not added!" };
-			}
-			companyId = company.id;
-			await loginRepositery.createDefaultSettings(companyId);
-			await loginRepositery.createUserRelation(userId, companyId, 1);
-
-			if (body.job_title) {
+			// Branch C — first job (only after successful company)
+			if (body.job_title && companyId) {
+				const existingJob = await loginRepositery.findFirstCompanyJob(companyId);
 				const jobResult = await addJobService(companyId, {
+					id: existingJob?.id,
 					job_title: body.job_title,
 					job_description: body.job_description,
 					roles_responsibility: body.roles_responsibility,
@@ -1297,7 +1520,10 @@ export async function finalSignupService(
 				if (jobResult.status && jobResult.jobId) {
 					jobId = Number(jobResult.jobId);
 				} else if (!jobResult.status) {
-					return { status: false, messages: "Job not added!" };
+					return {
+						status: false,
+						messages: (jobResult as any).messages || (jobResult as any).message || "Job not added!",
+					};
 				}
 			}
 		} catch (err) {
@@ -1306,166 +1532,8 @@ export async function finalSignupService(
 		}
 	}
 
-	// Branch A — employee profile
-	if (body.user_register_type) {
-		const regType = Number(body.user_register_type);
-		const updates: Record<string, unknown> = {
-			userRegisterType: regType,
-			onExplore: isTruthy(body.on_explore) ? 1 : 0,
-			onImmediate: isTruthy(body.on_immediate) ? 1 : 0,
-			onNotice: isTruthy(body.on_notice) ? 1 : 0,
-			modifyDate: nowStr(),
-		};
-		if (body.notice_period) updates.noticePeriod = Number(body.notice_period);
-		if (body.notice_date) updates.noticeDate = body.notice_date;
-
-		if (files?.resume) {
-			updates.resume = files.resume.key;
-			updates.resumeName = files.resume.originalname;
-			updates.cvPop = 1;
-		}
-
-		if (body.exploring_option !== undefined) {
-			try {
-				const exploring =
-					typeof body.exploring_option === "string"
-						? body.exploring_option
-						: JSON.stringify(body.exploring_option);
-				await loginRepositery.updateUserDetails(userId, { exploringOption: exploring });
-			} catch {
-				return { status: false, messages: "Exploring not save" };
-			}
-		}
-
-		// Type 2 or 3 — employment
-		if (regType === 2 || regType === 3) {
-			let positionId: number | null = null;
-			let companyExpId: number | null = null;
-
-			if (body.current_position) {
-				const asNum = Number(body.current_position);
-				if (!Number.isNaN(asNum) && String(asNum) === String(body.current_position).trim()) {
-					positionId = asNum;
-				} else {
-					const designationRepositery = (await import("../repositery/designation.repositery")).default;
-					const existing = await designationRepositery.findByName(String(body.current_position).trim());
-					if (existing.length > 0) {
-						positionId = existing[0].id;
-					} else {
-						const slug = await designationRepositery.generateSlug(String(body.current_position).trim());
-						const created = await designationRepositery.create({
-							name: String(body.current_position).trim(),
-							userDefined: 1,
-							userId,
-							status: 1,
-							slug,
-						});
-						positionId = created.id;
-					}
-				}
-			}
-
-			if (body.current_company) {
-				const asNum = Number(body.current_company);
-				if (!Number.isNaN(asNum) && String(asNum) === String(body.current_company).trim()) {
-					companyExpId = asNum;
-				} else {
-					const name = String(body.current_company).trim();
-					const existing = await usersRepositery.findByName(name, USER_TYPE.COMPANY);
-					if (existing.length > 0) {
-						companyExpId = existing[0].id;
-					} else {
-						const individualId = await usersRepositery.generateUniqueId(USER_PREFIX.COMPANY);
-						const slug = await usersRepositery.generateSlug(`${name}-${individualId}`);
-						const created = await usersRepositery.create({
-							fname: name,
-							userType: USER_TYPE.COMPANY,
-							userDefinedCompany: 1,
-							claimStatus: 0,
-							createdBy: userId,
-							status: 1,
-							individualId,
-							slug,
-							createDate: nowStr(),
-							modifyDate: nowStr(),
-						});
-						companyExpId = created.id;
-					}
-				}
-			}
-
-			if (regType === 3 && body.joining_date && body.worked_till_date) {
-				if (new Date(body.worked_till_date) <= new Date(body.joining_date)) {
-					return {
-						status: false,
-						messages: "work till date not less then or equal to joining date",
-					};
-				}
-			}
-
-			try {
-				await loginRepositery.createExperience({
-					user: userId,
-					company: companyExpId,
-					designation: positionId,
-					joiningDate: body.joining_date || null,
-					workedTillDate: regType === 3 ? body.worked_till_date || null : null,
-					stillWorking: regType === 2 ? 1 : 0,
-					status: 1,
-					isDeleted: 0,
-					approved: 0,
-					createDate: nowStr(),
-					modifyDate: nowStr(),
-				});
-
-				updates.currentPossition = positionId;
-				updates.currentCompany = companyExpId;
-			} catch (err) {
-				console.error("final-signup experience error:", err);
-				return { status: false, messages: "Experience not added!" };
-			}
-		}
-
-		// Type 1 — education (fresher)
-		if (regType === 1 && body.university && body.course) {
-			try {
-				await createEducationService(
-					userId,
-					{
-						university: isNaN(Number(body.university))
-							? body.university
-							: Number(body.university),
-						course: isNaN(Number(body.course)) ? body.course : Number(body.course),
-						course_type: body.course_type ? Number(body.course_type) : 0,
-						starting_date: body.starting_date || "",
-						ending_date: body.ending_date,
-						state: body.state ? Number(body.state) : undefined,
-						city: body.city
-							? isNaN(Number(body.city))
-								? body.city
-								: Number(body.city)
-							: undefined,
-						country: body.country ? Number(body.country) : undefined,
-						ishighest: isTruthy(body.ishighest),
-						ongoing: isTruthy(body.ongoing),
-					} as any,
-					files?.document
-				);
-			} catch (err) {
-				console.error("final-signup education error:", err);
-				return { status: false, messages: "Education not added!" };
-			}
-		}
-
-		await loginRepositery.updateUser(userId, updates);
-	}
-
+	// Prefer client token from step 1; otherwise mint a fresh one
 	const token = body.user_token || (await generateToken(userId));
-	if (!body.user_token) {
-		// already generated
-	} else {
-		// keep existing token
-	}
 
 	const stats = await getStatistics(userId, token);
 	if (!stats) {
@@ -1477,8 +1545,8 @@ export async function finalSignupService(
 		messages: "Successfully Registered",
 		data: {
 			...stats,
-			companyId,
-			jobId,
+			companyId: companyId || 0,
+			jobId: jobId || 0,
 		},
 	};
 }

@@ -38,6 +38,7 @@ src/worker/           → SQS consumers
 ### Employee (`/wapi/employee`)
 | Doc | Coverage |
 |-----|----------|
+| [employee-signup-endpoints.md](./employee-signup-endpoints.md) | Modern signup step 1/2 + upload-resume — **implemented** |
 | [employee-employment-endpoints.md](./employee-employment-endpoints.md) | Employment CRUD (`add-employement`, …) |
 | [employee-all-employment-new-endpoints.md](./employee-all-employment-new-endpoints.md) | `allEmployementNew` |
 | [employee-document-language-endpoints.md](./employee-document-language-endpoints.md) | Documents + languages (`add_language`, `allLanguage`) |

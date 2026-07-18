@@ -1,25 +1,45 @@
+# Employee Signup / Registration Endpoints (Node)
 
-# Employee Signup / Registration Endpoints
+> **Stack:** Node.js + Express + Drizzle ORM (MySQL)  
+> **Status:** Implemented  
+> **Base path:** `/wapi/employee`  
+> **HTTP:** Almost always **200** with `status: true|false` (business errors are not 4xx).  
+> **Key naming:** These endpoints use **`messages`** (plural), not `message`.  
+> **Postman:** `collarcheck.postman_collection.json` → **employees → signup / registration (public)**  
+> Collection vars: `URL`, `token`, `user_id` (auto-set from signup tests).
 
-Porting guide for the **modern multi-step employee registration** flow. Target stack should return the **same JSON shapes and message strings** so web/mobile clients keep working.
+| Method | Full path | Route file | Controller | Service |
+|--------|-----------|------------|------------|---------|
+| POST | `/wapi/employee/signup` | `employee.route.ts` | `employeeSignup` | `employeeSignupService` |
+| POST | `/wapi/employee/final-signup` | `employee.route.ts` | `finalSignup` | `finalSignupService` |
+| POST | `/wapi/employee/upload-resume` | `employee.route.ts` | `uploadResume` | `uploadResumeService` |
 
-| Route | Handler | Auth |
-|-------|---------|------|
-| `POST /wapi/employee/signup` | `ModuleController::indivisualSignup` | Public |
-| `POST /wapi/employee/final-signup` | `ModuleController::final_Signup` | Public* |
-| `POST /wapi/employee/upload-resume` | `ModuleController::upload_resume` | Public* |
+**Layers**
 
-\* Not behind the `Auth` filter. Identity is passed in the body as `user_id` (+ `user_token` for internal proxy calls on final-signup).
+| Layer | File |
+|-------|------|
+| Routes | `src/routes/employee.route.ts` (public; no `Authorization`) |
+| Controller | `src/controllers/login.controller.ts` |
+| Service | `src/services/login.service.ts` |
+| Repository | `src/repositery/login.repositery.ts` |
+| Types (Zod) | `src/types/login.types.ts` — `employeeSignupSchema`, `finalSignupSchema`, `uploadResumeSchema` |
+| Resume upload | `src/utils/resumeUpload.ts` (multer-s3 → `uploads/resume/`) |
+| Multipart (final-signup) | `src/utils/educationUpload.ts` fields: `resume`, `profile`, `document[]` |
+| Session payload | `getStatistics(userId, loginauth?)` in `login.service.ts` |
+| Token | `generateToken(userId)` → JWT `{ uid }` + `user.token` / `login_time` |
 
-**Source:** `app/Controllers/ModuleController.php`  
-**Routes:** `app/Config/Routes.php`
+**Auth notes**
 
-**Related:**
+- All three routes are **public** (not behind `Authorization` middleware).
+- Step 2 / resume identify the user via body `user_id` (and optional `user_token` = step-1 `loginauth`).
+- For parity with legacy clients, identity is **not** re-checked with JWT on final-signup / upload-resume.
 
-- Full auth catalog: `login-registration-endpoints.md`
-- Session payload shape: `GeneralApi::getStatitcs` (see login doc)
-- MSG91 OTP (pre-signup verify): `msg91-sms.md`
-- Company add-company / add-job (proxied by final-signup): `company/` docs
+**Related**
+
+- Full auth catalog: [`login-registration-endpoints.md`](./login-registration-endpoints.md)
+- MSG91 OTP (pre-signup verify): [`msg91-sms.md`](./msg91-sms.md)
+- Company / job internals used by final-signup: `company/` docs, `addJobService`
+- Education: `education.service.ts` (`createEducationService` / `updateEducationService`)
 
 ---
 
@@ -36,14 +56,11 @@ Porting guide for the **modern multi-step employee registration** flow. Target s
       { user_id, resume: file }                                               // if resume not sent in final-signup
 ```
 
-**HTTP:** Almost always **200** with `status: true|false` (business errors are not 4xx).  
-**Key naming:** These endpoints use **`messages`** (plural), not `message`.
-
 ---
 
 ## Shared: success session payload
 
-Successful **signup** returns `data` from `GeneralApi::getStatitcs(userId)`.
+Successful **signup** returns `data` from `getStatistics(userId)`.
 
 Critical fields for clients:
 
@@ -52,7 +69,7 @@ Critical fields for clients:
 | `loginauth` | Session token → later `Authorization: Bearer …` |
 | `id` | Numeric user id → use as `user_id` on step 2 |
 | `user_type` | String `"user"` for employees |
-| `individual_id` | e.g. `CCE123456` |
+| `individual_id` | e.g. `CCE123456` (`USER_PREFIX.EMPLOYEE`) |
 | `slug` | Profile URL slug |
 | `profile_percentage`, `incomplete`, etc. | Onboarding UI |
 
@@ -61,78 +78,76 @@ Critical fields for clients:
 | Extra key | Type | Notes |
 |-----------|------|--------|
 | `companyId` | int | Created/updated company id, or `0` |
-| `jobId` | int | Created job id, or `0` |
+| `jobId` | int | Created/updated job id, or `0` |
 
-Token generation: `FrontModel::generateToken($userId)` writes `user.token` / `user.login_time`.
+Token generation: `generateToken(userId)` writes `cyb_user.token` / `login_time` via `loginRepositery.setToken`.
 
 ---
 
 # 1. POST `/wapi/employee/signup`
 
-**Handler:** `ModuleController::indivisualSignup`  
 **Auth:** Public  
-**Purpose:** Step 1 — create employee (`user_type = 1`), settings, token, optional company link, welcome emails/WhatsApp.
+**Purpose:** Step 1 — create employee (`user_type = 1`), settings, default groups, token, optional company link, welcome emails/WhatsApp.
+
+### Route wiring
+
+```ts
+// employee.route.ts
+employRouter.post("/signup", validateData(employeeSignupSchema), employeeSignup);
+```
 
 ### Request body
 
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| `fname` | string | **Yes** | First name (`escxss`) |
-| `lname` | string | No | Last name (rule: `trim` only) |
-| `email` | string | **Yes** | Lowercased; rules: `required\|valid_email\|user_email[]` (unique vs primary/alternate) |
-| `phone` | string | **Yes** | Rules: `required\|min_length[10]\|max_length[15]\|user_mobile[]` (unique vs phone/second_phone) |
-| `country` | any | No | Stored on `user` |
-| `state` | any | No | Stored on `user`; also used when creating free-text city |
-| `city` | int or string | No | If integer → city id. If string → find/create `cities` row (`user_defined=1`) |
+| `fname` | string | **Yes** | Zod: min 1 |
+| `lname` | string | No | |
+| `email` | string | **Yes** | Lowercased; unique vs employee primary/alternate |
+| `phone` | string | **Yes** | min 10, max 15; unique vs employee phone/second_phone |
+| `country` | any | No | Stored on `cyb_user` |
+| `state` | any | No | Also used when creating free-text city |
+| `city` | int or string | No | Integer → city id. String → find/create `cyb_cities` (`user_difined=1`) |
 | `dob` | string | No | |
 | `gender` | any | No | |
 | `work_status` | any | No | Empty → `NULL` |
 | `method_type` | string | No | Default `"Website"` |
 | `referral_code` | string | No | Must match existing `user.individual_id` (`is_deleted=0`) |
-| `company_id` | int | No | Explicit company to link via `user_relation` |
+| `company_id` | int | No | Explicit company to link via `cyb_user_relation` |
 | `phone_verified` | 0/1 | No | Stored as `1` if truthy, else `0` |
 | `email_verified` | 0/1 | No | Stored as `1` if truthy, else `0` |
 
 Content-Type: `application/json` or form fields.
 
-### Validation errors
+### Validation
 
-```json
-{ "status": false, "messages": "The First Name field is required.,..." }
-```
-
-Messages are `implode(',', $validator->getErrors())`.
+- Zod schema: `employeeSignupBodySchema` in `login.types.ts`
+- Middleware: `validateData` → **400** `{ error, details }` on schema failure (project-wide)
+- Service-level uniqueness / referral still return **200** + `{ status: false, messages }`
 
 ### Logic (ordered)
 
-1. **Validate** required/unique rules.
-2. Build `$save` row for table `user`:
-   - `user_type = 1`
-   - `register_type = 'form'` (or **`qa`** if `bypass(phone|email)` matches test list)
-   - `accept_term = true`
-   - `phone_verified` / `email_verified` from body
-3. **Referral:** if `referral_code` set and no matching `user.individual_id` →  
-   `{ "status": false, "messages": "Invalid refferal code!" }`  
-   (spelling **refferal** is intentional for client parity)
-4. **City:** integer id as-is; string name → lookup/insert `cities` with `user_defined=1`, `status=1`, optional `state`.
-5. **Insert** `user`.
+1. **Validate** referral (`findByIndividualId`) → `"Invalid refferal code!"` (spelling intentional).
+2. **Uniqueness** — `findEmployeeByPhone` / `findEmployeeByEmail`.
+3. **City:** integer id as-is; string name → `findCityByName` / `createCity` (`user_difined=1`, `status=1`, optional `state`).
+4. **`register_type`:** `"qa"` if `isBypass(phone|email)`, else `"form"`.
+5. **Insert** `cyb_user` with:
+   - `userType = 1` (`USER_TYPE.EMPLOYEE`)
+   - `acceptTerm = 1`
+   - `individualId` = `generateUniqueId(USER_PREFIX.EMPLOYEE)` → **`CCE` + digits**
+   - `slug` from name + individual id
+   - `phoneVerified` / `emailVerified` from body
 6. On insert success:
-   - `createDefaultUserGroups(email)` (helper)
-   - Insert empty-ish `user_details` row: `{ user_id }`
-   - **Auto company link by phone** (if phone already exists on a company-like row and no `user_relation` yet):
-     - Insert `user_relation` (`user_id`, `company_id`, `type='1'`, empty permission JSON)
-     - Assign Super Admin: find `user_group` where `added_by=user` and `group_id=1`, insert `user_permission` if missing
-   - **Or explicit `company_id`:** same relation + Super Admin permission pattern (`type=1`, `status=1`)
-7. `FrontModel::create_user_setting($userId)`
-8. `FrontModel::generateToken($userId)`
-9. Update `individual_id` + `slug`:
-   - `individual_id` = `get_unique_id` → prefix **`CCE`** + 6 non-VIP digits
-   - `slug` = `get_slug(url_title(fname lname) + '-' + individual_id)`
-10. `data = getStatitcs($userId)`
-11. **Side effects (async SQS — must not change success JSON if they fail silently):**
-    - Email template **48**: “Thank You for Joining CollarCheck!” → `email/trigger/onboarding_thankyou_user`, link `{REACT_SITE}dashboard/user/profile`
-    - WhatsApp campaign **162** (`SEND_WHATSAPP`, payload name)
-    - Email template **46**: “Your Verified Career Journey Starts Here!” → `email/trigger/onboarding_user`, link `{REACT_SITE}`
+   - `createEmptyUserDetails(userId)`
+   - `createDefaultSettings(userId)`
+   - `createDefaultUserGroups(userId)` (group_id=1 Super Admin group row for owner)
+7. **Company link** (optional):
+   - Explicit `company_id`, **or** `findCompanyByPhoneWithoutRelation(phone)` (company phone match with no existing relation)
+   - `createUserRelation(userId, companyId, type=1)` → also inserts Super Admin `cyb_user_permission` (`groupId=1`)
+8. `generateToken(userId)` → `getStatistics(userId, token)`
+9. **Side effects (async SQS — must not flip success if they fail):**
+   - Email template **48** (welcome / thank-you)
+   - WhatsApp campaign **162** (`SEND_WHATSAPP`, payload `name`)
+   - Email template **46** (onboarding journey)
 
 ### Success
 
@@ -156,7 +171,10 @@ Messages are `implode(',', $validator->getErrors())`.
 ### Errors
 
 ```json
-{ "status": false, "messages": "validation errors..." }
+{ "status": false, "messages": "This phone number is already associated with an account." }
+```
+```json
+{ "status": false, "messages": "This Email address is already associated with an account." }
 ```
 ```json
 { "status": false, "messages": "Invalid refferal code!" }
@@ -164,22 +182,18 @@ Messages are `implode(',', $validator->getErrors())`.
 ```json
 { "status": false, "messages": "Something went wrong!" }
 ```
-```json
-{ "status": false, "messages": "Exception message" }
-```
 
 ### Tables touched
 
 | Table | Action |
 |-------|--------|
-| `user` | INSERT then UPDATE (`individual_id`, `slug`) |
-| `user_details` | INSERT `{ user_id }` |
-| `cities` | optional INSERT (free-text city) |
-| `user_relation` | optional INSERT (company link) |
-| `user_permission` | optional INSERT (Super Admin) |
-| `user_group` | READ (for Super Admin group row) |
-| account settings | via `create_user_setting` |
-| default groups | via `createDefaultUserGroups` |
+| `cyb_user` | INSERT |
+| `cyb_user_details` | INSERT `{ user_id }` |
+| `cyb_cities` | optional INSERT (free-text city) |
+| `cyb_user_relation` | optional INSERT (company link) |
+| `cyb_user_permission` | optional INSERT (Super Admin) |
+| `cyb_user_group` | optional INSERT (default group) |
+| `cyb_account_setting` | default settings rows |
 
 ### Example request
 
@@ -205,28 +219,43 @@ Content-Type: application/json
 
 # 2. POST `/wapi/employee/final-signup`
 
-**Handler:** `ModuleController::final_Signup`  
-**Auth:** Public (no Auth filter)  
+**Auth:** Public (no JWT middleware)  
 **Content-Type:** often `multipart/form-data` (resume / company profile / education documents)
 
 **Purpose:** Step 2 onboarding. One endpoint handles:
 
 - **A)** Employee career type (fresher / working / not working) + explore flags + optional resume  
-- **B)** Optional company create/update (self-curl to add-company)  
-- **C)** Optional first job (self-curl to add-job)
+- **B)** Optional company create/update (in-process, not HTTP self-curl)  
+- **C)** Optional first job via `addJobService`
+
+### Route wiring
+
+```ts
+employRouter.post(
+  "/final-signup",
+  educationUpload.fields([
+    { name: "resume", maxCount: 1 },
+    { name: "profile", maxCount: 1 },
+    { name: "document", maxCount: 5 },
+  ]),
+  validateData(finalSignupSchema),
+  finalSignup
+);
+```
 
 ### Identity fields
 
 | Field | Required | Notes |
 |-------|----------|-------|
-| `user_id` | **Yes** | Target employee id from step 1 (`data.id`) |
-| `user_token` | For proxy branches | Sent as `Authorization: {user_token}` when calling add-education / add-company / add-job. Typically `loginauth` from step 1 (with or without `Bearer` depending on how client stores it — PHP sets header as `"Authorization: $token"` literally). |
+| `user_id` | **Yes** | Target employee id from step 1 (`data.id`); Zod coerce positive int |
+| `user_token` | Optional | Prefer as `loginauth` for response; if omitted a new token is minted |
 
-Missing `user_id`:
+Missing / invalid `user_id` (schema):
 
 ```json
 { "status": false, "messages": "user id is missing!" }
 ```
+(service also returns this if `user_id` is falsy)
 
 ---
 
@@ -240,18 +269,18 @@ Triggered when `user_register_type` is non-empty.
 |-------|------|--------|
 | `user_register_type` | int/string | **`1`** fresher/student · **`2`** currently working · **`3`** not currently working |
 | `on_explore` | any | Empty → `0`; else `1` |
-| `on_immediate` | any | Empty → `on_immediate=false`, `notice_period=NULL`; else true + optional `notice_period` |
-| `on_notice` | any | Empty → `on_notice=false`, `notice_date=NULL`; else true + optional `notice_date` (via `changeDateFormat(..., 1)`) |
+| `on_immediate` | any | Empty → `on_immediate=0`, `notice_period=NULL`; else `1` + optional `notice_period` |
+| `on_notice` | any | Empty → `on_notice=0`, `notice_date=NULL`; else `1` + optional `notice_date` |
 | `notice_period` | any | Only when immediate path |
 | `notice_date` | date | Only when notice path |
-| `resume` | file | Optional; S3 path `uploads/resume/` via `s3fileUploads`; sets `resume`, `resumeName` (original filename), `cvPop=true` |
-| `exploring_option` | array | JSON-encoded into `user_details.exploring_option` |
+| `resume` | file | Optional; S3 key under `uploads/resume/` (via educationUpload / multer-s3); sets `resume`, `resumeName`, `cvPop=1` |
+| `exploring_option` | array/string | JSON-encoded into `cyb_user_details.exploring_option` |
 
 ### Step A.1 — Update user + exploring options
 
-1. `UPDATE user SET … WHERE id = user_id` with register type + explore flags (+ resume fields if file).
-2. If update fails → `{ "status": false, "messages": "Exploring not save" }`.
-3. Upsert `user_details.exploring_option` for that `user_id`.
+1. Build user updates: `userRegisterType`, explore flags, optional resume columns.
+2. Upsert `user_details.exploring_option` when provided.
+3. If user update fails → `{ "status": false, "messages": "Exploring not save" }`.
 
 ### Step A.2 — Type 2 or 3 (employment history)
 
@@ -259,12 +288,12 @@ When `user_register_type == 2 || user_register_type == 3`:
 
 | Field | Notes |
 |-------|--------|
-| `current_position` | int designation id **or** free-text string → find/create `designation` (`user_defined=1`, `user_id`) |
-| `current_company` | int company user id **or** free-text → find/create `user` with `user_type=2`, `user_defined_company=1`, assign `CCC…` individual_id + slug |
-| `joining_date` | date → `changeDateFormat(..., 1)` |
+| `current_position` | int designation id **or** free-text → find/create `cyb_designation` (`user_defined=1`, `user_id`) |
+| `current_company` | int company user id **or** free-text → find/create company user (`user_type=2`, `user_defined_company=1`, `CCC…` individual_id + slug) |
+| `joining_date` | date string |
 | `worked_till_date` | Used when type **3**; must be **>** `joining_date` if both set |
 
-**Experience row `user_experience`:**
+**Experience row `cyb_user_experience`:**
 
 | Column | Type 2 (working) | Type 3 (not working) |
 |--------|------------------|----------------------|
@@ -273,16 +302,14 @@ When `user_register_type == 2 || user_register_type == 3`:
 | `designation` | resolved position id | same |
 | `joining_date` | from body | from body |
 | `still_working` | **1** | **0** |
-| `worked_till_date` | `''` | from body or NULL |
-| dates | create/modify now | same |
+| `worked_till_date` | null | from body or null |
 
-If experience for same `user`+`company` exists → **update**; else **insert**.
+If experience for same `user`+`company` exists → **update**; else **insert** (`findExperienceByUserAndCompany`).
+
+Also writes `cyb_user.current_possition` (double-s spelling) and `current_company`.
 
 **Errors:**
 
-```json
-{ "status": false, "messages": "Something went wrong!" }
-```
 ```json
 { "status": false, "messages": "work till date not less then or equal to joining date" }
 ```
@@ -290,41 +317,18 @@ If experience for same `user`+`company` exists → **update**; else **insert**.
 { "status": false, "messages": "Experience not added!" }
 ```
 
-Note: column on user is written as `current_possition` (double-s) — match DB column name for parity.
-
 ### Step A.3 — Type 1 (fresher / education)
 
-When not type 2/3 (i.e. type **1** path), proxies internal API:
+When type **1** and `university` + `course` present:
 
-| Target | When |
-|--------|------|
-| `POST /wapi/employee/add-education` | No existing education for user |
-| `POST /wapi/employee/add-education/{id}` | Existing `user_education` row for user |
+- Existing education for user → `updateEducationService`
+- Else → `createEducationService`
 
-**Forwarded fields:**
-
-| Field | Notes |
-|-------|--------|
-| `university` | |
-| `course_type` | |
-| `course` | |
-| `starting_date` | |
-| `ending_date` | |
-| `state`, `city`, `country` | |
-| `ishighest` | |
-| `ongoing` | |
-| `document[]` | Optional multi-file → CURLFile array |
-| `user` | Set to `user_id` |
-
-Header: `Authorization: {user_token}`
-
-If proxied response `status !== true`:
+**Forwarded fields:** `university`, `course_type`, `course`, `starting_date`, `ending_date`, `state`, `city`, `country`, `ishighest`, `ongoing`, optional `document[]` files.
 
 ```json
-{ "status": false, "messages": "<upstream messages or 'Education not added!'>" }
+{ "status": false, "messages": "Education not added!" }
 ```
-
-> **Node port tip:** Call the same education service/function in-process instead of HTTP self-curl; preserve failure messages and side effects.
 
 ---
 
@@ -334,45 +338,40 @@ Triggered when `company_name` is non-empty (can run **in addition** to Branch A 
 
 ### Fields
 
-| Field | Maps to internal add-company |
-|-------|------------------------------|
-| `company_name` | `company_name` |
+| Field | Maps to company user |
+|-------|----------------------|
+| `company_name` | `fname` |
 | `contact_person` | `contact_person` |
 | `company_email` | `email` |
 | `company_phone` | `phone` |
 | `incorporate_date` | `incorporate_date` |
 | `website` | Auto-prefix `https://` if no scheme |
 | `industry` | `industry` |
-| `method_type` | Default `Website` |
-| `profile` | file → CURLFile |
-| (fixed) | `user_type=2`, `register_type=form`, `claim_status=1`, `accept_term=true` |
-| `user_id` | Calling employee |
-| `user_relation` | `1` if employee already has any `user_relation` row, else `0` |
+| `profile` | file → S3 key on `profile` |
+| (fixed on create) | `user_type=2`, `register_type=form`, `claim_status=1`, `accept_term=1` |
 
-### Internal call
+### Logic (in-process)
 
-| Condition | URL |
-|-----------|-----|
-| Employee already has `user_relation` | `POST /wapi/company/add-company/{company_id}` |
-| Else | `POST /wapi/company/add-company` |
-
-Header: `Authorization: {user_token}`
+| Condition | Behavior |
+|-----------|----------|
+| Employee already has `cyb_user_relation` | Update that company row (`getFirstUserRelation`) |
+| Else | Create company user + settings + `createUserRelation` (Super Admin permission) |
 
 On failure:
 
 ```json
-{ "status": false, "messages": "<upstream or 'Company not added!'>" }
+{ "status": false, "messages": "Company not added!" }
 ```
 
-On success: `companyid = response.lastCreateId` (or `0`).
+On success: `companyId` = company id.
 
 ---
 
 ## Branch C — Job (after successful company)
 
-Runs only if company branch response succeeded **and** `job_title` is non-empty **and** `companyid` is set.
+Runs only if company branch set `companyId` **and** `job_title` is non-empty.
 
-### Fields → `POST /wapi/company/add-job` (+ `/{jobId}` if company already has a job)
+### Fields → `addJobService(companyId, data)`
 
 | Field | Notes |
 |-------|--------|
@@ -390,16 +389,10 @@ Runs only if company branch response succeeded **and** `job_title` is non-empty 
 | `designation` | |
 | `status` | Default `0` if empty |
 | `job_mode` | |
-| `skill[]` | Array → expanded as `skill[0]`, `skill[1]`, … |
-| `slug` | Optional; else slugified job title via `sfu` / `url_title` |
-| `document` | Optional single file |
+| `skill` | array or value (JSON-stringified in job service) |
+| `slug` | Optional; else generated from title |
 
-Headers:
-
-```
-Authorization: {user_token}
-X-Company: {companyid}
-```
+If company already has a job (`findFirstCompanyJob`) → update via `data.id`; else create.
 
 On failure:
 
@@ -407,19 +400,9 @@ On failure:
 { "status": false, "messages": "<upstream or 'Job not added!'>" }
 ```
 
-`jobId` for final payload is taken from upstream `response.jobId` when present.
-
 ---
 
 ## Final success (all branches that completed)
-
-Always ends with:
-
-```php
-$authData = getStatitcs($user);
-$authData['companyId'] = (int) $companyid ?: 0;
-$authData['jobId']     = (int) $response['jobId'] ?: 0;
-```
 
 ```json
 {
@@ -443,13 +426,12 @@ If no company/job was created, `companyId` and `jobId` are `0`.
 |------------|------|
 | `user id is missing!` | No `user_id` |
 | `Exploring not save` | User explore/register-type update failed |
-| `Something went wrong!` | User update after position/company failed |
+| `Something went wrong!` | User not found / stats failed |
 | `work till date not less then or equal to joining date` | Type 3 date rule |
 | `Experience not added!` | Experience insert/update failed |
-| `Education not added!` | Proxy education failed |
-| `Company not added!` | Proxy company failed |
-| `Job not added!` | Proxy job failed |
-| Exception message | Catch block |
+| `Education not added!` | Education service failed |
+| `Company not added!` | Company create/update failed |
+| `Job not added!` | Job create/update failed |
 
 ### Example — currently working employee
 
@@ -500,7 +482,7 @@ website=acme.com
 industry=3
 job_title=Backend Engineer
 job_description=...
-skill[]=PHP
+skill[]=Node
 skill[]=MySQL
 ```
 
@@ -508,11 +490,21 @@ skill[]=MySQL
 
 # 3. POST `/wapi/employee/upload-resume`
 
-**Handler:** `ModuleController::upload_resume`  
 **Auth:** Public (body `user_id` only — **no token check**)  
 **Content-Type:** `multipart/form-data`
 
 **Purpose:** Standalone resume upload after signup (or anytime client has `user_id`). Same S3 + user columns as optional resume inside final-signup.
+
+### Route wiring
+
+```ts
+employRouter.post(
+  "/upload-resume",
+  resumeUpload.single("resume"),
+  validateData(uploadResumeSchema),
+  uploadResume
+);
+```
 
 ### Request
 
@@ -525,22 +517,22 @@ skill[]=MySQL
 
 | Rule | Limit | Error message |
 |------|--------|----------------|
-| `uploaded[resume]` | must be present | `You must upload a file (Word, PDF).` |
-| `max_size[resume,5240]` | **5240 KB** (~5 MB) | `The file size must not exceed 5MB.` |
-| `mime_in` | `application/pdf`, `application/msword`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | `Allowed file types: PDF, DOC, DOCX.` |
-| `ext_in` | `pdf`, `doc`, `docx` | `Invalid file extension. Allowed: pdf, doc, docx` |
+| file present | must be uploaded | `You must upload a file (Word, PDF).` |
+| max size | **5 MB** (`resumeUpload` limits) | `The file size must not exceed 5MB.` |
+| mime | `application/pdf`, `application/msword`, `application/vnd.openxmlformats-officedocument.wordprocessingml.document` | `Allowed file types: PDF, DOC, DOCX.` |
+| extension | `pdf`, `doc`, `docx` | same as mime message |
 
 ### Logic
 
 1. Reject empty `user_id` → `"User ID is required"`.
-2. Validate file rules.
-3. `s3fileUploads($file, 'uploads/resume/')` → stores S3 object path (path relative after host, e.g. under bucket prefix).
-4. `UPDATE user SET`:
-   - `resume` = S3 relative path  
+2. Validate file (multer filter + controller size check).
+3. Multer-S3 stores under `uploads/resume/{uuid}{ext}` → `file.key`.
+4. `UPDATE cyb_user SET`:
+   - `resume` = S3 key  
    - `resumeName` = original client filename  
-   - `cvPop` = `TRUE`  
+   - `cvPop` = `1`  
    `WHERE id = user_id`
-5. Success if update affected.
+5. Success if update succeeds.
 
 ### Success
 
@@ -568,20 +560,16 @@ skill[]=MySQL
 ```json
 { "status": false, "messages": "Resume not upload" }
 ```
-```json
-{ "status": false, "messages": "Exception message" }
-```
 
-### S3 upload detail (shared with final-signup)
+### S3 upload detail
 
 | Item | Value |
 |------|--------|
-| Helper | Trait `Awss3::s3fileUploads` (`app/Libraries/traits/Awss3.php`) |
+| Middleware | `resumeUpload` (`src/utils/resumeUpload.ts`) |
 | Path prefix | `uploads/resume/` |
-| Return value | Absolute path portion of S3 `ObjectURL` (leading `/` stripped) — stored in `user.resume` |
-| Client filename | Stored separately in `user.resumeName` |
-
-Env/config for AWS is whatever `S3ClientLibrary` uses (same as rest of app).
+| Stored value | `file.key` on `cyb_user.resume` |
+| Client filename | `cyb_user.resumeName` |
+| Env | `AWS_KEY`, `AWS_SECRET`, `AWS_REGION`, `AWS_BUCKET` |
 
 ### Example
 
@@ -599,28 +587,23 @@ resume=@/path/to/cv.pdf
 
 | Value | Meaning | Side data |
 |-------|---------|-----------|
-| `1` | Fresher / student | Education via add-education proxy |
+| `1` | Fresher / student | Education via `createEducationService` / `updateEducationService` |
 | `2` | Currently working | Experience with `still_working=1` |
 | `3` | Not currently working | Experience with `still_working=0` + `worked_till_date` |
 
 ---
 
-# Internal dependencies (final-signup proxies)
+# Internal dependencies (final-signup)
 
-These routes are under the authenticated `wapi` group with **Auth filter** in `Routes.php`. final-signup calls them with the client's `user_token`:
+PHP self-curled authenticated routes. **Node calls services in-process** instead:
 
-| Method | Route | Handler |
-|--------|-------|---------|
-| POST | `/wapi/employee/add-education` | `IndividualApi::addEducation` |
-| POST | `/wapi/employee/add-education/(:num)` | `IndividualApi::addEducation/$1` |
-| POST | `/wapi/company/add-company` | `CompanyApi::add_company` |
-| POST | `/wapi/company/add-company/(:num)` | `CompanyApi::add_company/$1` |
-| POST | `/wapi/company/add-job` | `CompanyApi::addJob` |
-| POST | `/wapi/company/add-job/(:num)` | `CompanyApi::addJob/$1` |
-
-Job calls also need header **`X-Company: {companyId}`**.
-
-For a greenfield port, prefer **in-process** service calls with the same DB side effects rather than HTTP loops to self.
+| Concern | Node entry |
+|---------|------------|
+| Education create/update | `education.service.ts` → `createEducationService` / `updateEducationService` |
+| Company create/update | `login.service.ts` final-signup Branch B + `loginRepositery` |
+| Job create/update | `company-job.service.ts` → `addJobService` |
+| Designation free-text | `designation.repositery.ts` |
+| Company free-text (experience) | `users.repositery.ts` + `USER_PREFIX.COMPANY` |
 
 ---
 
@@ -629,28 +612,28 @@ For a greenfield port, prefer **in-process** service calls with the same DB side
 | Channel | Trigger | Details |
 |---------|---------|---------|
 | SQS `SEND_EMAIL` | Always on success | Template ids `48` then `46` |
-| SQS `SEND_WHATSAPP` | Always on success | `campaign_id: 162`, payload `name` |
-| Default user groups | Always | `createDefaultUserGroups(email)` |
-| User settings | Always | `create_user_setting` |
+| SQS `SEND_WHATSAPP` | Always on success | `template: 162`, payload `name` |
+| Default user groups | Always | `createDefaultUserGroups` |
+| User settings | Always | `createDefaultSettings` |
 | Company auto-link | Conditional | Phone match company without relation, or `company_id` body |
 
-Failures in SQS/email should not flip HTTP success if the user was created (match PHP: success response is built after queue push without checking queue result).
+Failures in SQS/email should not flip HTTP success if the user was created.
 
 ---
 
-# Node / other-stack parity checklist
+# Node parity checklist
 
-1. HTTP **200** + `status` boolean for business outcomes.  
+1. HTTP **200** + `status` boolean for business outcomes (schema validation may be **400** via `validateData`).  
 2. Use **`messages`** (plural) on these three endpoints.  
 3. Preserve exact strings including typos: `Invalid refferal code!`, `work till date not less then or equal to joining date`, `Resume upload successfully`.  
-4. After step 1, return full `getStatitcs` + `loginauth`.  
+4. After step 1, return full `getStatistics` + `loginauth`.  
 5. After step 2, return stats **plus** integer `companyId` / `jobId` (0 when unused).  
-6. `individual_id` for employees: **`CCE` + 6 digits**, avoid VIP patterns used in `FrontModel::isCheckVipNumber`.  
-7. Free-text city / designation / company create with `user_defined` flags as above.  
-8. Resume: PDF/DOC/DOCX, max ~5MB (5240 KB rule), path prefix `uploads/resume/`, set `cvPop=true`.  
-9. final-signup company/job/education: same validations and DB writes as the proxied endpoints.  
+6. `individual_id` for employees: **`CCE` + digits** via `generateUniqueId(USER_PREFIX.EMPLOYEE)`.  
+7. Free-text city / designation / company create with `user_defined` flags.  
+8. Resume: PDF/DOC/DOCX, max 5MB, path prefix `uploads/resume/`, set `cvPop=1`.  
+9. final-signup company/job/education: in-process service calls (no self-HTTP).  
 10. `upload-resume` does **not** re-issue token; only updates user columns.  
-11. Security note for ports: step 2/3 only require `user_id` (and optional token for proxies) — consider hardening with JWT if redesigning; for parity keep body `user_id`.
+11. Security note: step 2/3 only require `user_id` (and optional token for response) — parity with legacy; consider JWT hardening if redesigning.
 
 ---
 
@@ -660,13 +643,16 @@ Failures in SQS/email should not flip HTTP success if the user was created (matc
 POST /wapi/employee/signup
   → create employee, token, emails/WA
   ← data.loginauth, data.id
+  Node: employeeSignup → employeeSignupService
 
 POST /wapi/employee/final-signup
   → career type + optional education/experience
-  → optional company + job (proxied)
+  → optional company + job (in-process)
   ← data + companyId + jobId
+  Node: finalSignup → finalSignupService
 
 POST /wapi/employee/upload-resume
   → S3 resume on user
   ← messages only (no data payload)
+  Node: uploadResume → uploadResumeService
 ```

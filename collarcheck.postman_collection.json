@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "792e956c-0747-4525-b29d-1fa3f51fb55a",
     "name": "collarcheck",
-    "description": "CollarCheck API Collection - All Endpoints",
+    "description": "CollarCheck API Collection - All Endpoints\n\n**Employee signup (Node):** employees \u2192 signup / registration (public). Uses collection vars `URL`, `token`, `user_id`.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "55603620",
     "_collection_link": "https://go.postman.co/collection/55603620-792e956c-0747-4525-b29d-1fa3f51fb55a?source=collection_link"
@@ -32,7 +32,7 @@
     },
     {
       "name": "login",
-      "description": "Login & OTP flows: unified login, legacy send/verify OTP, social login. Public endpoints.",
+      "description": "Login & OTP flows (Node): unified login, legacy send/verify OTP, social login. Public endpoints.\n\nAfter phone/email OTP for **new** users, continue with **employees \u2192 signup / registration (public)**.\nDocs: `src/api-ai-document/login-registration-endpoints.md`, `employee-signup-endpoints.md`.",
       "item": [
         {
           "name": "login (unified send OTP)",
@@ -411,408 +411,940 @@
       "name": "employees",
       "item": [
         {
-          "name": "register (legacy)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{URL}}/wapi/employee/register",
-              "host": [
-                "{{URL}}"
-              ],
-              "path": [
-                "wapi",
-                "employee",
-                "register"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fname\": \"John\",\n  \"lname\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"9876543210\",\n  \"gender\": \"1\",\n  \"country\": \"101\",\n  \"work_status\": \"1\",\n  \"method_type\": \"Website\",\n  \"register_type\": \"form\",\n  \"referral_code\": \"\",\n  \"pan\": \"\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+          "name": "signup / registration (public)",
+          "description": "Modern multi-step employee registration (Node).\n\n**Flow**\n1. (Optional) `POST /wapi/login` with `checkUnique: 1` + verify OTP \u2014 see **login** folder\n2. `signup (modern step 1)` \u2192 saves `token`, `user_id`\n3. `final-signup (...)` career type / company / job\n4. Optional `upload-resume`\n\nAlso includes legacy `register`.\nDocs: `src/api-ai-document/employee-signup-endpoints.md`",
+          "item": [
+            {
+              "name": "register (legacy)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "description": "Legacy employee form register.\n\n**Node:** `POST /wapi/employee/register` \u2192 `employeeRegisterService`\n**Auth:** Public\n**Success:** `{ status, messages: \"Successfully Registered\", data: getStatistics }`\n**Notes:** Sets phone_verified=1, optional pan document.",
+                "url": {
+                  "raw": "{{URL}}/wapi/employee/register",
+                  "host": [
+                    "{{URL}}"
+                  ],
+                  "path": [
+                    "wapi",
+                    "employee",
+                    "register"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fname\": \"John\",\n  \"lname\": \"Doe\",\n  \"email\": \"john.legacy@example.com\",\n  \"phone\": \"9876500001\",\n  \"gender\": \"1\",\n  \"country\": \"101\",\n  \"work_status\": \"1\",\n  \"method_type\": \"Website\",\n  \"register_type\": \"form\",\n  \"referral_code\": \"\",\n  \"pan\": \"\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
                 }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "signup (modern step 1)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{URL}}/wapi/employee/signup",
-              "host": [
-                "{{URL}}"
-              ],
-              "path": [
-                "wapi",
-                "employee",
-                "signup"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"fname\": \"John\",\n  \"lname\": \"Doe\",\n  \"email\": \"john@example.com\",\n  \"phone\": \"9876543210\",\n  \"country\": \"101\",\n  \"state\": \"21\",\n  \"city\": \"400001\",\n  \"dob\": \"1995-01-01\",\n  \"gender\": \"1\",\n  \"work_status\": \"1\",\n  \"method_type\": \"Website\",\n  \"phone_verified\": \"1\",\n  \"email_verified\": \"0\",\n  \"referral_code\": \"\",\n  \"company_id\": \"\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "try {",
+                      "  const j = pm.response.json();",
+                      "  if (j && j.status && j.data) {",
+                      "    if (j.data.loginauth) pm.collectionVariables.set('token', j.data.loginauth);",
+                      "    if (j.data.id) pm.collectionVariables.set('user_id', String(j.data.id));",
+                      "    if (j.data.companyId) pm.collectionVariables.set('company_id', String(j.data.companyId));",
+                      "    if (j.data.jobId) pm.collectionVariables.set('job_id', String(j.data.jobId));",
+                      "  }",
+                      "} catch (e) { console.warn('parse response', e); }"
+                    ]
+                  }
                 }
-              }
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "final-signup (currently working)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
+              ],
+              "response": [
                 {
-                  "key": "user_id",
-                  "value": "101",
-                  "type": "text"
+                  "name": "Success",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": true,\n  \"messages\": \"Successfully Registered\",\n  \"data\": {\n    \"loginauth\": \"<jwt>\",\n    \"id\": 101,\n    \"individual_id\": \"CCE123456\",\n    \"user_type\": \"user\",\n    \"fname\": \"John\",\n    \"lname\": \"Doe\",\n    \"email\": \"john.legacy@example.com\",\n    \"phone\": \"9876500001\"\n  }\n}"
                 },
                 {
-                  "key": "user_token",
-                  "value": "{{token}}",
-                  "type": "text"
-                },
-                {
-                  "key": "user_register_type",
-                  "value": "2",
-                  "type": "text"
-                },
-                {
-                  "key": "on_explore",
-                  "value": "0",
-                  "type": "text"
-                },
-                {
-                  "key": "on_immediate",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "on_notice",
-                  "value": "0",
-                  "type": "text"
-                },
-                {
-                  "key": "notice_period",
-                  "value": "",
-                  "type": "text"
-                },
-                {
-                  "key": "current_position",
-                  "value": "Engineer",
-                  "type": "text"
-                },
-                {
-                  "key": "current_company",
-                  "value": "Acme Corp",
-                  "type": "text"
-                },
-                {
-                  "key": "joining_date",
-                  "value": "2024-01-15",
-                  "type": "text"
-                },
-                {
-                  "key": "still_working",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "resume",
-                  "type": "file",
-                  "src": []
+                  "name": "Invalid referral",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"Invalid refferal code!\"\n}"
                 }
               ]
             },
-            "url": {
-              "raw": "{{URL}}/wapi/employee/final-signup",
-              "host": [
-                "{{URL}}"
+            {
+              "name": "signup (modern step 1)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json",
+                    "type": "text"
+                  }
+                ],
+                "description": "Modern multi-step employee registration \u2014 **step 1**.\n\n**Node:** `POST /wapi/employee/signup` \u2192 `employeeSignup` \u2192 `employeeSignupService`\n**Auth:** Public\n**Key:** response uses `messages` (plural).\n\nCreates employee (`user_type=1`), default settings/groups, token, optional company link, SQS emails (templates 48 + 46) + WhatsApp 162.\n\nOn success, tests save `token` (=loginauth) and `user_id` (=data.id) collection variables for final-signup / upload-resume.\n\nSee `src/api-ai-document/employee-signup-endpoints.md`.",
+                "url": {
+                  "raw": "{{URL}}/wapi/employee/signup",
+                  "host": [
+                    "{{URL}}"
+                  ],
+                  "path": [
+                    "wapi",
+                    "employee",
+                    "signup"
+                  ]
+                },
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"fname\": \"John\",\n  \"lname\": \"Doe\",\n  \"email\": \"john.signup@example.com\",\n  \"phone\": \"9876500010\",\n  \"country\": \"101\",\n  \"state\": \"21\",\n  \"city\": \"400001\",\n  \"dob\": \"1995-01-01\",\n  \"gender\": \"1\",\n  \"work_status\": \"1\",\n  \"method_type\": \"app\",\n  \"phone_verified\": \"1\",\n  \"email_verified\": \"0\",\n  \"referral_code\": \"\",\n  \"company_id\": \"\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "try {",
+                      "  const j = pm.response.json();",
+                      "  if (j && j.status && j.data) {",
+                      "    if (j.data.loginauth) pm.collectionVariables.set('token', j.data.loginauth);",
+                      "    if (j.data.id) pm.collectionVariables.set('user_id', String(j.data.id));",
+                      "    if (j.data.companyId) pm.collectionVariables.set('company_id', String(j.data.companyId));",
+                      "    if (j.data.jobId) pm.collectionVariables.set('job_id', String(j.data.jobId));",
+                      "  }",
+                      "} catch (e) { console.warn('parse response', e); }"
+                    ]
+                  }
+                }
               ],
-              "path": [
-                "wapi",
-                "employee",
-                "final-signup"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "final-signup (fresher education)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
+              "response": [
                 {
-                  "key": "user_id",
-                  "value": "101",
-                  "type": "text"
+                  "name": "Success",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": true,\n  \"messages\": \"Successfully Registered\",\n  \"data\": {\n    \"loginauth\": \"<jwt>\",\n    \"id\": 101,\n    \"individual_id\": \"CCE123456\",\n    \"user_type\": \"user\",\n    \"fname\": \"John\",\n    \"lname\": \"Doe\",\n    \"email\": \"john.signup@example.com\",\n    \"phone\": \"9876500010\",\n    \"profile_percentage\": 20\n  }\n}"
                 },
                 {
-                  "key": "user_token",
-                  "value": "{{token}}",
-                  "type": "text"
+                  "name": "Duplicate phone",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"This phone number is already associated with an account.\"\n}"
                 },
                 {
-                  "key": "user_register_type",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "on_explore",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "university",
-                  "value": "Mumbai University",
-                  "type": "text"
-                },
-                {
-                  "key": "course_type",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "course",
-                  "value": "B.Tech",
-                  "type": "text"
-                },
-                {
-                  "key": "starting_date",
-                  "value": "2018-06-01",
-                  "type": "text"
-                },
-                {
-                  "key": "ending_date",
-                  "value": "2022-05-31",
-                  "type": "text"
-                },
-                {
-                  "key": "state",
-                  "value": "21",
-                  "type": "text"
-                },
-                {
-                  "key": "city",
-                  "value": "400001",
-                  "type": "text"
-                },
-                {
-                  "key": "country",
-                  "value": "101",
-                  "type": "text"
-                },
-                {
-                  "key": "ishighest",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "ongoing",
-                  "value": "0",
-                  "type": "text"
-                },
-                {
-                  "key": "document",
-                  "type": "file",
-                  "src": []
+                  "name": "Invalid referral",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"Invalid refferal code!\"\n}"
                 }
               ]
             },
-            "url": {
-              "raw": "{{URL}}/wapi/employee/final-signup",
-              "host": [
-                "{{URL}}"
+            {
+              "name": "final-signup (type 2 currently working)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "description": "Step 2 onboarding \u2014 **type 2** (currently working).\n\n**Node:** `POST /wapi/employee/final-signup` (multipart) \u2192 `finalSignupService`\n**Auth:** Public; identity via `user_id` (+ optional `user_token` = loginauth).\n\nSets explore flags, optional resume, upserts experience (`still_working=1`), writes `current_possition` / `current_company`.\nUse `{{user_id}}` / `{{token}}` from signup tests.",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "user_id",
+                      "type": "text",
+                      "value": "{{user_id}}",
+                      "description": "From signup data.id"
+                    },
+                    {
+                      "key": "user_token",
+                      "type": "text",
+                      "value": "{{token}}",
+                      "description": "From signup data.loginauth"
+                    },
+                    {
+                      "key": "user_register_type",
+                      "type": "text",
+                      "value": "2",
+                      "description": "2 = currently working"
+                    },
+                    {
+                      "key": "on_explore",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "on_immediate",
+                      "type": "text",
+                      "value": "1"
+                    },
+                    {
+                      "key": "on_notice",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "notice_period",
+                      "type": "text",
+                      "value": "30",
+                      "description": "Used when on_immediate is truthy"
+                    },
+                    {
+                      "key": "notice_date",
+                      "type": "text",
+                      "value": "",
+                      "description": "Used when on_notice is truthy",
+                      "disabled": true
+                    },
+                    {
+                      "key": "current_position",
+                      "type": "text",
+                      "value": "Engineer",
+                      "description": "Designation id or free-text"
+                    },
+                    {
+                      "key": "current_company",
+                      "type": "text",
+                      "value": "Acme Corp",
+                      "description": "Company user id or free-text"
+                    },
+                    {
+                      "key": "joining_date",
+                      "type": "text",
+                      "value": "2024-01-15"
+                    },
+                    {
+                      "key": "exploring_option",
+                      "type": "text",
+                      "value": "[\"remote\",\"fulltime\"]",
+                      "description": "JSON array or string"
+                    },
+                    {
+                      "key": "resume",
+                      "type": "file",
+                      "src": [],
+                      "description": "Optional PDF/DOC/DOCX"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{URL}}/wapi/employee/final-signup",
+                  "host": [
+                    "{{URL}}"
+                  ],
+                  "path": [
+                    "wapi",
+                    "employee",
+                    "final-signup"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "try {",
+                      "  const j = pm.response.json();",
+                      "  if (j && j.status && j.data) {",
+                      "    if (j.data.loginauth) pm.collectionVariables.set('token', j.data.loginauth);",
+                      "    if (j.data.id) pm.collectionVariables.set('user_id', String(j.data.id));",
+                      "    if (j.data.companyId) pm.collectionVariables.set('company_id', String(j.data.companyId));",
+                      "    if (j.data.jobId) pm.collectionVariables.set('job_id', String(j.data.jobId));",
+                      "  }",
+                      "} catch (e) { console.warn('parse response', e); }"
+                    ]
+                  }
+                }
               ],
-              "path": [
-                "wapi",
-                "employee",
-                "final-signup"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "final-signup (company onboarding)",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
+              "response": [
                 {
-                  "key": "user_id",
-                  "value": "101",
-                  "type": "text"
-                },
-                {
-                  "key": "user_token",
-                  "value": "{{token}}",
-                  "type": "text"
-                },
-                {
-                  "key": "company_name",
-                  "value": "Acme Corp",
-                  "type": "text"
-                },
-                {
-                  "key": "contact_person",
-                  "value": "Jane Doe",
-                  "type": "text"
-                },
-                {
-                  "key": "company_email",
-                  "value": "hr@acme.com",
-                  "type": "text"
-                },
-                {
-                  "key": "company_phone",
-                  "value": "9876543211",
-                  "type": "text"
-                },
-                {
-                  "key": "incorporate_date",
-                  "value": "2020-01-01",
-                  "type": "text"
-                },
-                {
-                  "key": "website",
-                  "value": "https://acme.com",
-                  "type": "text"
-                },
-                {
-                  "key": "industry",
-                  "value": "1",
-                  "type": "text"
-                },
-                {
-                  "key": "job_title",
-                  "value": "Software Engineer",
-                  "type": "text"
-                },
-                {
-                  "key": "job_description",
-                  "value": "Build APIs",
-                  "type": "text"
-                },
-                {
-                  "key": "roles_responsibility",
-                  "value": "Backend development",
-                  "type": "text"
-                },
-                {
-                  "key": "department",
-                  "value": "Engineering",
-                  "type": "text"
-                },
-                {
-                  "key": "city",
-                  "value": "400001",
-                  "type": "text"
-                },
-                {
-                  "key": "state",
-                  "value": "21",
-                  "type": "text"
-                },
-                {
-                  "key": "country",
-                  "value": "101",
-                  "type": "text"
-                },
-                {
-                  "key": "salary",
-                  "value": "1000000",
-                  "type": "text"
-                },
-                {
-                  "key": "vacancy",
-                  "value": "2",
-                  "type": "text"
-                },
-                {
-                  "key": "profile",
-                  "type": "file",
-                  "src": []
+                  "name": "Success",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": true,\n  \"messages\": \"Successfully Registered\",\n  \"data\": {\n    \"loginauth\": \"<jwt>\",\n    \"id\": 101,\n    \"user_type\": \"user\",\n    \"companyId\": 0,\n    \"jobId\": 0\n  }\n}"
                 }
               ]
             },
-            "url": {
-              "raw": "{{URL}}/wapi/employee/final-signup",
-              "host": [
-                "{{URL}}"
-              ],
-              "path": [
-                "wapi",
-                "employee",
-                "final-signup"
-              ]
-            }
-          },
-          "response": []
-        },
-        {
-          "name": "upload-resume",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "user_id",
-                  "value": "101",
-                  "type": "text"
+            {
+              "name": "final-signup (type 3 not currently working)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "description": "Step 2 \u2014 **type 3** (not currently working).\n\nExperience with `still_working=0` + `worked_till_date`.\nRule: worked_till_date must be **>** joining_date (error: `work till date not less then or equal to joining date`).",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "user_id",
+                      "type": "text",
+                      "value": "{{user_id}}"
+                    },
+                    {
+                      "key": "user_token",
+                      "type": "text",
+                      "value": "{{token}}"
+                    },
+                    {
+                      "key": "user_register_type",
+                      "type": "text",
+                      "value": "3",
+                      "description": "3 = not currently working"
+                    },
+                    {
+                      "key": "on_explore",
+                      "type": "text",
+                      "value": "1"
+                    },
+                    {
+                      "key": "on_immediate",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "on_notice",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "current_position",
+                      "type": "text",
+                      "value": "Analyst"
+                    },
+                    {
+                      "key": "current_company",
+                      "type": "text",
+                      "value": "Previous Co"
+                    },
+                    {
+                      "key": "joining_date",
+                      "type": "text",
+                      "value": "2022-01-15"
+                    },
+                    {
+                      "key": "worked_till_date",
+                      "type": "text",
+                      "value": "2023-12-31"
+                    },
+                    {
+                      "key": "resume",
+                      "type": "file",
+                      "src": []
+                    }
+                  ]
                 },
+                "url": {
+                  "raw": "{{URL}}/wapi/employee/final-signup",
+                  "host": [
+                    "{{URL}}"
+                  ],
+                  "path": [
+                    "wapi",
+                    "employee",
+                    "final-signup"
+                  ]
+                }
+              },
+              "event": [
                 {
-                  "key": "resume",
-                  "type": "file",
-                  "src": []
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "try {",
+                      "  const j = pm.response.json();",
+                      "  if (j && j.status && j.data) {",
+                      "    if (j.data.loginauth) pm.collectionVariables.set('token', j.data.loginauth);",
+                      "    if (j.data.id) pm.collectionVariables.set('user_id', String(j.data.id));",
+                      "    if (j.data.companyId) pm.collectionVariables.set('company_id', String(j.data.companyId));",
+                      "    if (j.data.jobId) pm.collectionVariables.set('job_id', String(j.data.jobId));",
+                      "  }",
+                      "} catch (e) { console.warn('parse response', e); }"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "Date validation error",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"work till date not less then or equal to joining date\"\n}"
                 }
               ]
             },
-            "url": {
-              "raw": "{{URL}}/wapi/employee/upload-resume",
-              "host": [
-                "{{URL}}"
+            {
+              "name": "final-signup (type 1 fresher education)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "description": "Step 2 \u2014 **type 1** fresher/student.\n\nCalls `createEducationService` / `updateEducationService` in-process (university + course required for education branch).\nOptional multi `document` files.",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "user_id",
+                      "type": "text",
+                      "value": "{{user_id}}"
+                    },
+                    {
+                      "key": "user_token",
+                      "type": "text",
+                      "value": "{{token}}"
+                    },
+                    {
+                      "key": "user_register_type",
+                      "type": "text",
+                      "value": "1",
+                      "description": "1 = fresher / student"
+                    },
+                    {
+                      "key": "on_explore",
+                      "type": "text",
+                      "value": "1"
+                    },
+                    {
+                      "key": "on_immediate",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "on_notice",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "university",
+                      "type": "text",
+                      "value": "Mumbai University",
+                      "description": "Institution id or free-text name"
+                    },
+                    {
+                      "key": "course_type",
+                      "type": "text",
+                      "value": "1"
+                    },
+                    {
+                      "key": "course",
+                      "type": "text",
+                      "value": "B.Tech",
+                      "description": "Course id or free-text name"
+                    },
+                    {
+                      "key": "starting_date",
+                      "type": "text",
+                      "value": "2018-06-01"
+                    },
+                    {
+                      "key": "ending_date",
+                      "type": "text",
+                      "value": "2022-05-31"
+                    },
+                    {
+                      "key": "state",
+                      "type": "text",
+                      "value": "21"
+                    },
+                    {
+                      "key": "city",
+                      "type": "text",
+                      "value": "400001"
+                    },
+                    {
+                      "key": "country",
+                      "type": "text",
+                      "value": "101"
+                    },
+                    {
+                      "key": "ishighest",
+                      "type": "text",
+                      "value": "1"
+                    },
+                    {
+                      "key": "ongoing",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "document",
+                      "type": "file",
+                      "src": [],
+                      "description": "Optional education document (repeat key for multi)"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{URL}}/wapi/employee/final-signup",
+                  "host": [
+                    "{{URL}}"
+                  ],
+                  "path": [
+                    "wapi",
+                    "employee",
+                    "final-signup"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "try {",
+                      "  const j = pm.response.json();",
+                      "  if (j && j.status && j.data) {",
+                      "    if (j.data.loginauth) pm.collectionVariables.set('token', j.data.loginauth);",
+                      "    if (j.data.id) pm.collectionVariables.set('user_id', String(j.data.id));",
+                      "    if (j.data.companyId) pm.collectionVariables.set('company_id', String(j.data.companyId));",
+                      "    if (j.data.jobId) pm.collectionVariables.set('job_id', String(j.data.jobId));",
+                      "  }",
+                      "} catch (e) { console.warn('parse response', e); }"
+                    ]
+                  }
+                }
               ],
-              "path": [
-                "wapi",
-                "employee",
-                "upload-resume"
+              "response": [
+                {
+                  "name": "Success",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": true,\n  \"messages\": \"Successfully Registered\",\n  \"data\": {\n    \"loginauth\": \"<jwt>\",\n    \"id\": 101,\n    \"user_type\": \"user\",\n    \"companyId\": 0,\n    \"jobId\": 0\n  }\n}"
+                },
+                {
+                  "name": "Education failed",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"Education not added!\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "final-signup (company + job onboarding)",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "description": "Step 2 branches **B + C**: create/update company and optional first job (in-process via login service + `addJobService`).\n\nCan be combined with `user_register_type` employment fields in the same request.\nResponse `data.companyId` / `data.jobId` (0 if unused). Tests save them to collection vars.",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "user_id",
+                      "type": "text",
+                      "value": "{{user_id}}"
+                    },
+                    {
+                      "key": "user_token",
+                      "type": "text",
+                      "value": "{{token}}"
+                    },
+                    {
+                      "key": "user_register_type",
+                      "type": "text",
+                      "value": "2",
+                      "description": "Optional \u2014 can run with employment in same call"
+                    },
+                    {
+                      "key": "on_explore",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "current_position",
+                      "type": "text",
+                      "value": "Founder",
+                      "disabled": true
+                    },
+                    {
+                      "key": "current_company",
+                      "type": "text",
+                      "value": "Acme Corp",
+                      "disabled": true
+                    },
+                    {
+                      "key": "joining_date",
+                      "type": "text",
+                      "value": "2020-01-01",
+                      "disabled": true
+                    },
+                    {
+                      "key": "company_name",
+                      "type": "text",
+                      "value": "Acme Corp"
+                    },
+                    {
+                      "key": "contact_person",
+                      "type": "text",
+                      "value": "Jane Doe"
+                    },
+                    {
+                      "key": "company_email",
+                      "type": "text",
+                      "value": "hr@acme.com"
+                    },
+                    {
+                      "key": "company_phone",
+                      "type": "text",
+                      "value": "9876543211"
+                    },
+                    {
+                      "key": "incorporate_date",
+                      "type": "text",
+                      "value": "2020-01-01"
+                    },
+                    {
+                      "key": "website",
+                      "type": "text",
+                      "value": "acme.com",
+                      "description": "Auto-prefix https:// if no scheme"
+                    },
+                    {
+                      "key": "industry",
+                      "type": "text",
+                      "value": "1"
+                    },
+                    {
+                      "key": "job_title",
+                      "type": "text",
+                      "value": "Software Engineer"
+                    },
+                    {
+                      "key": "job_description",
+                      "type": "text",
+                      "value": "Build APIs with Node.js"
+                    },
+                    {
+                      "key": "roles_responsibility",
+                      "type": "text",
+                      "value": "Backend development"
+                    },
+                    {
+                      "key": "department",
+                      "type": "text",
+                      "value": "Engineering"
+                    },
+                    {
+                      "key": "role_type",
+                      "type": "text",
+                      "value": "1"
+                    },
+                    {
+                      "key": "city",
+                      "type": "text",
+                      "value": "400001"
+                    },
+                    {
+                      "key": "state",
+                      "type": "text",
+                      "value": "21"
+                    },
+                    {
+                      "key": "country",
+                      "type": "text",
+                      "value": "101"
+                    },
+                    {
+                      "key": "salary",
+                      "type": "text",
+                      "value": "1000000"
+                    },
+                    {
+                      "key": "vacancy",
+                      "type": "text",
+                      "value": "2"
+                    },
+                    {
+                      "key": "urgent",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "experience",
+                      "type": "text",
+                      "value": "2"
+                    },
+                    {
+                      "key": "designation",
+                      "type": "text",
+                      "value": "Engineer"
+                    },
+                    {
+                      "key": "status",
+                      "type": "text",
+                      "value": "0"
+                    },
+                    {
+                      "key": "job_mode",
+                      "type": "text",
+                      "value": "1"
+                    },
+                    {
+                      "key": "skill",
+                      "type": "text",
+                      "value": "Node",
+                      "description": "skill field (array clients may send skill[])"
+                    },
+                    {
+                      "key": "skill",
+                      "type": "text",
+                      "value": "MySQL"
+                    },
+                    {
+                      "key": "slug",
+                      "type": "text",
+                      "value": "",
+                      "disabled": true
+                    },
+                    {
+                      "key": "profile",
+                      "type": "file",
+                      "src": [],
+                      "description": "Optional company logo"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{URL}}/wapi/employee/final-signup",
+                  "host": [
+                    "{{URL}}"
+                  ],
+                  "path": [
+                    "wapi",
+                    "employee",
+                    "final-signup"
+                  ]
+                }
+              },
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "try {",
+                      "  const j = pm.response.json();",
+                      "  if (j && j.status && j.data) {",
+                      "    if (j.data.loginauth) pm.collectionVariables.set('token', j.data.loginauth);",
+                      "    if (j.data.id) pm.collectionVariables.set('user_id', String(j.data.id));",
+                      "    if (j.data.companyId) pm.collectionVariables.set('company_id', String(j.data.companyId));",
+                      "    if (j.data.jobId) pm.collectionVariables.set('job_id', String(j.data.jobId));",
+                      "  }",
+                      "} catch (e) { console.warn('parse response', e); }"
+                    ]
+                  }
+                }
+              ],
+              "response": [
+                {
+                  "name": "Success with company + job",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": true,\n  \"messages\": \"Successfully Registered\",\n  \"data\": {\n    \"loginauth\": \"<jwt>\",\n    \"id\": 101,\n    \"user_type\": \"user\",\n    \"companyId\": 10,\n    \"jobId\": 900\n  }\n}"
+                },
+                {
+                  "name": "Company not added",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"Company not added!\"\n}"
+                }
+              ]
+            },
+            {
+              "name": "upload-resume",
+              "request": {
+                "method": "POST",
+                "header": [],
+                "description": "Standalone resume upload (public; body `user_id` only \u2014 no JWT).\n\n**Node:** `POST /wapi/employee/upload-resume` \u2192 `resumeUpload.single('resume')` + `uploadResumeService`\n**File rules:** PDF/DOC/DOCX, max 5MB, S3 prefix `uploads/resume/`\nSets `resume`, `resumeName`, `cvPop=1`. Does **not** re-issue token.\nSuccess messages: `Resume upload successfully` (typo intentional).",
+                "body": {
+                  "mode": "formdata",
+                  "formdata": [
+                    {
+                      "key": "user_id",
+                      "type": "text",
+                      "value": "{{user_id}}"
+                    },
+                    {
+                      "key": "resume",
+                      "type": "file",
+                      "src": [],
+                      "description": "Required PDF/DOC/DOCX \u2264 5MB"
+                    }
+                  ]
+                },
+                "url": {
+                  "raw": "{{URL}}/wapi/employee/upload-resume",
+                  "host": [
+                    "{{URL}}"
+                  ],
+                  "path": [
+                    "wapi",
+                    "employee",
+                    "upload-resume"
+                  ]
+                }
+              },
+              "response": [
+                {
+                  "name": "Success",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": true,\n  \"messages\": \"Resume upload successfully\"\n}"
+                },
+                {
+                  "name": "Missing file",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"You must upload a file (Word, PDF).\"\n}"
+                },
+                {
+                  "name": "Too large",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"The file size must not exceed 5MB.\"\n}"
+                },
+                {
+                  "name": "Bad type",
+                  "originalRequest": null,
+                  "status": "OK",
+                  "code": 200,
+                  "_postman_previewlanguage": "json",
+                  "header": [
+                    {
+                      "key": "Content-Type",
+                      "value": "application/json"
+                    }
+                  ],
+                  "body": "{\n  \"status\": false,\n  \"messages\": \"Allowed file types: PDF, DOC, DOCX.\"\n}"
+                }
               ]
             }
-          },
-          "response": []
+          ]
         },
         {
           "name": "add-employement",
@@ -3253,7 +3785,8 @@
           },
           "response": []
         }
-      ]
+      ],
+      "description": "Employee APIs. Public signup lives in **signup / registration (public)**; all other routes require Bearer {{token}}."
     },
     {
       "name": "education",
@@ -7994,6 +8527,33 @@
           "response": []
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "URL",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "company_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "job_id",
+      "value": "",
+      "type": "string"
     }
   ]
 }

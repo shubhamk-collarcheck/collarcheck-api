@@ -13,10 +13,12 @@ import {
 	cybAccountDeleteRequests,
 	cybCompanyInvite,
 	cybUserExperience,
+	cybUserEducation,
 	cybCompanyJob,
 	cybFollow,
 	cybCities,
 } from "../db/schema";
+import { USER_TYPE } from "./users.repositery";
 
 class LoginRepository {
 	// ====== OTP ======
@@ -92,12 +94,10 @@ class LoginRepository {
 		const [row] = await db
 			.select()
 			.from(cybUser)
-			.where(
-				and(
-					or(eq(cybUser.phone, phone), eq(cybUser.secondPhone, phone)),
-					eq(cybUser.userType, 1),
-					eq(cybUser.isDeleted, 0)
-				)
+			.where(and(or(eq(cybUser.phone, phone), eq(cybUser.secondPhone, phone)),
+				eq(cybUser.userType, USER_TYPE.EMPLOYEE),
+				eq(cybUser.isDeleted, 0)
+			)
 			)
 			.limit(1);
 		return row;
@@ -368,6 +368,57 @@ class LoginRepository {
 					eq(cybUserRelation.isDeleted, 0)
 				)
 			)
+			.limit(1);
+		return row;
+	}
+
+	/** First active company relation for an employee (final-signup company branch). */
+	async getFirstUserRelation(userId: number) {
+		const [row] = await db
+			.select()
+			.from(cybUserRelation)
+			.where(and(eq(cybUserRelation.userId, userId), eq(cybUserRelation.isDeleted, 0)))
+			.orderBy(desc(cybUserRelation.id))
+			.limit(1);
+		return row;
+	}
+
+	async findExperienceByUserAndCompany(userId: number, companyId: number) {
+		const [row] = await db
+			.select()
+			.from(cybUserExperience)
+			.where(
+				and(
+					eq(cybUserExperience.user, userId),
+					eq(cybUserExperience.company, companyId),
+					eq(cybUserExperience.isDeleted, 0)
+				)
+			)
+			.limit(1);
+		return row;
+	}
+
+	async findFirstEducation(userId: number) {
+		const [row] = await db
+			.select({ id: cybUserEducation.id })
+			.from(cybUserEducation)
+			.where(
+				and(
+					eq(cybUserEducation.user, userId),
+					eq(cybUserEducation.isDeleted, 0)
+				)
+			)
+			.orderBy(desc(cybUserEducation.id))
+			.limit(1);
+		return row;
+	}
+
+	async findFirstCompanyJob(companyId: number) {
+		const [row] = await db
+			.select({ id: cybCompanyJob.id })
+			.from(cybCompanyJob)
+			.where(and(eq(cybCompanyJob.company, companyId), eq(cybCompanyJob.isDeleted, 0)))
+			.orderBy(desc(cybCompanyJob.id))
 			.limit(1);
 		return row;
 	}
