@@ -1,6 +1,7 @@
 import { SQSClient, ReceiveMessageCommand, DeleteMessageCommand, } from "@aws-sdk/client-sqs";
 import { handleEmail } from "./handlers/email.handler";
 import { handlePush } from "./handlers/push.handler";
+import { handleSms } from "./handlers/sms.handler";
 import { handleWhatsapp } from "./handlers/whatsapp.handler";
 import { handleSchedular } from "./handlers/scheduler.handler";
 import type { MessageType, WorkerConfig, SQSBaseMessage } from "./types";
@@ -130,6 +131,10 @@ class SqsWorker {
 
 			case "SEND_PUSH":
 				await handlePush(payload as any);
+				break;
+
+			case "SEND_SMS":
+				await handleSms(payload as any);
 				break;
 
 			case "SEND_WHATSAPP":

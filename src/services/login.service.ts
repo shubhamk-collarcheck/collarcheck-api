@@ -6,6 +6,7 @@ import { profilePercentageService } from "./job-dashboard.service";
 import { createEducationService } from "./education.service";
 import { addJobService } from "./company-job.service";
 import { sendEmailViaSQS, sendSQSMessage } from "../utils/sqs";
+import { otpSend, maskMobile } from "../utils/msg91";
 import { randomInt, isEmpty } from "../utils/helpers";
 import type {
 	SendOtpBody,
@@ -279,8 +280,14 @@ export async function getStatistics(userId: number, loginauth?: string) {
 	};
 }
 
-async function sendOtpQuietly(params: { phone?: string; email?: string; name?: string; otp: string; }) {
-	// Persist OTP always
+/**
+ * Persist OTP, then deliver (fail-soft for client parity with PHP).
+ * Phone: MSG91 direct (sync) — same as PHP otpSend. Optional SQS only if MSG91_USE_SQS=1.
+ * Email: SQS SEND_EMAIL template.
+ */
+async function sendOtpQuietly(params: {
+	phone?: string; email?: string; name?: string; otp: string;
+}): Promise<{ smsSent: boolean; emailQueued: boolean }> {
 	await loginRepositery.upsertOtp({
 		phone: params.phone,
 		email: params.email,
@@ -288,27 +295,57 @@ async function sendOtpQuietly(params: { phone?: string; email?: string; name?: s
 		expiry: otpExpiryUnix(),
 	});
 
-	// Delivery via SQS (fail soft)
+	let smsSent = false;
+	let emailQueued = false;
+
 	try {
 		if (params.email) {
 			await sendEmailViaSQS(params.email, 1, {
 				otp: params.otp,
 				name: params.name || "",
 			});
+			emailQueued = true;
+			console.log("[OTP] Email OTP queued for", params.email);
 		}
+
 		if (params.phone) {
-			await sendSQSMessage({
-				type: "SEND_WHATSAPP",
-				payload: {
-					phone: params.phone,
-					template: "otp",
-					vars: { otp: params.otp },
-				},
-			});
+			const masked = maskMobile(params.phone);
+			console.log("[OTP] Sending SMS OTP via MSG91 to", masked);
+
+			// PHP parity: send SMS in-request via MSG91 (do not depend on worker)
+			smsSent = await otpSend(params.phone, params.otp);
+
+			if (smsSent) {
+				console.log("[OTP] SMS delivered to", masked);
+			} else {
+				console.error(
+					"[OTP] SMS delivery FAILED for",
+					masked,
+					"— OTP is stored in DB but message was not sent"
+				);
+
+				// Optional async retry only when explicitly enabled (worker must be running)
+				if (process.env.MSG91_USE_SQS === "true") {
+					try {
+						await sendSQSMessage({
+							type: "SEND_SMS",
+							payload: {
+								phone: params.phone,
+								otp: params.otp,
+							},
+						});
+						console.log("[OTP] Queued SEND_SMS fallback for", masked);
+					} catch (sqsErr) {
+						console.error("[OTP] SEND_SMS queue failed for", masked, sqsErr);
+					}
+				}
+			}
 		}
 	} catch (err) {
-		console.error("OTP delivery error (non-fatal):", err);
+		console.error("[OTP] Delivery error (non-fatal):", err);
 	}
+
+	return { smsSent, emailQueued };
 }
 
 function checkUnifiedCompanyLogin(user: { userType: number | null; createDate: string | null; registerType?: string | null }) {
@@ -635,9 +672,6 @@ export async function socialLoginService(body: SocialLoginBody) {
 	};
 }
 
-// ============================================================================
-// 5. POST /wapi/login (unified send OTP)
-// ============================================================================
 
 export async function loginCommonService(body: LoginCommonBody) {
 	const uniqueId = body.uniqueId.trim();
@@ -669,9 +703,7 @@ export async function loginCommonService(body: LoginCommonBody) {
 			}
 		}
 	} else {
-		const user = phone
-			? await loginRepositery.findAnyByPhone(phone)
-			: await loginRepositery.findAnyByEmail(email!);
+		const user = phone ? await loginRepositery.findAnyByPhone(phone) : await loginRepositery.findAnyByEmail(email!);
 
 		if (!user) {
 			return {
@@ -680,7 +712,7 @@ export async function loginCommonService(body: LoginCommonBody) {
 			};
 		}
 
-		if (user.userType === 2) {
+		if (user.userType === USER_TYPE.COMPANY) {
 			const relation = await loginRepositery.getUserRelationByCompany(user.id);
 			if (relation) {
 				return {
@@ -731,9 +763,6 @@ export async function loginCommonService(body: LoginCommonBody) {
 	};
 }
 
-// ============================================================================
-// 6. POST /wapi/login/verify-otp
-// ============================================================================
 
 export async function verifyCommonOtpService(
 	body: VerifyCommonOtpBody,

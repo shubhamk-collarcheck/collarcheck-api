@@ -37,7 +37,7 @@ export const socialLoginBodySchema = z.object({
 });
 
 export const loginCommonBodySchema = z.object({
-	uniqueId: z.string().min(1, "The Email field is required"),
+	uniqueId: z.string().min(1, "The Email/Phone field is required"),
 	checkUnique: optionalTruthy,
 	methodType: optionalString,
 	token: optionalString,

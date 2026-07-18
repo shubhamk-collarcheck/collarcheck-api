@@ -15,15 +15,6 @@ import {
 	verifyCommonOtp,
 } from "../controllers/login.controller";
 
-/**
- * Mounted at /wapi/login
- * POST /wapi/login
- * POST /wapi/login/sendOtp
- * POST /wapi/login/verifyOtp
- * POST /wapi/login/googlelogin
- * POST /wapi/login/social-login
- * POST /wapi/login/verify-otp
- */
 const loginRouter = Router();
 
 loginRouter.post("/", validateData(loginCommonSchema), loginCommon);

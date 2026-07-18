@@ -1,6 +1,11 @@
 // SQS Worker Types and Interfaces
 
-export type MessageType = "SEND_EMAIL" | "SEND_PUSH" | "SEND_WHATSAPP" | "SEND_SCHEDULAR";
+export type MessageType =
+	| "SEND_EMAIL"
+	| "SEND_PUSH"
+	| "SEND_SMS"
+	| "SEND_WHATSAPP"
+	| "SEND_SCHEDULAR";
 
 // Base message interface
 export interface SQSBaseMessage {
@@ -51,6 +56,13 @@ export interface PushPayload {
 		badge?: number;
 		tag?: string;
 	};
+}
+
+// SMS OTP (MSG91) types — see src/api-ai-document/msg91-sms.md
+export interface SmsPayload {
+	phone: string;
+	otp: string | number;
+	message?: string;
 }
 
 // WhatsApp types

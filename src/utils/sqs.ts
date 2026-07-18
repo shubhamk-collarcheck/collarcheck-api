@@ -22,7 +22,7 @@ export interface SQSEmailPayload {
 }
 
 export interface SQSMessage {
-	type: "SEND_EMAIL" | "SEND_PUSH" | "SEND_WHATSAPP" | "SEND_SCHEDULAR";
+	type: "SEND_EMAIL" | "SEND_PUSH" | "SEND_SMS" | "SEND_WHATSAPP" | "SEND_SCHEDULAR";
 	payload: SQSEmailPayload | Record<string, any>;
 }
 
@@ -35,7 +35,6 @@ export async function sendSQSMessage(message: SQSMessage): Promise<boolean> {
 	const command = new SendMessageCommand({
 		QueueUrl: queueUrl,
 		MessageBody: JSON.stringify(message),
-		// No MessageGroupId / MessageDeduplicationId — standard queue, not FIFO
 	});
 
 	try {
@@ -47,10 +46,7 @@ export async function sendSQSMessage(message: SQSMessage): Promise<boolean> {
 	}
 }
 
-export async function sendEmailViaSQS(
-	email: string,
-	template: number,
-	vars: Record<string, string> = {},
+export async function sendEmailViaSQS(email: string, template: number, vars: Record<string, string> = {},
 	trigger?: { user_id: number; type: string; status: number }
 ): Promise<boolean> {
 	const message: SQSMessage = {
