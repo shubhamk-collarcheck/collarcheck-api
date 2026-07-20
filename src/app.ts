@@ -15,6 +15,8 @@ import homeRouter from "./routes/home.route";
 import contactRouter from "./routes/contact.route";
 import careerRouter from "./routes/career.route";
 import aiRouter from "./routes/ai.route";
+import newRoutesRouter from "./routes/new-routes.route";
+import widgetRouter from "./routes/widget.route";
 import bodyParser from "body-parser";
 import swaggerSpec from "./swagger";
 
@@ -84,6 +86,8 @@ app.use("/wapi/home", homeRouter);
 app.use("/wapi/contact", contactRouter);
 app.use("/wapi/career", careerRouter);
 app.use("/wapi", rootRouter);
+app.use("/wapi", newRoutesRouter);
+app.use("/wapi", widgetRouter);
 app.use("/wapi", aiRouter);
 
 app.use(errorHandler);

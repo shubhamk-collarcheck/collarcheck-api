@@ -36,6 +36,8 @@ src/worker/           → SQS consumers
 | [sendCompanyInvite.md](./sendCompanyInvite.md) | Employee → company invite + SQS |
 | [sqs-flow-diagram.md](./sqs-flow-diagram.md) | SQS worker flow |
 | [other/frontend-public-misc-endpoints.md](./other/frontend-public-misc-endpoints.md) | top-company, contact/career enquiry, sitemap, data-deletion — **implemented** |
+| [other/new-routes-endpoints.md](./other/new-routes-endpoints.md) | splash, report-review, delete-account, ai-generate, hired, resume, FAQ, follow-revoke — **implemented** |
+| [other/widget-routes-endpoints.md](./other/widget-routes-endpoints.md) | discovery widgets, random-widget, impressions — **implemented** |
 | [ai-api/ai-proxy-endpoints.md](./ai-api/ai-proxy-endpoints.md) | AI BFF proxy (semantic, chat, domain, rank, scrape) — **X-API-KEY**, **implemented** |
 
 ### Employee (`/wapi/employee`)
@@ -80,6 +82,8 @@ src/worker/           → SQS consumers
 | `/wapi/home` | `home.route.ts` (top-company) |
 | `/wapi/contact` | `contact.route.ts` (save-enquiry) |
 | `/wapi/career` | `career.route.ts` (save-enquiry) |
+| `/wapi` | `new-routes.route.ts` (splace, faqs, hired-throw, resume, delete-account, …) |
+| `/wapi` | `widget.route.ts` (random-widget, nearby-*, impressions, discovery feeds — JWT) |
 | `/wapi` | `ai.route.ts` (semantic, chat, domain, rec_candidates, scrape — **X-API-KEY**) |
 | `/wapi` | `root.route.ts` (people-list, company-list, multi-*, logout, claim-company, data-deletion, …) |
 | `/wapi/login` | `login.route.ts` (via `root.route.ts`) |
