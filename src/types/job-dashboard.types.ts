@@ -19,12 +19,16 @@ export const viewRequestIdSchema = z.object({
 });
 
 export const paginationQuerySchema = z.object({
-	limit: z.coerce.number().int().positive().optional(),
-	offset: z.coerce.number().int().nonnegative().optional(),
+	query: z.object({
+		limit: z.coerce.number().int().positive(),
+		offset: z.coerce.number().int().nonnegative()
+	})
 });
 
 export const checkCurrentCompanySchema = z.object({
-	employment_id: z.coerce.number().int().positive().optional(),
+	body: z.object({
+		employment_id: z.coerce.number().int().positive().optional(),
+	})
 });
 
 export const multiDeleteViewRequestSchema = z.object({

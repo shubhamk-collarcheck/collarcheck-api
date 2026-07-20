@@ -57,7 +57,7 @@ export async function approvedEmployment(req: Request, res: Response, next: Next
 export async function allViewRequest(req: Request, res: Response, next: NextFunction) {
 	try {
 		const { user_id } = req.auth as AuthUser;
-		const { query } = req.validated as { query: PaginationQuery };
+		const { query } = req.validated as PaginationQuery;
 		const limit = query.limit || 15;
 		const offset = ((query.offset || 1) - 1) * limit;
 		const result = await allViewRequestService(user_id, limit, offset);
@@ -127,8 +127,8 @@ export async function multiApprovedVeiwRequest(req: Request, res: Response, next
 export async function checkCurrentCompany(req: Request, res: Response, next: NextFunction) {
 	try {
 		const { user_id } = req.auth as AuthUser;
-		const { query } = req.validated as { query: CheckCurrentCompanyQuery };
-		const result = await checkCurrentCompanyService(user_id, query.employment_id);
+		const { body } = req.validated as CheckCurrentCompanyQuery
+		const result = await checkCurrentCompanyService(user_id, body.employment_id);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
@@ -148,7 +148,7 @@ export async function dashboard(req: Request, res: Response, next: NextFunction)
 export async function appliedjob(req: Request, res: Response, next: NextFunction) {
 	try {
 		const { user_id } = req.auth as AuthUser;
-		const { query } = req.validated as { query: PaginationQuery };
+		const { query } = req.validated as PaginationQuery
 		const limit = query.limit || 16;
 		const offset = ((query.offset || 1) - 1) * limit;
 		const result = await appliedjobService(user_id, limit, offset);

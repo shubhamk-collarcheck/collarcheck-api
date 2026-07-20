@@ -17,6 +17,8 @@ import careerRouter from "./routes/career.route";
 import aiRouter from "./routes/ai.route";
 import newRoutesRouter from "./routes/new-routes.route";
 import widgetRouter from "./routes/widget.route";
+import accountMigrationRouter from "./routes/account-migration.route";
+import testRoutesRouter from "./routes/test-routes.route";
 import bodyParser from "body-parser";
 import swaggerSpec from "./swagger";
 
@@ -41,7 +43,16 @@ app.use(
 		},
 		credentials: true,
 		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-		allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+		allowedHeaders: [
+			"Content-Type",
+			"Authorization",
+			"X-Requested-With",
+			"Accept",
+			"X-Company",
+			"X-Ops-Key",
+			"X-Admin-Key",
+			"X-API-KEY",
+		],
 	})
 );
 
@@ -88,6 +99,8 @@ app.use("/wapi/career", careerRouter);
 app.use("/wapi", rootRouter);
 app.use("/wapi", newRoutesRouter);
 app.use("/wapi", widgetRouter);
+app.use("/wapi", accountMigrationRouter);
+app.use("/wapi", testRoutesRouter);
 app.use("/wapi", aiRouter);
 
 app.use(errorHandler);

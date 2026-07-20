@@ -38,6 +38,8 @@ src/worker/           → SQS consumers
 | [other/frontend-public-misc-endpoints.md](./other/frontend-public-misc-endpoints.md) | top-company, contact/career enquiry, sitemap, data-deletion — **implemented** |
 | [other/new-routes-endpoints.md](./other/new-routes-endpoints.md) | splash, report-review, delete-account, ai-generate, hired, resume, FAQ, follow-revoke — **implemented** |
 | [other/widget-routes-endpoints.md](./other/widget-routes-endpoints.md) | discovery widgets, random-widget, impressions — **implemented** |
+| [other/account-migration-management-endpoints.md](./other/account-migration-management-endpoints.md) | company roles/permissions, merge OTP, doctype, revoke-delete — **implemented** |
+| [other/test-routes-endpoints.md](./other/test-routes-endpoints.md) | ops utils + resume/notice/save-epfo (CV popup) — **implemented** |
 | [ai-api/ai-proxy-endpoints.md](./ai-api/ai-proxy-endpoints.md) | AI BFF proxy (semantic, chat, domain, rank, scrape) — **X-API-KEY**, **implemented** |
 
 ### Employee (`/wapi/employee`)
@@ -84,6 +86,8 @@ src/worker/           → SQS consumers
 | `/wapi/career` | `career.route.ts` (save-enquiry) |
 | `/wapi` | `new-routes.route.ts` (splace, faqs, hired-throw, resume, delete-account, …) |
 | `/wapi` | `widget.route.ts` (random-widget, nearby-*, impressions, discovery feeds — JWT) |
+| `/wapi` | `account-migration.route.ts` (roles, permissions, merge OTP, doctype, …) |
+| `/wapi` | `test-routes.route.ts` (resume-template, save-epfo, update-notice, ops tools) |
 | `/wapi` | `ai.route.ts` (semantic, chat, domain, rec_candidates, scrape — **X-API-KEY**) |
 | `/wapi` | `root.route.ts` (people-list, company-list, multi-*, logout, claim-company, data-deletion, …) |
 | `/wapi/login` | `login.route.ts` (via `root.route.ts`) |
