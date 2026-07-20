@@ -4,11 +4,26 @@ import { AuthUser } from "../types/express";
 import { allCertificateListService, createCertificateService, deleteCertificateService, certificateDetailService, updateCertificateService } from "../services/certificate.service";
 import { CommonIdParams } from "../utils/validation";
 
+/** Normalize multer .fields() / .array() output for certificate document uploads. */
+function certificateFiles(req: Request): Express.MulterS3.File[] {
+	const f = req.files as
+		| { [fieldname: string]: Express.MulterS3.File[] }
+		| Express.MulterS3.File[]
+		| undefined;
+	if (!f) return [];
+	if (Array.isArray(f)) return f;
+	return [
+		...(f.document || []),
+		...(f["document[]"] || []),
+		...(f.file || []),
+	];
+}
+
 export async function addCertificate(req: Request, res: Response, next: NextFunction) {
 	try {
 		const { user_id } = req.auth as AuthUser
 		const { body } = req.validated as CertificateRequest
-		const files = req.files as Express.MulterS3.File[] | undefined
+		const files = certificateFiles(req)
 
 		const messages = await createCertificateService(user_id, body, files)
 
@@ -25,7 +40,7 @@ export async function updateCertificate(req: Request, res: Response, next: NextF
 	try {
 		const { user_id } = req.auth as AuthUser
 		const { body, params } = req.validated as CertificateUpdateRequest
-		const files = req.files as Express.MulterS3.File[] | undefined
+		const files = certificateFiles(req)
 
 		const messages = await updateCertificateService(user_id, params.id, body, files)
 

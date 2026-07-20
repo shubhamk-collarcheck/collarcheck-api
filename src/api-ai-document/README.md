@@ -32,8 +32,11 @@ src/worker/           → SQS consumers
 |-----|----------|
 | [common-auth-endpoints.md](./common-auth-endpoints.md) | User settings, auth profiles, people-list, view-request |
 | [remaining-misc-crud-endpoints.md](./remaining-misc-crud-endpoints.md) | 19 misc CRUD (follow, wishlist writes, company-list, multi-*, etc.) — **all implemented** |
+| [login-registration-endpoints.md](./login-registration-endpoints.md) | Login / OTP / register / signup |
 | [sendCompanyInvite.md](./sendCompanyInvite.md) | Employee → company invite + SQS |
 | [sqs-flow-diagram.md](./sqs-flow-diagram.md) | SQS worker flow |
+| [other/frontend-public-misc-endpoints.md](./other/frontend-public-misc-endpoints.md) | top-company, contact/career enquiry, sitemap, data-deletion — **implemented** |
+| [ai-api/ai-proxy-endpoints.md](./ai-api/ai-proxy-endpoints.md) | AI BFF proxy (semantic, chat, domain, rank, scrape) — **X-API-KEY**, **implemented** |
 
 ### Employee (`/wapi/employee`)
 | Doc | Coverage |
@@ -74,7 +77,11 @@ src/worker/           → SQS consumers
 | `/wapi/user` | `user.route.ts` |
 | `/wapi/auth` | `auth.route.ts` |
 | `/wapi/company` | `company.route.ts` |
-| `/wapi` | `root.route.ts` (people-list, company-list, multi-*, logout, claim-company, …) |
+| `/wapi/home` | `home.route.ts` (top-company) |
+| `/wapi/contact` | `contact.route.ts` (save-enquiry) |
+| `/wapi/career` | `career.route.ts` (save-enquiry) |
+| `/wapi` | `ai.route.ts` (semantic, chat, domain, rec_candidates, scrape — **X-API-KEY**) |
+| `/wapi` | `root.route.ts` (people-list, company-list, multi-*, logout, claim-company, data-deletion, …) |
 | `/wapi/login` | `login.route.ts` (via `root.route.ts`) |
 
 ## PHP path compatibility (keep these spellings)

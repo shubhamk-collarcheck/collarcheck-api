@@ -12,6 +12,8 @@ declare global {
 		interface Request {
 			auth?: AuthUser;
 			validated?: unknown;
+			/** Set by AiAuth middleware (X-API-KEY pass-through). */
+			aiApiKey?: string;
 		}
 	}
 }

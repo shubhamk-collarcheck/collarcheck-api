@@ -30,18 +30,8 @@ import { sidebarCount, leaveReminderExperience, saveExploring, cvDetails, editPr
 import { removeNotificationBodySchema, allUserQuerySchema } from "../types/general.types";
 import { removeNotificationByBody } from "../controllers/general.controller";
 import { allUser } from "../controllers/misc.controller";
-import {
-	employeeRegisterSchema,
-	employeeSignupSchema,
-	finalSignupSchema,
-	uploadResumeSchema,
-} from "../types/login.types";
-import {
-	employeeRegister,
-	employeeSignup,
-	finalSignup,
-	uploadResume,
-} from "../controllers/login.controller";
+import { employeeRegisterSchema, employeeSignupSchema, finalSignupSchema, uploadResumeSchema, } from "../types/login.types";
+import { employeeRegister, employeeSignup, finalSignup, uploadResume, } from "../controllers/login.controller";
 import { resumeUpload } from "../utils/resumeUpload";
 import multer from "multer";
 
@@ -51,22 +41,33 @@ const employRouter = Router()
 // multipart/form-data field parser (no files) for form-based auth endpoints
 const formData = multer().none();
 
-// Login / registration (public; final-signup + upload-resume use body user_id)
+// Clients send document / document[] (legacy PHP); also accept file for older callers
+const employmentUpload = uploadToS3.fields([
+	{ name: "document", maxCount: 5 },
+	{ name: "document[]", maxCount: 5 },
+	{ name: "file", maxCount: 5 },
+]);
+
+
+const educationUploads = educationUpload.fields([
+	{ name: "resume", maxCount: 1 },
+	{ name: "profile", maxCount: 1 },
+	{ name: "document", maxCount: 5 },
+]);
+
+const certificateUpload = educationUpload.fields([
+	{ name: "document", maxCount: 5 },
+	{ name: "document[]", maxCount: 5 },
+	{ name: "file", maxCount: 5 },
+]);
+
+
 employRouter.post("/register", formData, validateData(employeeRegisterSchema), employeeRegister);
 employRouter.post("/signup", formData, validateData(employeeSignupSchema), employeeSignup);
-employRouter.post("/final-signup",
-	educationUpload.fields([
-		{ name: "resume", maxCount: 1 },
-		{ name: "profile", maxCount: 1 },
-		{ name: "document", maxCount: 5 },
-	]),
-	validateData(finalSignupSchema),
-	finalSignup
-);
+employRouter.post("/final-signup", educationUploads, validateData(finalSignupSchema), finalSignup);
 employRouter.post("/upload-resume", resumeUpload.single("resume"), validateData(uploadResumeSchema), uploadResume);
-
-employRouter.post("/add-employement", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), addExperience)
-employRouter.post("/add-employement/:employment_id", Authorization, uploadToS3.array("file"), validateData(employmentRequestSchema), updateExperience)
+employRouter.post("/add-employement", Authorization, employmentUpload, validateData(employmentRequestSchema), addExperience)
+employRouter.post("/add-employement/:employment_id", Authorization, employmentUpload, validateData(employmentRequestSchema), updateExperience)
 employRouter.get("/all-employement", Authorization, allExperience)
 employRouter.get("/allEmployementNew", Authorization, allEmployementNew)
 employRouter.get("/employement-detail/:id", Authorization, validateData(commonIdParamsSchema), detailExperience)
@@ -81,7 +82,7 @@ employRouter.delete("/delete-education/:id", Authorization, validateData(commonI
 
 employRouter.get("/all-skill", Authorization, allSkill)
 employRouter.delete("/delete-skill/:id", Authorization, validateData(commonIdParamsSchema), deleteSkill)
-employRouter.post("/add-skill", Authorization, validateData(skillRequestSchema), addSkill)
+employRouter.post("/add-skill", formData, Authorization, validateData(skillRequestSchema), addSkill)
 
 employRouter.post("/add-portfolio", Authorization, uploadToS3.single("file"), validateData(portfolioRequestSchema), addPortfolio)
 employRouter.post("/add-portfolio/:id", Authorization, uploadToS3.single("file"), validateData(portfolioUpdateRequestSchema), updatePortfolio)
@@ -91,8 +92,9 @@ employRouter.delete("/delete-portfolio/:id", Authorization, validateData(commonI
 
 employRouter.get("/all-certificate", Authorization, allCertificateList)
 employRouter.get("/certificate-detail/:id", Authorization, validateData(commonIdParamsSchema), certificateDetail)
-employRouter.post("/add-certificate", Authorization, educationUpload.array("document"), validateData(certificateRequestSchema), addCertificate)
-employRouter.post("/add-certificate/:id", Authorization, educationUpload.array("document"), validateData(certificateUpdateRequestSchema), updateCertificate)
+// Clients send document / document[] (same as employment); also accept file
+employRouter.post("/add-certificate", Authorization, certificateUpload, validateData(certificateRequestSchema), addCertificate)
+employRouter.post("/add-certificate/:id", Authorization, certificateUpload, validateData(certificateUpdateRequestSchema), updateCertificate)
 employRouter.delete("/delete-certificate/:id", Authorization, validateData(commonIdParamsSchema), deleteCertificate)
 
 employRouter.post("/add-document", Authorization, educationUpload.array("document"), validateData(documentRequestSchema), addDocument)
@@ -100,7 +102,7 @@ employRouter.get("/all-document", Authorization, allDocumentList)
 employRouter.get("/document-detail/:id", Authorization, validateData(commonIdParamsSchema), documentDetail)
 employRouter.delete("/delete-document/:id", Authorization, validateData(commonIdParamsSchema), deleteDocument)
 
-employRouter.post("/add_language", Authorization, validateData(languageRequestSchema), addLanguage)
+employRouter.post("/add_language", formData, Authorization, validateData(languageRequestSchema), addLanguage)
 employRouter.get("/allLanguage", Authorization, allLanguageList)
 employRouter.get("/language-detail/:id", Authorization, validateData(commonIdParamsSchema), languageDetail)
 employRouter.delete("/language/:id", Authorization, validateData(commonIdParamsSchema), deleteLanguage)
@@ -143,3 +145,31 @@ employRouter.delete("/removeNotification", Authorization, validateData(removeNot
 employRouter.get("/all-user", Authorization, validateData(allUserQuerySchema), allUser)
 
 export default employRouter;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

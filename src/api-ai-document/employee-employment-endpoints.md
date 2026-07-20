@@ -84,7 +84,8 @@ z.object({ params: z.object({ id: z.number() }) })
 
 ## Middleware
 
-- **File Upload:** `uploadToS3.array("document")` (S3 multer, PDF/TXT, 2MB, max 5 files)
+- **File Upload:** `uploadToS3.fields([{ name: "document" }, { name: "document[]" }, { name: "file" }])` (S3 multer, PDF/TXT, 2MB, max 5 files per field name). Prefer form field **`document`** (or `document[]` from Postman/mobile).
+- **Skills:** form `skill[0]…` or JSON array of **names or IDs**. Resolved via `resolveSkill` → lookup/create in `cyb_skill` (schema has no `category` column in production).
 - **Body Parser:** `express.json()`
 - **Auth:** `authenticate` middleware extracts `uid` from JWT → `req.userId`
 

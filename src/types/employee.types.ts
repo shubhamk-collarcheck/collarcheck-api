@@ -16,7 +16,13 @@ export const employmentBodySchema = z.object({
 
 	department: idOrText,
 
-	skill: z.array(z.string().trim().min(1)).default([]),
+	// form-data: skill[0], skill[1] → array; single skill → string; JSON → array of id|name
+	skill: z.preprocess((val) => {
+		if (val === undefined || val === null || val === "") return [];
+		if (Array.isArray(val)) return val;
+		if (typeof val === "object") return Object.values(val as Record<string, unknown>);
+		return [val];
+	}, z.array(z.union([z.string(), z.number()])).default([])),
 
 	employment_type: z.coerce.number().int().positive(),
 
@@ -32,7 +38,7 @@ export const employmentBodySchema = z.object({
 
 	salary_inhand: z.enum(["In Hand", "CTC",]),
 
-	salary_mode: z.enum(["Per Month", "Annually",]),
+	salary_mode: z.enum(["Per Month", "Per Annum",]),
 	hired: z.preprocess(
 		(value) => {
 			if (value === "TRUE" || value === "true") return true;

@@ -102,8 +102,22 @@ export const resolveDepartment = async (value: string | number, id: number): Pro
 	return { id: null, data: insertData }
 }
 export const resolveSkill = async (arr: (string | number)[], id: number): Promise<{ ids: number[], data: NewSkill[] }> => {
-	const filterNumber = arr.filter((item) => typeof item === "number");
-	const filterString = arr.filter((item) => typeof item === "string").map((s) => s.trim()).filter((s) => s.length > 0);
+	// Accept numeric IDs, numeric strings ("12"), or skill name strings
+	const filterNumber: number[] = [];
+	const filterString: string[] = [];
+	for (const item of arr) {
+		if (typeof item === "number" && Number.isFinite(item)) {
+			filterNumber.push(item);
+			continue;
+		}
+		const s = String(item ?? "").trim();
+		if (!s) continue;
+		if (/^\d+$/.test(s)) {
+			filterNumber.push(Number(s));
+		} else {
+			filterString.push(s);
+		}
+	}
 
 	if (isEmptyArray(filterString)) {
 		return { ids: filterNumber, data: [] };
@@ -112,23 +126,25 @@ export const resolveSkill = async (arr: (string | number)[], id: number): Promis
 	const uniqueNames = [...new Set(filterString)];
 
 	const existingSkills = await skillRepositery.findByListOfName(uniqueNames);
+	// Case-insensitive match (DB may store different casing)
 	const nameToId = new Map<string, number>();
-	existingSkills.forEach((skill) => nameToId.set(skill.name!, skill.id));
+	existingSkills.forEach((skill) => {
+		if (skill.name) nameToId.set(skill.name.toLowerCase(), skill.id);
+	});
 
-	const nameAlreadyExistId = existingSkills.map((skill) => skill.id)
+	const nameAlreadyExistId = existingSkills.map((skill) => skill.id);
 
-	const namesToCreate = uniqueNames.filter((name) => !nameToId.has(name));
+	const namesToCreate = uniqueNames.filter((name) => !nameToId.has(name.toLowerCase()));
 
-	let createSkillsData: NewSkill[] = []
+	let createSkillsData: NewSkill[] = [];
 	if (!isEmptyArray(namesToCreate)) {
 		createSkillsData = namesToCreate.map((name) => ({
 			name,
-			user_defined: 1,
-			user_id: id,
+			userDefined: 1,
+			userId: id,
 			status: 1,
-		}))
+		}));
 	}
-
 
 	return { ids: [...filterNumber, ...nameAlreadyExistId], data: createSkillsData };
 };

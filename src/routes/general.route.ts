@@ -33,6 +33,8 @@ import {
 	followSchema, acceptFollowParamsSchema, rejectFollowParamsSchema,
 	deleteMessageParamsSchema, skillByCategoryParamsSchema, companyProfileParamsSchema,
 } from '../types/general.types';
+import { sitemapQuerySchema } from '../types/frontend.types';
+import { sitemap } from '../controllers/frontend.controller';
 
 const generalRoute = Router();
 
@@ -126,5 +128,8 @@ generalRoute.put("/acceptfollow/:id", Authorization, validateData(acceptFollowPa
 generalRoute.delete("/rejectfollow/:id", Authorization, validateData(rejectFollowParamsSchema), rejectFollow)
 generalRoute.get("/skill/:id", validateData(skillByCategoryParamsSchema), skillByCategory)
 generalRoute.get("/company-profile/:slug", validateData(companyProfileParamsSchema), generalCompanyProfile)
+
+// Frontend public: sitemap
+generalRoute.get("/sitemap", validateData(sitemapQuerySchema), sitemap)
 
 export default generalRoute;

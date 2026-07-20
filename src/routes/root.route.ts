@@ -17,10 +17,15 @@ import {
 import {
 	multiUnfollowSchema, removeNotificationParamsSchema, multiFollowIdsSchema, companyListRootQuerySchema,
 } from "../types/general.types";
+import { dataDeletion } from "../controllers/frontend.controller";
 
 const rootRouter = Router();
 
 rootRouter.use("/login", loginRouter);
+
+// Meta data-deletion callback (public stub)
+rootRouter.get("/data-deletion", dataDeletion);
+rootRouter.post("/data-deletion", dataDeletion);
 rootRouter.get("/people-list-signup", peopleListSignup);
 rootRouter.post("/claim-company", validateData(claimCompanySchema), claimCompany);
 rootRouter.get("/logout", Authorization, logout);

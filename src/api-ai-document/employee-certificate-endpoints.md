@@ -69,7 +69,7 @@ z.object({ params: z.object({ id: z.number() }) })
 
 ## Middleware
 
-- **File Upload:** `educationUpload.array("document")` (S3 multer, PDF/PNG/JPG/JPEG/DOC/DOCX, 2MB, max 5 files)
+- **File Upload:** `educationUpload.fields([{ name: "document" }, { name: "document[]" }, { name: "file" }])` (S3 multer, PDF/PNG/JPG/JPEG/DOC/DOCX, 2MB, max 5 per field). Prefer form field **`document`** (or `document[]` from Postman/mobile).
 - **Body Parser:** `express.json()`
 - **Auth:** `authenticate` middleware extracts `uid` from JWT → `req.userId`
 
