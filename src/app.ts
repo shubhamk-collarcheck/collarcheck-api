@@ -1,4 +1,5 @@
-import express from "express";
+import express, { Request } from "express";
+import cors from "cors";
 import morgan from "morgan";
 import swaggerUi from "swagger-ui-express";
 import { errorHandler } from "./middlewares/errorHandler";
@@ -15,9 +16,54 @@ import swaggerSpec from "./swagger";
 
 const app = express();
 
-app.use(morgan(":method :url :status :response-time ms - :res[content-length]"));
+const allowedOrigins = [
+	"http://localhost:3000",
+	"https://localhost:3000",
+	"http://admin.collarcheck.com",
+	"https://admin.collarcheck.com",
+];
+
+app.use(
+	cors({
+		origin(origin, callback) {
+			// Allow non-browser clients (Postman, curl, mobile) with no Origin header
+			if (!origin || allowedOrigins.includes(origin)) {
+				callback(null, true);
+				return;
+			}
+			callback(null, false);
+		},
+		credentials: true,
+		methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+		allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+	})
+);
+
+// JSON + form-urlencoded so clients can post either Content-Type
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Log POST request bodies (after body parsing so req.body is available).
+// multipart/form-data is filled later by multer on the route; morgan logs on
+// response finish so those fields are included too.
+morgan.token("body", (req) => {
+	if (req.method !== "POST") return "";
+	const body = (req as Request).body;
+	if (!body || (typeof body === "object" && Object.keys(body).length === 0)) {
+		return "";
+	}
+	try {
+		return JSON.stringify(body);
+	} catch {
+		return "[unserializable body]";
+	}
+});
+
+app.use(
+	morgan(":method :url :status :response-time ms - :res[content-length] :body")
+);
 
 app.get("/health", (_req, res) => {
 	res.json({ status: "ok" });

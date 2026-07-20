@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { validateData } from "../middlewares/validation.middleware";
 import {
 	sendOtpSchema,
@@ -17,11 +18,13 @@ import {
 
 const loginRouter = Router();
 
-loginRouter.post("/", validateData(loginCommonSchema), loginCommon);
-loginRouter.post("/sendOtp", validateData(sendOtpSchema), sendOtp);
-loginRouter.post("/verifyOtp", validateData(verifyOtpSchema), verifyOtp);
-loginRouter.post("/googlelogin", validateData(socialLoginSchema), socialLogin);
-loginRouter.post("/social-login", validateData(socialLoginSchema), socialLogin);
-loginRouter.post("/verify-otp", validateData(verifyCommonOtpSchema), verifyCommonOtp);
+const formData = multer().none();
+
+loginRouter.post("/", formData, validateData(loginCommonSchema), loginCommon);
+loginRouter.post("/sendOtp", formData, validateData(sendOtpSchema), sendOtp);
+loginRouter.post("/verifyOtp", formData, validateData(verifyOtpSchema), verifyOtp);
+loginRouter.post("/googlelogin", formData, validateData(socialLoginSchema), socialLogin);
+loginRouter.post("/social-login", formData, validateData(socialLoginSchema), socialLogin);
+loginRouter.post("/verify-otp", formData, validateData(verifyCommonOtpSchema), verifyCommonOtp);
 
 export default loginRouter;

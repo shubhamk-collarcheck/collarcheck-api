@@ -7,10 +7,10 @@ const optionalString = z.union([z.string(), z.number()]).optional().transform((v
 const optionalTruthy = z.any().optional();
 
 export const sendOtpBodySchema = z.object({
-	phone: optionalString,
-	email: optionalString,
+	phone: z.string().min(1, "The Phone field is required."),
+	email: z.string().min(1, "The email field is required."),
 	international: optionalString,
-	name: optionalString,
+	name: z.string().min(1, "The name field is required."),
 	checkUnique: optionalTruthy,
 	referral_code: optionalString,
 	send_email: optionalTruthy,

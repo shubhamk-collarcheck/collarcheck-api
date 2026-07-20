@@ -71,3 +71,7 @@ export const getS3Url = (key: string): string =>
 	`https://${process.env.AWS_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
 
 
+
+export const isValidPhoneNumber = (phone: string): boolean => {
+	return !/^\+?\d{8,15}$/.test(phone)
+}

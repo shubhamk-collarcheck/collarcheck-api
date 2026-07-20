@@ -43,11 +43,15 @@ import {
 
 import { companyRegisterSchema } from "../types/login.types";
 import { companyRegister } from "../controllers/login.controller";
+import multer from "multer";
 
 const companyRouter = Router();
 
+// multipart/form-data field parser (no files) for form-based register
+const formData = multer().none();
+
 // Company form register (JWT required)
-companyRouter.post("/register", Authorization, validateData(companyRegisterSchema), companyRegister);
+companyRouter.post("/register", Authorization, formData, validateData(companyRegisterSchema), companyRegister);
 
 companyRouter.post("/sendUserProfileViewRequest", Authorization, validateData(sendUserProfileViewRequestSchema), sendUserProfileViewRequest);
 

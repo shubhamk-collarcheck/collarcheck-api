@@ -43,13 +43,17 @@ import {
 	uploadResume,
 } from "../controllers/login.controller";
 import { resumeUpload } from "../utils/resumeUpload";
+import multer from "multer";
 
 
 const employRouter = Router()
 
+// multipart/form-data field parser (no files) for form-based auth endpoints
+const formData = multer().none();
+
 // Login / registration (public; final-signup + upload-resume use body user_id)
-employRouter.post("/register", validateData(employeeRegisterSchema), employeeRegister);
-employRouter.post("/signup", validateData(employeeSignupSchema), employeeSignup);
+employRouter.post("/register", formData, validateData(employeeRegisterSchema), employeeRegister);
+employRouter.post("/signup", formData, validateData(employeeSignupSchema), employeeSignup);
 employRouter.post("/final-signup",
 	educationUpload.fields([
 		{ name: "resume", maxCount: 1 },

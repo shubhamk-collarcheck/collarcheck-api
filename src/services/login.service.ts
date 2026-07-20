@@ -7,7 +7,7 @@ import { createEducationService, updateEducationService } from "./education.serv
 import { addJobService } from "./company-job.service";
 import { sendEmailViaSQS, sendSQSMessage } from "../utils/sqs";
 import { otpSend, maskMobile } from "../utils/msg91";
-import { randomInt, isEmpty } from "../utils/helpers";
+import { randomInt, isEmpty, isValidPhoneNumber } from "../utils/helpers";
 import type {
 	SendOtpBody,
 	VerifyOtpBody,
@@ -33,6 +33,12 @@ function isTruthy(v: unknown): boolean {
 	return Boolean(v);
 }
 
+
+function isInternational(v: unknown): boolean {
+	if (v === undefined || v === null || v === "" || v === false || v === "0" || v === 0) return false;
+	if (v === true || v === 1 || v === "1") return true;
+	return Boolean(v);
+}
 function isEmail(value: string): boolean {
 	return EMAIL_REGEX.test(value.trim());
 }
@@ -369,8 +375,10 @@ function checkUnifiedCompanyLogin(user: { userType: number | null; createDate: s
 export async function sendOtpService(body: SendOtpBody) {
 	const phone = body.phone?.trim();
 	const email = body.email?.trim()?.toLowerCase();
-	const international = isTruthy(body.international);
+	const international = isInternational(body.international);
 	const checkUnique = isTruthy(body.checkUnique);
+
+	console.log("sendOtp body:", JSON.stringify(body))
 
 	if (international && !email) {
 		return { status: false, messages: "Kindly enter your email address." };
@@ -500,7 +508,7 @@ export async function verifyOtpService(body: VerifyOtpBody) {
 	if (!phone && !email) {
 		return { status: false, message: "validation..." };
 	}
-	if (phone && !/^\d{8,15}$/.test(phone)) {
+	if (phone && isValidPhoneNumber(phone)) {
 		return { status: false, messages: "invalid phone no." };
 	}
 	if (email && !isEmail(email)) {
@@ -778,7 +786,7 @@ export async function verifyCommonOtpService(
 	const phone = emailPath ? undefined : uniqueId;
 	const email = emailPath ? uniqueId.toLowerCase() : undefined;
 
-	if (!emailPath && phone && !/^\+?\d{8,15}$/.test(phone)) {
+	if (!emailPath && phone && isValidPhoneNumber(phone)) {
 		console.log("reaching this place")
 		return { status: false, message: "invalid phone no." };
 	}
