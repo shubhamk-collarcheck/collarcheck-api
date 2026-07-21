@@ -34,32 +34,10 @@ testRoutesRouter.get("/update-ccid", c.updateCcid);
 testRoutesRouter.get("/digilocker", c.digilocker);
 
 // ---- Product (JWT) ----
-testRoutesRouter.post(
-	"/resume-download",
-	Authorization,
-	formData,
-	validateData(resumeDownloadSchema),
-	c.resumeDownload
-);
-testRoutesRouter.post(
-	"/update-notice",
-	Authorization,
-	formData,
-	validateData(updateNoticeSchema),
-	c.updateNotice
-);
-testRoutesRouter.post(
-	"/save-epfo",
-	Authorization,
-	saveEpfoUpload,
-	c.saveEpfo
-);
+testRoutesRouter.post("/resume-download", Authorization, formData, validateData(resumeDownloadSchema), c.resumeDownload);
+testRoutesRouter.post("/update-notice", Authorization, formData, validateData(updateNoticeSchema), c.updateNotice);
+testRoutesRouter.post("/save-epfo", Authorization, saveEpfoUpload, c.saveEpfo);
 testRoutesRouter.get("/resume-template", Authorization, c.resumeTemplate);
-testRoutesRouter.get(
-	"/resume-details",
-	Authorization,
-	validateData(resumeDetailsQuerySchema),
-	c.resumeDetails
-);
+testRoutesRouter.get("/resume-details", Authorization, validateData(resumeDetailsQuerySchema), c.resumeDetails);
 
 export default testRoutesRouter;

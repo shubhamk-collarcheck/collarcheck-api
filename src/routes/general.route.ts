@@ -35,6 +35,22 @@ import {
 } from '../types/general.types';
 import { sitemapQuerySchema } from '../types/frontend.types';
 import { sitemap } from '../controllers/frontend.controller';
+import {
+	verifyDocumentSchema,
+	verifyDocumentGetSchema,
+	verifyAadharSchema,
+	verifyGstSchema,
+	verifyDigilockerSchema,
+} from '../types/verify.types';
+import {
+	verifyDocument,
+	verifyAadhar,
+	verifyGst,
+	verifyDigilocker,
+} from '../controllers/verify.controller';
+import multer from 'multer';
+
+const formData = multer().none();
 
 const generalRoute = Router();
 
@@ -86,38 +102,16 @@ generalRoute.get("/company-verificationStatus", Authorization, verificationStatu
 
 // Endpoint #1: Verify Auth Token
 generalRoute.get("/verify-authtoken", Authorization, verifyAuthToken)
-
-// Endpoint #2: Doc List
 generalRoute.get("/doc-list/:id", Authorization, validateData(docListParamsSchema), allDocList)
-
-// Endpoint #3: All Message
 generalRoute.get("/all-message", Authorization, allMessageListGeneral)
-
-// Endpoint #4: All Notification
 generalRoute.get("/all-notification", Authorization, allNotification)
-
-// Endpoint #5: Verification Status
 generalRoute.get("/verificationStatus", Authorization, verificationStatusGeneral)
-
-// Endpoint #6: Follow Data List
 generalRoute.get("/followDataList", Authorization, followDataListGeneral)
-
-// Endpoint #8: Save Document
 generalRoute.post("/saveDocument", Authorization, validateData(saveDocumentSchema), saveDocument)
-
-// Endpoint #11: All Read Notification
 generalRoute.put("/allReadNotification", Authorization, allReadNotification)
-
-// Endpoint #12: Chat Message Read
 generalRoute.put("/chatMessageRead/:id", Authorization, validateData(chatMessageReadIdParamsSchema), chatMessageReadGeneral)
-
-// Endpoint #16: Unfollow
 generalRoute.delete("/unfollow/:id", Authorization, validateData(unfollowParamsSchema), unfollow)
-
-// Endpoint #17: Remove Follower
 generalRoute.delete("/removeFollower/:id", Authorization, validateData(removeFollowerParamsSchema), removeFollower)
-
-// Endpoint #19: Multi Remove Follower (PHP: POST general/multi-remove-follower)
 generalRoute.post("/multi-remove-follower", Authorization, validateData(multiRemoveFollowerSchema), multiRemoveFollower)
 
 // Remaining misc CRUD
@@ -131,5 +125,13 @@ generalRoute.get("/company-profile/:slug", validateData(companyProfileParamsSche
 
 // Frontend public: sitemap
 generalRoute.get("/sitemap", validateData(sitemapQuerySchema), sitemap)
+
+// ── KYC / document verify (JWT) — see verify.md ──
+// GET + POST share verifyDocumentService
+generalRoute.get("/verify-document", Authorization, validateData(verifyDocumentGetSchema), verifyDocument)
+generalRoute.post("/verifyDocument", Authorization, formData, validateData(verifyDocumentSchema), verifyDocument)
+generalRoute.post("/verifyAadhar", Authorization, formData, validateData(verifyAadharSchema), verifyAadhar)
+generalRoute.post("/verifyGst", Authorization, formData, validateData(verifyGstSchema), verifyGst)
+generalRoute.post("/verifyDigilocker", Authorization, formData, validateData(verifyDigilockerSchema), verifyDigilocker)
 
 export default generalRoute;

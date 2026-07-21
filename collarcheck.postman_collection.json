@@ -408,6 +408,617 @@
       ]
     },
     {
+      "name": "verify (KYC + email OTP)",
+      "description": "Authenticated verification APIs (Node).\n\nRequires Bearer {{token}}.\nKYC needs SUREPASSTOKEN env on server.\nDocs: src/api-ai-document/verify.md",
+      "item": [
+        {
+          "name": "verifyDocument (aadhaar init)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/general/verifyDocument",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "verifyDocument"
+              ]
+            },
+            "description": "Init Aadhaar OTP. Returns data.client_id for verifyAadhar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"aadhaar\",\n  \"id_number\": \"123456789012\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": true,\n  \"data\": {\n    \"client_id\": \"abc\",\n    \"messages\": \"OTP Sent\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "verifyDocument (pan)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/general/verifyDocument",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "verifyDocument"
+              ]
+            },
+            "description": "Instant PAN verification. Returns data.ref_id.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"pan\",\n  \"id_number\": \"ABCDE1234F\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": true,\n  \"data\": {\n    \"full_name\": \"JOHN DOE\",\n    \"category\": \"person\",\n    \"ref_id\": \"...\",\n    \"current_name\": \"John\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "verifyDocument (gst init)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/general/verifyDocument",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "verifyDocument"
+              ]
+            },
+            "description": "GST init + OTP generate. Returns client_id + masked mobile.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"gst\",\n  \"id_number\": \"27AABCU9603R1ZM\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verifyDocument (digilocker init)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/general/verifyDocument",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "verifyDocument"
+              ]
+            },
+            "description": "DigiLocker init. Returns data.url + client_id. Open url in browser.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"digilocker\",\n  \"id_number\": \"9876543210\",\n  \"ismobile\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verify-document (GET alias)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/verify-document?type=pan&id_number=ABCDE1234F",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "verify-document"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "pan"
+                },
+                {
+                  "key": "id_number",
+                  "value": "ABCDE1234F"
+                }
+              ]
+            },
+            "description": "Same handler as POST verifyDocument; fields as query string."
+          },
+          "response": []
+        },
+        {
+          "name": "verifyAadhar (submit OTP)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/general/verifyAadhar",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "verifyAadhar"
+              ]
+            },
+            "description": "Submit Aadhaar OTP after verifyDocument type=aadhaar.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{client_id}}\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": true,\n  \"data\": {\n    \"full_name\": \"...\",\n    \"ref_id\": \"...\",\n    \"current_name\": \"John Doe\"\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "verifyGst (submit OTP)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/general/verifyGst",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "verifyGst"
+              ]
+            },
+            "description": "Submit GST OTP after verifyDocument type=gst.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{client_id}}\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verifyDigilocker (download)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/general/verifyDigilocker",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "verifyDigilocker"
+              ]
+            },
+            "description": "After user finishes DigiLocker UI, download Aadhaar payload.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": \"{{client_id}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "sendEmailOtp (account)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/user/sendEmailOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user",
+                "sendEmailOtp"
+              ]
+            },
+            "description": "Account email OTP. Throttle 3/min/IP.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": true,\n  \"messages\": \"OTP Successfully sent to your email address\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "sendEmailOtp (work email)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/user/sendEmailOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user",
+                "sendEmailOtp"
+              ]
+            },
+            "description": "Work email OTP on experience. Blocks public domains.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@acme.com\",\n  \"employment_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "sendEmailOtp (company VERIFICATION)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/user/sendEmailOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user",
+                "sendEmailOtp"
+              ]
+            },
+            "description": "Company domain verification. Use X-Company header for company context on verify.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@acme.com\",\n  \"type\": \"VERIFICATION\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "verifyEmailOtp",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/user/verifyEmailOtp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user",
+                "verifyEmailOtp"
+              ]
+            },
+            "description": "Verify email OTP. Optional employment_id / type=VERIFICATION.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john@example.com\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [
+            {
+              "name": "Success",
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": "{\n  \"status\": true,\n  \"messages\": \"OTP verify successfully !\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "employees",
       "item": [
         {
@@ -8576,6 +9187,11 @@
     },
     {
       "key": "job_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "client_id",
       "value": "",
       "type": "string"
     }

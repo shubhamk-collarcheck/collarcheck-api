@@ -33,6 +33,7 @@ src/worker/           → SQS consumers
 | [common-auth-endpoints.md](./common-auth-endpoints.md) | User settings, auth profiles, people-list, view-request |
 | [remaining-misc-crud-endpoints.md](./remaining-misc-crud-endpoints.md) | 19 misc CRUD (follow, wishlist writes, company-list, multi-*, etc.) — **all implemented** |
 | [login-registration-endpoints.md](./login-registration-endpoints.md) | Login / OTP / register / signup |
+| [verify.md](./verify.md) | KYC (SurePass) + email OTP — **implemented** |
 | [sendCompanyInvite.md](./sendCompanyInvite.md) | Employee → company invite + SQS |
 | [sqs-flow-diagram.md](./sqs-flow-diagram.md) | SQS worker flow |
 | [other/frontend-public-misc-endpoints.md](./other/frontend-public-misc-endpoints.md) | top-company, contact/career enquiry, sitemap, data-deletion — **implemented** |
@@ -122,11 +123,20 @@ See [login-registration-endpoints.md](./login-registration-endpoints.md) — **i
 | `POST /wapi/employee/register`, `signup`, `final-signup`, `upload-resume` | `employee.route.ts` |
 | `POST /wapi/company/register` | `company.route.ts` |
 
+## Auth verification (JWT)
+
+See [verify.md](./verify.md) — **implemented**:
+
+| Path | Route file |
+|------|------------|
+| `GET/POST /wapi/general/verify-document`, `verifyDocument`, `verifyAadhar`, `verifyGst`, `verifyDigilocker` | `general.route.ts` |
+| `POST /wapi/user/sendEmailOtp`, `verifyEmailOtp` | `user.route.ts` |
+
 ## Not ported yet (out of scope in these docs)
 
-- Authenticated OTP / email OTP (`sendOtp`, `verifyOtp`, `sendEmailOtp`, `verifyEmailOtp` under general/user)
-- KYC: `verifyDocument`, `verifyAadhar`, `verifyGst`, `verifyDigilocker`
+- Authenticated phone OTP under general (`sendOtp` / `verifyOtp` if separate from login)
 - Pre-registration: `verify-document-before-registration`, `verify-gst-before-registration`
+- PHP-style KYC finalize via `saveDocument { ref_id }` (current Node `saveDocument` is generic user docs)
 
 ## How to update these docs
 
