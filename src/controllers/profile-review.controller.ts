@@ -1,7 +1,22 @@
 import { Request, Response, NextFunction } from "express";
-import { ReviewRequest, ReviewUpdateRequest, ReviewRemoveDocumentQuery, ShowHomeReviewRequest, ChangeEmploymentBasicRequest, EditUserRequest } from "../types/profile-review.types";
+import {
+	ReviewRequest,
+	ReviewUpdateRequest,
+	ReviewRemoveDocumentQuery,
+	ShowHomeReviewRequest,
+	ChangeEmploymentBasicRequest,
+	EditUserRequest,
+} from "../types/profile-review.types";
 import { AuthUser } from "../types/express";
-import { currentCompanyService, upsertReviewService, deleteReviewService, removeReviewDocumentService, toggleShowHomeReviewService, editUserProfileService, changeEmploymentBasicService } from "../services/profile-review.service";
+import {
+	currentCompanyService,
+	upsertReviewService,
+	deleteReviewService,
+	removeReviewDocumentService,
+	toggleShowHomeReviewService,
+	editUserProfileService,
+	changeEmploymentBasicService,
+} from "../services/profile-review.service";
 
 export async function currentCompany(req: Request, res: Response, next: NextFunction) {
 	try {
@@ -110,13 +125,14 @@ export async function showHomeReview(req: Request, res: Response, next: NextFunc
 	}
 }
 
+/** POST /edit-user?type=1|2|3|4 */
 export async function editUser(req: Request, res: Response, next: NextFunction) {
 	try {
 		const { user_id } = req.auth as AuthUser
-		const { body } = req.validated as EditUserRequest
-		const files = req.files as Express.MulterS3.File[] | undefined
+		const { query, body } = req.validated as EditUserRequest
+		const files = req.files as | Express.MulterS3.File[] | { [fieldname: string]: Express.MulterS3.File[] } | undefined
 
-		const messages = await editUserProfileService(user_id, body, files)
+		const messages = await editUserProfileService(user_id, query.type, body, files)
 
 		return res.status(200).json({
 			status: true,

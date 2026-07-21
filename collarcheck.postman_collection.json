@@ -2901,7 +2901,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": 1,\n  \"fname\": \"Shubham\",\n  \"lname\": \"Kumar\",\n  \"dob\": \"1995-01-01\",\n  \"gender\": \"Male\"\n}",
+              "raw": "{\n  \"fname\": \"Shubham\",\n  \"lname\": \"Kumar\",\n  \"dob\": \"1995-01-01\",\n  \"gender\": \"Male\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2909,7 +2909,7 @@
               }
             },
             "url": {
-              "raw": "{{URL}}/wapi/employee/edit-user",
+              "raw": "{{URL}}/wapi/employee/edit-user?type=1",
               "host": [
                 "{{URL}}"
               ],
@@ -2917,6 +2917,12 @@
                 "wapi",
                 "employee",
                 "edit-user"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "1"
+                }
               ]
             }
           },
@@ -2939,7 +2945,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": 2,\n  \"city\": 154228,\n  \"state\": \"4021\",\n  \"present_address\": \"123 Main St\",\n  \"permanent_address\": \"123 Main St\",\n  \"same_address\": true\n}",
+              "raw": "{\n  \"city\": 154228,\n  \"state\": \"4021\",\n  \"present_address\": \"123 Main St\",\n  \"permanent_address\": \"123 Main St\",\n  \"same_address\": true\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2947,7 +2953,7 @@
               }
             },
             "url": {
-              "raw": "{{URL}}/wapi/employee/edit-user",
+              "raw": "{{URL}}/wapi/employee/edit-user?type=2",
               "host": [
                 "{{URL}}"
               ],
@@ -2955,6 +2961,12 @@
                 "wapi",
                 "employee",
                 "edit-user"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "2"
+                }
               ]
             }
           },
@@ -2977,7 +2989,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": 3,\n  \"work_status\": 1,\n  \"current_position\": 2,\n  \"current_company\": 3,\n  \"expected_salary\": \"500000\",\n  \"on_immediate\": true,\n  \"on_notice\": false,\n  \"on_explore\": false\n}",
+              "raw": "{\n  \"work_status\": 1,\n  \"current_position\": 2,\n  \"current_company\": 3,\n  \"expected_salary\": \"500000\",\n  \"on_immediate\": true,\n  \"on_notice\": false,\n  \"on_explore\": false\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2985,7 +2997,7 @@
               }
             },
             "url": {
-              "raw": "{{URL}}/wapi/employee/edit-user",
+              "raw": "{{URL}}/wapi/employee/edit-user?type=3",
               "host": [
                 "{{URL}}"
               ],
@@ -2993,6 +3005,12 @@
                 "wapi",
                 "employee",
                 "edit-user"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "3"
+                }
               ]
             }
           },
@@ -3015,7 +3033,7 @@
             "header": [],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": 4,\n  \"linkdin\": \"https://linkedin.com/in/shubham\",\n  \"youtube\": \"\",\n  \"instagram\": \"\",\n  \"facebook\": \"\",\n  \"twitter\": \"\"\n}",
+              "raw": "{\n  \"linkdin\": \"https://linkedin.com/in/shubham\",\n  \"youtube\": \"\",\n  \"instagram\": \"\",\n  \"facebook\": \"\",\n  \"twitter\": \"\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -3023,7 +3041,7 @@
               }
             },
             "url": {
-              "raw": "{{URL}}/wapi/employee/edit-user",
+              "raw": "{{URL}}/wapi/employee/edit-user?type=4",
               "host": [
                 "{{URL}}"
               ],
@@ -3031,6 +3049,12 @@
                 "wapi",
                 "employee",
                 "edit-user"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "4"
+                }
               ]
             }
           },

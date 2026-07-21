@@ -1,12 +1,43 @@
 import profileReviewRepositery from "../repositery/profile-review.repositery";
-import designationRepositery from "../repositery/designation.repositery";
+import cityRepositery from "../repositery/city.repositery";
 import { BadRequestError } from "../middlewares/errorHandler";
-import type { ReviewRequestBody, ChangeEmploymentBasicBody, EditUserBasic, EditUserAddress, EditUserWorkStatus, EditUserSocialLinks } from "../types/profile-review.types";
-import { cybDesignation } from "../db/schema";
+import type {
+	ReviewRequestBody, ChangeEmploymentBasicBody, EditUserBasic, EditUserAddress, EditUserEmployment,
+	EditUserSocial, EditUserBody, EditUserTypeCode,
+} from "../types/profile-review.types";
+import { EditUserType } from "../types/profile-review.types";
+import { cybDesignation, cybWorkType, cybUser } from "../db/schema";
 import { and, eq } from "drizzle-orm";
 import db from "../db";
 
-const s3Prefix = process.env.S3_PREFIX || '';
+function nowSql() {
+	return new Date().toISOString().replace("T", " ").split(".")[0];
+}
+
+/** Resolve id-or-free-text: number → use as-is; string → find/create lookup row. */
+async function resolveIdOrCreate(
+	value: number | string | undefined | null,
+	opts: {
+		findByName: (name: string) => Promise<number | null>;
+		create: (name: string) => Promise<number>;
+		emptyAs?: number | null | "";
+	},
+): Promise<number | null | ""> {
+	if (value === undefined || value === null || value === "") {
+		return opts.emptyAs !== undefined ? opts.emptyAs : null;
+	}
+	if (typeof value === "number") {
+		return value;
+	}
+	const asNum = Number(value);
+	if (!Number.isNaN(asNum) && String(asNum) === String(value).trim()) {
+		return asNum;
+	}
+	const name = String(value).trim();
+	const existing = await opts.findByName(name);
+	if (existing != null) return existing;
+	return opts.create(name);
+}
 
 // Current Company service
 export async function currentCompanyService(userId: number) {
@@ -174,136 +205,261 @@ export async function toggleShowHomeReviewService(userId: number, id: number) {
 	return newShowHome === 1 ? "Review show successfully!" : "Review hide successfully!";
 }
 
-// Edit user profile service
-export async function editUserProfileService(
-	userId: number,
-	data: EditUserBasic | EditUserAddress | EditUserWorkStatus | EditUserSocialLinks,
-	files?: Express.MulterS3.File[],
-) {
-	const now = new Date().toISOString().replace("T", " ").split(".")[0];
+// ---------------------------------------------------------------------------
+// Edit user profile — single endpoint POST /edit-user
+// Internally split by EditUserType enum (BASIC=1, ADDRESS=2, EMPLOYMENT=3, SOCIAL=4)
+// ---------------------------------------------------------------------------
 
-	switch (data.type) {
-		case 1: {
-			// Basic info
-			const updateData: any = {
-				fname: data.fname,
-				lname: data.lname || null,
-				dob: data.dob,
-				gender: data.gender,
-				displayType: data.display_type || null,
-				profileDescription: data.profile_description || null,
-				modifyDate: now,
-			};
+type UploadedFiles =
+	| Express.MulterS3.File[]
+	| { [fieldname: string]: Express.MulterS3.File[] }
+	| undefined;
 
-			// Handle profile image upload
-			if (files && files.length > 0) {
-				const profileFile = files.find(f => f.fieldname === 'profile');
-				if (profileFile) {
-					updateData.profile = profileFile.key;
-				}
-				const resumeFile = files.find(f => f.fieldname === 'resume');
-				if (resumeFile) {
-					updateData.resume = resumeFile.key;
-					updateData.resumeName = resumeFile.originalname;
-				}
-			}
+function flattenFiles(files: UploadedFiles): Express.MulterS3.File[] {
+	if (!files) return [];
+	if (Array.isArray(files)) return files;
+	return Object.values(files).flat();
+}
 
-			await profileReviewRepositery.updateUser(userId, updateData);
+/** Section: basic — name, DOB, gender, profile image, resume */
+export async function editUserBasicService(userId: number, data: EditUserBasic, files?: UploadedFiles,) {
+	const now = nowSql();
+	const uploaded = flattenFiles(files);
 
-			// Name verification
-			const verifyDoc = await profileReviewRepositery.getVerifyDocument(userId);
-			if (verifyDoc && verifyDoc.docName) {
-				const fullName = `${data.fname} ${data.lname || ''}`.trim();
-				const isMatch = fullName.toLowerCase() === verifyDoc.docName.toLowerCase();
-				await profileReviewRepositery.updateVerifyDocument(userId, isMatch ? 1 : 0);
-			}
+	const updateData: Record<string, unknown> = {
+		fname: data.fname,
+		lname: data.lname || null,
+		dob: data.dob,
+		gender: data.gender,
+		displayType: data.display_type || null,
+		profileDescription: data.profile_description || null,
+		modifyDate: now,
+	};
 
-			break;
-		}
+	const profileFile = uploaded.find((f) => f.fieldname === "profile");
+	if (profileFile) {
+		updateData.profile = profileFile.key;
+	}
 
-		case 2: {
-			// Address
-			let cityId: number | null = null;
-			if (typeof data.city === 'number') {
-				cityId = data.city;
-			} else if (typeof data.city === 'string') {
-				// Auto-create city if needed
-				cityId = parseInt(data.city) || null;
-			}
+	const resumeFile = uploaded.find((f) => f.fieldname === "resume");
+	if (resumeFile) {
+		updateData.resume = resumeFile.key;
+		updateData.resumeName = resumeFile.originalname;
+		updateData.cvPop = 1; // PHP: resume upload sets cvPop
+	}
 
-			const updateData: any = {
-				city: cityId,
-				state: data.state,
-				accomodation: data.accomodation || null,
-				presentAddress: data.present_address || null,
-				sameAddress: data.same_address ? 1 : 0,
-				permanentAddress: data.same_address ? data.present_address : (data.permanent_address || null),
-				country: data.country || null,
-				modifyDate: now,
-			};
+	await profileReviewRepositery.updateUser(userId, updateData as any);
 
-			await profileReviewRepositery.updateUser(userId, updateData);
-
-			// Geocoding would go here if needed
-			break;
-		}
-
-		case 3: {
-			// Work status
-			const updateData: any = {
-				workStatus: typeof data.work_status === 'number' ? data.work_status : null,
-				currentPossition: typeof data.current_position === 'number' ? data.current_position : null,
-				currentCompany: typeof data.current_company === 'number' ? data.current_company : null,
-				expectedSalary: data.expected_salary || null,
-				expectedMode: data.expected_mode || null,
-				expectedInhand: data.expected_inhand || null,
-				onImmediate: data.on_immediate ? 1 : 0,
-				noticePeriod: data.notice_period || null,
-				onNotice: data.on_notice ? 1 : 0,
-				noticeDate: data.notice_date || null,
-				onExplore: data.on_explore ? 1 : 0,
-				modifyDate: now,
-			};
-
-			await profileReviewRepositery.updateUser(userId, updateData);
-
-			// Update user details
-			const detailsData: any = {};
-			if (data.exploring_option) {
-				detailsData.exploringOption = JSON.stringify(data.exploring_option);
-			}
-			if (data.noticeEmployments) {
-				detailsData.noticeEmployments = JSON.stringify(data.noticeEmployments.split(','));
-			}
-
-			if (Object.keys(detailsData).length > 0) {
-				await profileReviewRepositery.upsertUserDetails(userId, detailsData);
-			}
-
-			break;
-		}
-
-		case 4: {
-			// Social links
-			const updateData: any = {
-				linkdin: data.linkdin || null,
-				youtube: data.youtube || null,
-				instagram: data.instagram || null,
-				facebook: data.facebook || null,
-				twitter: data.twitter || null,
-				modifyDate: now,
-			};
-
-			await profileReviewRepositery.updateUser(userId, updateData);
-			break;
-		}
-
-		default:
-			throw new BadRequestError("Invalid type");
+	// Keep verify_document in sync with full name
+	const verifyDoc = await profileReviewRepositery.getVerifyDocument(userId);
+	if (verifyDoc?.docName) {
+		const fullName = `${data.fname} ${data.lname || ""}`.trim();
+		const isMatch = fullName.toLowerCase() === verifyDoc.docName.toLowerCase();
+		await profileReviewRepositery.updateVerifyDocument(userId, isMatch ? 1 : 0);
 	}
 
 	return "Successfully Updated";
 }
+
+/** Section: address — city/state/country + present/permanent */
+export async function editUserAddressService(userId: number, data: EditUserAddress) {
+	const now = nowSql();
+
+	let cityId: number | null = null;
+	if (data.city !== undefined && data.city !== null && data.city !== "") {
+		cityId = (await resolveIdOrCreate(data.city, {
+			findByName: async (name) => {
+				const row = await cityRepositery.findByName(name);
+				return row?.id ?? null;
+			},
+			create: async (name) => {
+				const result = await cityRepositery.create({
+					name,
+					userDifined: 1, // schema column typo: user_difined
+					userId,
+					status: 1,
+					state: data.state ? Number(data.state) || null : null,
+					createDate: now,
+					modifyDate: now,
+				} as any);
+				return result.id;
+			},
+			emptyAs: null,
+		})) as number | null;
+	}
+
+	const updateData = {
+		city: cityId,
+		state: data.state ?? null,
+		accomodation: data.accomodation || null,
+		presentAddress: data.present_address || null,
+		sameAddress: data.same_address ? 1 : 0,
+		permanentAddress: data.same_address
+			? (data.present_address || null)
+			: (data.permanent_address || null),
+		country: data.country || null,
+		modifyDate: now,
+	};
+
+	await profileReviewRepositery.updateUser(userId, updateData as any);
+
+	return "Successfully Updated";
+}
+
+/** Section: employment — work status, position, company, notice, exploring */
+export async function editUserEmploymentService(userId: number, data: EditUserEmployment) {
+	const now = nowSql();
+
+	const workStatus = await resolveIdOrCreate(data.work_status, {
+		findByName: async (name) => {
+			const [row] = await db
+				.select({ id: cybWorkType.id })
+				.from(cybWorkType)
+				.where(and(eq(cybWorkType.name, name), eq(cybWorkType.status, 1)));
+			return row?.id ?? null;
+		},
+		create: async (name) => {
+			const [inserted] = await db
+				.insert(cybWorkType)
+				.values({
+					name,
+					userDefined: 1,
+					userId,
+					status: 1,
+					createDate: now,
+					modifyDate: now,
+				} as any)
+				.$returningId();
+			return inserted.id;
+		},
+	});
+
+	const currentPosition = await resolveIdOrCreate(data.current_position, {
+		findByName: async (name) => {
+			const [row] = await db
+				.select({ id: cybDesignation.id })
+				.from(cybDesignation)
+				.where(and(eq(cybDesignation.name, name), eq(cybDesignation.status, 1)));
+			return row?.id ?? null;
+		},
+		create: async (name) => {
+			const [inserted] = await db
+				.insert(cybDesignation)
+				.values({
+					name,
+					userDefined: 1,
+					userId,
+					status: 1,
+					createDate: now,
+					modifyDate: now,
+				} as any)
+				.$returningId();
+			return inserted.id;
+		},
+		emptyAs: "",
+	});
+
+	const currentCompany = await resolveIdOrCreate(data.current_company, {
+		findByName: async (name) => {
+			const [row] = await db
+				.select({ id: cybUser.id })
+				.from(cybUser)
+				.where(and(eq(cybUser.fname, name), eq(cybUser.userType, 2), eq(cybUser.status, 1)));
+			return row?.id ?? null;
+		},
+		create: async (name) => {
+			const [inserted] = await db
+				.insert(cybUser)
+				.values({
+					fname: name,
+					userType: 2,
+					userDefinedCompany: 1,
+					status: 1,
+					createDate: now,
+					modifyDate: now,
+				} as any)
+				.$returningId();
+			return inserted.id;
+		},
+		emptyAs: "",
+	});
+
+	const onImmediate = Boolean(data.on_immediate);
+	const onNotice = Boolean(data.on_notice);
+	const onExplore = Boolean(data.on_explore);
+
+	const updateData = {
+		workStatus: workStatus === "" ? null : workStatus,
+		currentPossition: currentPosition === "" ? null : currentPosition,
+		currentCompany: currentCompany === "" ? null : currentCompany,
+		expectedSalary: data.expected_salary || null,
+		expectedMode: data.expected_mode || null,
+		expectedInhand: data.expected_inhand || null,
+		onImmediate: onImmediate ? 1 : 0,
+		noticePeriod: onImmediate ? (data.notice_period || null) : null,
+		onNotice: onNotice ? 1 : 0,
+		noticeDate:
+			onNotice && data.notice_date && data.notice_date !== "null"
+				? data.notice_date
+				: null,
+		onExplore: onExplore ? 1 : 0,
+		modifyDate: now,
+	};
+
+	await profileReviewRepositery.updateUser(userId, updateData as any);
+
+	const detailsData: Record<string, unknown> = {};
+	if (data.exploring_option) {
+		detailsData.exploringOption = JSON.stringify(data.exploring_option);
+	}
+	if (data.noticeEmployments) {
+		const arr = data.noticeEmployments.split(",").map((s) => s.trim()).filter(Boolean);
+		detailsData.noticeEmployments = arr.length ? JSON.stringify(arr) : null;
+	}
+	if (Object.keys(detailsData).length > 0) {
+		await profileReviewRepositery.upsertUserDetails(userId, detailsData as any);
+	}
+
+	return "Successfully Updated";
+}
+
+/** Section: social — LinkedIn, YouTube, Instagram, Facebook, Twitter */
+export async function editUserSocialService(userId: number, data: EditUserSocial) {
+	const now = nowSql();
+
+	await profileReviewRepositery.updateUser(userId, {
+		linkdin: data.linkdin || null,
+		youtube: data.youtube || null,
+		instagram: data.instagram || null,
+		facebook: data.facebook || null,
+		twitter: data.twitter || null,
+		modifyDate: now,
+	} as any);
+
+	return "Successfully Updated";
+}
+
+/**
+ * POST /edit-user?type=N
+ * @param type  from req.query only (1=basic, 2=address, 3=employment, 4=social)
+ * @param body  form fields only — no type field
+ */
+export async function editUserProfileService(userId: number, type: EditUserTypeCode, body: EditUserBody, files?: UploadedFiles,) {
+	switch (type) {
+		case EditUserType.BASIC:
+			return editUserBasicService(userId, body as EditUserBasic, files);
+		case EditUserType.ADDRESS:
+			return editUserAddressService(userId, body as EditUserAddress);
+		case EditUserType.EMPLOYMENT:
+			return editUserEmploymentService(userId, body as EditUserEmployment);
+		case EditUserType.SOCIAL:
+			return editUserSocialService(userId, body as EditUserSocial);
+		default:
+			throw new BadRequestError("Invalid type");
+	}
+}
+
+
 
 // Change employment basic service
 export async function changeEmploymentBasicService(

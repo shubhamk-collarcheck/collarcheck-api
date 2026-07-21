@@ -34,6 +34,9 @@ Eight REST endpoints for managing employee profile, reviews, employment change r
 | `POST`   | `/wapi/employee/edit-user`                 | `editUser`                                       | Update user profile            |
 | `POST`   | `/wapi/employee/changeEmploymentBasic`     | `changeEmploymentBasic`                          | Submit employment change       |
 
+**Body `type` enum** (`EditUserType`): `1=basic`, `2=address`, `3=employment`, `4=social`  
+Frontend keeps sending numeric `type`; backend maps via enum for clarity.
+
 ---
 
 ## File Structure
@@ -93,7 +96,9 @@ z.object({ params: commonIdParamsSchema.shape.params })
 ```
 ### Profile Schemas
 
-#### editUserBasicSchema (type = 1)
+Single endpoint `POST /edit-user`. Body includes `type` (`EditUserType`: 1–4).
+
+#### editUserBasicSchema (type = 1 / BASIC)
 
 ```typescript
 z.object({
@@ -106,7 +111,8 @@ z.object({
   profile_description: z.string().optional(),
 })
 ```
-#### editUserAddressSchema (type = 2)
+
+#### editUserAddressSchema (type = 2 / ADDRESS)
 
 ```typescript
 z.object({
@@ -120,7 +126,8 @@ z.object({
   country: z.string().optional(),
 })
 ```
-#### editUserWorkStatusSchema (type = 3)
+
+#### editUserEmploymentSchema (type = 3 / EMPLOYMENT)
 
 ```typescript
 z.object({
@@ -140,7 +147,8 @@ z.object({
   noticeEmployments: z.string().optional(),
 })
 ```
-#### editUserSocialLinksSchema (type = 4)
+
+#### editUserSocialSchema (type = 4 / SOCIAL)
 
 ```typescript
 z.object({
@@ -404,11 +412,11 @@ clearUserCurrentPosition(userId)
 
 ### editUserProfileService(userId, data, files)
 
-Handle 4 form types:
-- **type = 1 (Basic):** Update fname, lname, dob, gender, display_type, profile_description, profile image, resume
-- **type = 2 (Address):** Update city, state, accomodation, present_address, permanent_address, country
-- **type = 3 (Work Status):** Update work_status, current_position, current_company, expected_salary, notice period, on_explore
-- **type = 4 (Social):** Update linkdin, youtube, instagram, facebook, twitter
+Dispatches on `EditUserType` to section services:
+- **BASIC (1):** fname, lname, dob, gender, display_type, profile_description, profile image, resume
+- **ADDRESS (2):** city, state, accomodation, present_address, permanent_address, country
+- **EMPLOYMENT (3):** work_status, current_position, current_company, expected_salary, notice period, on_explore
+- **SOCIAL (4):** linkdin, youtube, instagram, facebook, twitter
 
 ### changeEmploymentBasicService(userId, data)
 

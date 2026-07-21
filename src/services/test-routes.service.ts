@@ -1,6 +1,7 @@
 import testRoutesRepositery from "../repositery/test-routes.repositery";
 import usersRepositery, { USER_PREFIX, USER_TYPE } from "../repositery/users.repositery";
 import { editUserProfileService } from "./profile-review.service";
+import { EditUserType } from "../types/profile-review.types";
 import {
 	employmentCreateService,
 	employmentUpdateService,
@@ -180,28 +181,32 @@ export async function saveEpfoService(
 	try {
 		switch (formType) {
 			case 1: {
-				// basic then address
+				// same as POST /edit-user?type=1 then ?type=2
 				await editUserProfileService(
 					userId,
+					EditUserType.BASIC,
 					{
-						type: 1,
 						fname: body.fname,
 						lname: body.lname,
 						dob: body.dob,
-						gender: body.gender != null ? Number(body.gender) : undefined,
-						display_type: body.display_type != null ? Number(body.display_type) : undefined,
+						gender: body.gender != null ? String(body.gender) : "",
+						display_type: body.display_type != null ? String(body.display_type) : undefined,
 						profile_description: body.profile_description,
-					} as any,
+					},
 					files
 				);
-				await editUserProfileService(userId, {
-					type: 2,
-					country: body.country != null ? Number(body.country) : undefined,
-					state: body.state != null ? Number(body.state) : undefined,
-					city: body.city != null ? Number(body.city) : undefined,
-					accomodation: body.accomodation != null ? Number(body.accomodation) : undefined,
-					present_address: body.present_address,
-				} as any);
+				await editUserProfileService(
+					userId,
+					EditUserType.ADDRESS,
+					{
+						country: body.country != null ? String(body.country) : undefined,
+						state: body.state != null ? String(body.state) : "0",
+						city: body.city != null ? Number(body.city) : 0,
+						accomodation: body.accomodation != null ? String(body.accomodation) : undefined,
+						present_address: body.present_address,
+						same_address: false,
+					},
+				);
 				return { status: true, messages: "Basic Details save successfully" };
 			}
 			case 2: {

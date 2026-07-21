@@ -61,71 +61,85 @@ export const changeEmploymentBasicRequestSchema = z.object({
 	body: changeEmploymentBasicBodySchema,
 });
 
-// Edit user profile schemas
-export const editUserBasicSchema = z.object({
-	type: z.literal(1),
+// ---------------------------------------------------------------------------
+// Edit user profile — POST /edit-user?type=1
+//
+//   query.type  → which section (1=basic, 2=address, 3=employment, 4=social)
+//   body        → form fields only (fname, city, …) — never includes type
+// ---------------------------------------------------------------------------
+
+export const EditUserType = {
+	BASIC: 1,
+	ADDRESS: 2,
+	EMPLOYMENT: 3,
+	SOCIAL: 4,
+} as const;
+
+export type EditUserTypeCode = (typeof EditUserType)[keyof typeof EditUserType];
+
+export const EDIT_USER_TYPE_LABEL = {
+	[EditUserType.BASIC]: "basic",
+	[EditUserType.ADDRESS]: "address",
+	[EditUserType.EMPLOYMENT]: "employment",
+	[EditUserType.SOCIAL]: "social",
+} as const;
+
+const formBoolean = z.preprocess((value) => {
+	if (value === "TRUE" || value === "true" || value === true || value === "1" || value === 1) {
+		return true;
+	}
+	return false;
+}, z.boolean().default(false));
+
+/** ?type=1 → EditUserType.BASIC, etc. */
+export const editUserTypeQuerySchema = z.preprocess(
+	(value) => (typeof value === "string" && value.trim() !== "" ? Number(value) : value),
+	z.union([
+		z.literal(EditUserType.BASIC),
+		z.literal(EditUserType.ADDRESS),
+		z.literal(EditUserType.EMPLOYMENT),
+		z.literal(EditUserType.SOCIAL),
+	]),
+);
+
+// Form-data body schemas (type is NOT here — it comes from query only)
+
+export const editUserBasicBodySchema = z.object({
 	fname: z.string().trim().min(1, "First name is required"),
 	lname: z.string().optional(),
 	dob: z.string().min(1, "Date of birth is required"),
-	gender: z.string().min(1, "Gender is required"),
+	gender: z.preprocess((v) => (v == null ? v : String(v)), z.string().min(1, "Gender is required")),
 	display_type: z.string().optional(),
 	profile_description: z.string().optional(),
 });
 
-export const editUserAddressSchema = z.object({
-	type: z.literal(2),
+export const editUserAddressBodySchema = z.object({
 	city: idOrText,
 	state: z.string().min(1, "State is required"),
 	accomodation: z.string().optional(),
 	present_address: z.string().optional(),
-	same_address: z.preprocess(
-		(value) => {
-			if (value === "TRUE" || value === "true" || value === true || value === "1") return true;
-			return false;
-		},
-		z.boolean().default(false)
-	),
+	same_address: formBoolean,
 	permanent_address: z.string().optional(),
 	country: z.string().optional(),
 });
 
-export const editUserWorkStatusSchema = z.object({
-	type: z.literal(3),
+export const editUserEmploymentBodySchema = z.object({
 	work_status: idOrText.optional(),
 	current_position: idOrText.optional(),
 	current_company: idOrText.optional(),
 	expected_salary: z.string().optional(),
 	expected_mode: z.string().optional(),
 	expected_inhand: z.string().optional(),
-	on_immediate: z.preprocess(
-		(value) => {
-			if (value === "TRUE" || value === "true" || value === true || value === "1") return true;
-			return false;
-		},
-		z.boolean().default(false)
-	),
+	on_immediate: formBoolean,
 	notice_period: z.string().optional(),
-	on_notice: z.preprocess(
-		(value) => {
-			if (value === "TRUE" || value === "true" || value === true || value === "1") return true;
-			return false;
-		},
-		z.boolean().default(false)
-	),
+	on_notice: formBoolean,
 	notice_date: z.string().optional(),
-	on_explore: z.preprocess(
-		(value) => {
-			if (value === "TRUE" || value === "true" || value === true || value === "1") return true;
-			return false;
-		},
-		z.boolean().default(false)
-	),
+	on_explore: formBoolean,
 	exploring_option: z.array(z.string()).optional(),
 	noticeEmployments: z.string().optional(),
 });
 
-export const editUserSocialLinksSchema = z.object({
-	type: z.literal(4),
+export const editUserSocialBodySchema = z.object({
 	linkdin: z.string().optional(),
 	youtube: z.string().optional(),
 	instagram: z.string().optional(),
@@ -133,14 +147,61 @@ export const editUserSocialLinksSchema = z.object({
 	twitter: z.string().optional(),
 });
 
-export const editUserRequestSchema = z.object({
-	body: z.union([
-		editUserBasicSchema,
-		editUserAddressSchema,
-		editUserWorkStatusSchema,
-		editUserSocialLinksSchema,
-	]),
-});
+const bodySchemaByType = {
+	[EditUserType.BASIC]: editUserBasicBodySchema,
+	[EditUserType.ADDRESS]: editUserAddressBodySchema,
+	[EditUserType.EMPLOYMENT]: editUserEmploymentBodySchema,
+	[EditUserType.SOCIAL]: editUserSocialBodySchema,
+} as const;
+
+/**
+ * POST /edit-user?type=N
+ * validated shape:
+ *   { query: { type: 1|2|3|4 }, body: { …section fields only } }
+ */
+export const editUserRequestSchema = z
+	.object({
+		query: z.object({
+			type: editUserTypeQuerySchema,
+		}),
+		body: z.any().default({}),
+	})
+	.superRefine((data, ctx) => {
+		const type = data.query.type as EditUserTypeCode;
+		const bodyResult = bodySchemaByType[type].safeParse(data.body ?? {});
+		if (!bodyResult.success) {
+			for (const issue of bodyResult.error.issues) {
+				ctx.addIssue({
+					...issue,
+					path: ["body", ...issue.path],
+				});
+			}
+		}
+	})
+	.transform((data) => {
+		const type = data.query.type as EditUserTypeCode;
+		return {
+			query: { type },
+			body: bodySchemaByType[type].parse(data.body ?? {}) as EditUserBody,
+		};
+	});
+
+export type EditUserBasic = z.infer<typeof editUserBasicBodySchema>;
+export type EditUserAddress = z.infer<typeof editUserAddressBodySchema>;
+export type EditUserEmployment = z.infer<typeof editUserEmploymentBodySchema>;
+export type EditUserSocial = z.infer<typeof editUserSocialBodySchema>;
+export type EditUserBody = EditUserBasic | EditUserAddress | EditUserEmployment | EditUserSocial;
+
+/** @deprecated aliases */
+export type EditUserWorkStatus = EditUserEmployment;
+export type EditUserSocialLinks = EditUserSocial;
+export type EditUserPayload = EditUserBody;
+export const editUserBasicSchema = editUserBasicBodySchema;
+export const editUserAddressSchema = editUserAddressBodySchema;
+export const editUserEmploymentSchema = editUserEmploymentBodySchema;
+export const editUserWorkStatusSchema = editUserEmploymentBodySchema;
+export const editUserSocialSchema = editUserSocialBodySchema;
+export const editUserSocialLinksSchema = editUserSocialBodySchema;
 
 export type ReviewRequestBody = z.infer<typeof reviewBodySchema>;
 export type ReviewRequest = z.infer<typeof reviewRequestSchema>;
@@ -150,7 +211,3 @@ export type ShowHomeReviewRequest = z.infer<typeof showHomeReviewRequestSchema>;
 export type ChangeEmploymentBasicBody = z.infer<typeof changeEmploymentBasicBodySchema>;
 export type ChangeEmploymentBasicRequest = z.infer<typeof changeEmploymentBasicRequestSchema>;
 export type EditUserRequest = z.infer<typeof editUserRequestSchema>;
-export type EditUserBasic = z.infer<typeof editUserBasicSchema>;
-export type EditUserAddress = z.infer<typeof editUserAddressSchema>;
-export type EditUserWorkStatus = z.infer<typeof editUserWorkStatusSchema>;
-export type EditUserSocialLinks = z.infer<typeof editUserSocialLinksSchema>;
