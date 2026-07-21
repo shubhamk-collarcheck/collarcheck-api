@@ -110,10 +110,10 @@ companyRouter.get("/followRequestList", Authorization, validateData(followReques
 companyRouter.get("/dashboard", Authorization, validateData(companyDashboardQuerySchema), dashboard);
 companyRouter.get("/sidebar-count", Authorization, sidebarCount);
 companyRouter.get("/employement-request", Authorization, validateData(employmentRequestQuerySchema), employmentRequest);
-companyRouter.post("/add-company", Authorization, uploadToS3.single("profile"), validateData(inviteCompanySchema), inviteCompany);
-companyRouter.post("/add-company/:id", Authorization, uploadToS3.single("profile"), validateData(inviteCompanySchema), inviteCompany);
+companyRouter.post("/add-company", Authorization, educationUpload.single("profile"), validateData(inviteCompanySchema), inviteCompany);
+companyRouter.post("/add-company/:id", Authorization, educationUpload.single("profile"), validateData(inviteCompanySchema), inviteCompany);
 companyRouter.get("/user-detail", Authorization, companyDetail);
-companyRouter.post("/invite-company", Authorization, uploadToS3.single("profile"), validateData(inviteCompanySchema), inviteCompany);
+companyRouter.post("/invite-company", Authorization, educationUpload.single("profile"), validateData(inviteCompanySchema), inviteCompany);
 companyRouter.post("/revoke-delete-account", Authorization, validateData(revokeDeleteAccountSchema), revokeDeleteAccount);
 
 export default companyRouter;

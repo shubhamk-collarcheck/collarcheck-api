@@ -7,36 +7,33 @@
  */
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+export type METHOD = "GET" | "POST" | "PUT" | "DELETE";
 
-export function getAiDomain(): string {
-	const base = (process.env.AI_DOMAIN || "https://ai.collarcheck.com").replace(/\/+$/, "");
-	return base;
-}
 
-/** Host used by legacy domain/register (was hard-coded in PHP). */
-export function getAiRegisterDomain(): string {
-	const base = (
-		process.env.AI_REGISTER_DOMAIN ||
-		process.env.AI_DOMAIN ||
-		"https://ai.collarcheck.com"
-	).replace(/\/+$/, "");
-	return base;
+export type OPTS = {
+	method: METHOD;
+	path: string;
+	apiKey: string;
+	body?: unknown;
+	timeoutMs?: number;
+	baseUrl?: string;
 }
 
 export type ProxyResult =
 	| { ok: true; status: number; data: unknown }
 	| { ok: false; status: number; message: string; data?: unknown; curlError?: boolean };
 
-export async function callAiService(opts: {
-	method: "GET" | "POST" | "PUT" | "DELETE";
-	/** Path starting with /, relative to baseUrl */
-	path: string;
-	apiKey: string;
-	body?: unknown;
-	/** Default 10s; use 0 for no timeout (chat health). */
-	timeoutMs?: number;
-	baseUrl?: string;
-}): Promise<ProxyResult> {
+/** Host used by legacy domain/register (was hard-coded in PHP). */
+export function getAiRegisterDomain(): string {
+	const base = (process.env.AI_REGISTER_DOMAIN || process.env.AI_DOMAIN || "https://ai.collarcheck.com").replace(/\/+$/, "");
+	return base;
+}
+
+export function getAiDomain(): string {
+	const base = (process.env.AI_DOMAIN || "https://ai.collarcheck.com").replace(/\/+$/, "");
+	return base;
+}
+export async function callAiService(opts: OPTS): Promise<ProxyResult> {
 	const baseUrl = (opts.baseUrl || getAiDomain()).replace(/\/+$/, "");
 	const path = opts.path.startsWith("/") ? opts.path : `/${opts.path}`;
 	const url = `${baseUrl}${path}`;
@@ -119,9 +116,7 @@ export function semanticChatEnvelope(result: ProxyResult) {
 	};
 }
 
-/** Domain / rank / scrape envelope: always status true unless thrown. */
 export function alwaysSuccessEnvelope(result: ProxyResult) {
-	// Even on upstream failure, wrap as success-shaped with data (legacy)
 	return { status: true as const, data: result.ok ? result.data : result.data ?? null };
 }
 

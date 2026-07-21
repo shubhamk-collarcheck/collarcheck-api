@@ -22,9 +22,22 @@ export const requestDeleteAccountSchema = z.object({ body: requestDeleteAccountB
 export type RequestDeleteAccountBody = z.infer<typeof requestDeleteAccountBodySchema>;
 
 // ====== POST ai-generate ======
+export const AI_GENERATE_TYPES = [
+	"USER_DESCRIPTION",
+	"COMPANY_DESCRIPTION",
+	"EMPLOYMENT_DESCRIPTION",
+	"PORTFOLIO_DESCRIPTION",
+	"REVIEW_USER",
+	"REVIEW_COMPANY",
+] as const;
+
+export type AiGenerateType = (typeof AI_GENERATE_TYPES)[number];
+
 export const aiGenerateBodySchema = z.object({
 	query: z.string().trim().min(1, "The Query field is required."),
-	type: z.string().trim().min(1, "The Type field is required."),
+	type: z.enum(AI_GENERATE_TYPES, {
+		error: `Invalid type. Expected one of: ${AI_GENERATE_TYPES.join(", ")}`,
+	}),
 	position: optionalString,
 	company: optionalString,
 	department: optionalString,

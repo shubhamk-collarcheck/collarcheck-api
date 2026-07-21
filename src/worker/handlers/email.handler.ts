@@ -1,3 +1,5 @@
+import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import db from "../../db";
 import { cybTriggerEmail } from "../../db/schema";
 import type { EmailPayload, HandlerResult } from "../types";
@@ -6,6 +8,41 @@ import type { EmailPayload, HandlerResult } from "../types";
 const TEMPLATE_VARS: Record<number, string[]> = {
 	50: ["invite_url", "employee_name", "company_name"],
 };
+
+function env(key: string, fallback = ""): string {
+	return (process.env[key] ?? fallback).trim().replace(/^['"]|['"]$/g, "");
+}
+
+function createMailTransporter() {
+	const host = env("SMTP_HOST", "smtp.gmail.com");
+	const port = parseInt(env("SMTP_PORT", "587"), 10) || 587;
+	const crypto = env("SMTP_CRYPTO", "tls").toLowerCase();
+	const user = env("SMTP_USER", "techsupport@collarcheck.com");
+	const pass = env("SMTP_PASS");
+
+	// 465 = implicit TLS (secure); 587 + tls = STARTTLS
+	const secure = port === 465 || crypto === "ssl";
+	const requireTLS = !secure && (crypto === "tls" || port === 587);
+
+	const options: SMTPTransport.Options = {
+		host,
+		port,
+		secure,
+		requireTLS,
+		auth: user && pass ? { user, pass } : undefined,
+	};
+
+	return nodemailer.createTransport(options);
+}
+
+let transporter: nodemailer.Transporter | null = null;
+
+function getTransporter() {
+	if (!transporter) {
+		transporter = createMailTransporter();
+	}
+	return transporter;
+}
 
 export async function handleEmail(data: EmailPayload): Promise<HandlerResult> {
 	try {
@@ -29,7 +66,7 @@ export async function handleEmail(data: EmailPayload): Promise<HandlerResult> {
 			to: data.mail.email,
 			subject: emailContent.subject,
 			html: emailContent.html,
-			from: data.mail.from || process.env.SMTP_FROM || 'noreply@collarcheck.com',
+			from: data.mail.from || env("SMTP_FROM", env("SMTP_USER", "techsupport@collarcheck.com")),
 			cc: data.mail.cc,
 			bcc: data.mail.bcc,
 			attachments: data.mail.attachments,
@@ -107,45 +144,25 @@ interface SendEmailOptions {
 }
 
 async function sendEmail(options: SendEmailOptions): Promise<boolean> {
-	// Option 1: Use AWS SES
-	// Option 2: Use SMTP (nodemailer)
-	// Option 3: Use SendGrid/Mailgun
-
-	// For now, we'll use a placeholder that logs the email
-	// In production, integrate with your email provider
+	const user = env("SMTP_USER", "techsupport@collarcheck.com");
+	const from = options.from || env("SMTP_FROM", user);
 
 	console.log("[EMAIL] Sending to:", options.to);
 	console.log("[EMAIL] Subject:", options.subject);
+	console.log("[EMAIL] SMTP:", env("SMTP_HOST", "smtp.gmail.com"), env("SMTP_PORT", "587"));
 
-	// TODO: Implement actual email sending
-	// Example with nodemailer:
-	/*
-	const nodemailer = require('nodemailer');
-	const transporter = nodemailer.createTransport({
-		host: process.env.SMTP_HOST,
-		port: parseInt(process.env.SMTP_PORT || '587'),
-		secure: false,
-		auth: {
-			user: process.env.SMTP_USER,
-			pass: process.env.SMTP_PASS,
-		},
-	});
-
-	const info = await transporter.sendMail({
-		from: options.from,
+	const info = await getTransporter().sendMail({
+		from,
 		to: options.to,
 		subject: options.subject,
 		html: options.html,
-		cc: options.cc?.join(','),
-		bcc: options.bcc?.join(','),
+		cc: options.cc?.length ? options.cc.join(",") : undefined,
+		bcc: options.bcc?.length ? options.bcc.join(",") : undefined,
 		attachments: options.attachments,
 	});
 
+	console.log("[EMAIL] MessageId:", info.messageId);
 	return !!info.messageId;
-	*/
-
-	// Simulate successful send
-	return true;
 }
 
 async function logTriggerEmail(trigger: EmailPayload["trigger"]): Promise<void> {

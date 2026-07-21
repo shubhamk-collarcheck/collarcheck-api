@@ -17,6 +17,7 @@ import type {
 	ReportReviewBody,
 	RequestDeleteAccountBody,
 	AiGenerateBody,
+	AiGenerateType,
 	FieldSuggestionQuery,
 	ManualDocumentBody,
 	HiredIdsBody,
@@ -122,35 +123,88 @@ export async function requestDeleteAccountService(
 }
 
 // ====== 5. ai-generate ======
-function buildSystemPrompt(type: string, body: AiGenerateBody, userCtx: any): string {
-	switch (type) {
-		case "USER_DESCRIPTION":
-			return `Write a professional bio (max 800 chars) for a user. Base only on: query="${body.query}", designation=${userCtx?.designationName || body.designation || ""}, skills context. Do not invent metrics.`;
-		case "COMPANY_DESCRIPTION":
-			return `Write a company description. company_name=${body.company_name}, industry=${body.industry}, company_size=${body.company_size}, incorporate_date=${body.incorporate_date}. Use query: ${body.query}`;
-		case "EMPLOYMENT_DESCRIPTION":
-			return `Write an employment role description for designation=${body.designation} in department=${body.department}. Query: ${body.query}`;
-		case "PORTFOLIO_DESCRIPTION":
-			return `Write a portfolio project description (30-50 words) for title=${body.title}. Query: ${body.query}`;
-		case "REVIEW_USER":
-			return `Write a professional review of a person in ≤80 words based on: ${body.query}`;
-		case "REVIEW_COMPANY":
-			return `Write a professional company review in ≤80 words based on: ${body.query}`;
-		default:
-			return `Rewrite the following into 2-3 bullet options of about 30 words each. Query: ${body.query}`;
-	}
+type UserCtx = Awaited<ReturnType<typeof get_user_detail>>;
+
+function pick(...parts: Array<string | undefined | null>): string {
+	return parts.map((p) => (p ?? "").trim()).filter(Boolean).join(" · ");
+}
+
+const SYSTEM_PROMPTS: Record<AiGenerateType, (body: AiGenerateBody, user: UserCtx) => string> = {
+	USER_DESCRIPTION: (body, user) => {
+		const context = pick(
+			user?.fullName || user?.fname,
+			body.designation || user?.designationName,
+			body.position,
+			body.company || user?.companyName,
+			user?.industryName,
+			user?.cityName,
+		);
+		return [
+			"Write a professional user bio (max 800 characters).",
+			"Use only the facts provided. Do not invent metrics, employers, or skills.",
+			"Tone: first-person or third-person professional; concise and hire-ready.",
+			context ? `Profile context: ${context}` : "",
+		]
+			.filter(Boolean)
+			.join(" ");
+	},
+	COMPANY_DESCRIPTION: (body) => {
+		const context = pick(
+			body.company_name,
+			body.industry,
+			body.company_size,
+			body.incorporate_date ? `founded ${body.incorporate_date}` : undefined,
+		);
+		return [
+			"Write a professional company description.",
+			"Use only the facts provided. Do not invent clients, revenue, or awards.",
+			context ? `Company context: ${context}` : "",
+		]
+			.filter(Boolean)
+			.join(" ");
+	},
+	EMPLOYMENT_DESCRIPTION: (body) => {
+		const context = pick(
+			body.designation || body.position,
+			body.department,
+			body.company || body.company_name,
+		);
+		return [
+			"Write a concise employment / role description for a resume or profile.",
+			"Focus on responsibilities and impact. Do not invent achievements.",
+			context ? `Role context: ${context}` : "",
+		]
+			.filter(Boolean)
+			.join(" ");
+	},
+	PORTFOLIO_DESCRIPTION: (body) => {
+		const context = pick(body.title);
+		return [
+			"Write a portfolio project description (30–50 words).",
+			"Clear, outcome-oriented, no fluff. Do not invent tech stack or results.",
+			context ? `Project: ${context}` : "",
+		]
+			.filter(Boolean)
+			.join(" ");
+	},
+	REVIEW_USER: () =>
+		"Write a professional peer review of a person in ≤80 words. Stay constructive, specific, and factual based only on the input.",
+	REVIEW_COMPANY: () =>
+		"Write a professional company review in ≤80 words. Stay balanced, specific, and factual based only on the input.",
+};
+
+function buildSystemPrompt(body: AiGenerateBody, user: UserCtx): string {
+	return SYSTEM_PROMPTS[body.type](body, user);
 }
 
 export async function aiGenerateService(userId: number, body: AiGenerateBody) {
-	const user = await get_user_detail(userId);
-	const apiKey = process.env.GPT || process.env.OPENAI_API_KEY;
+	const apiKey = process.env.OPENAI_API_KEY;
 	if (!apiKey) {
 		return { status: false, messages: "GPT API key not configured" };
 	}
 
-	const system = buildSystemPrompt(body.type, body, user);
-	const userContent =
-		body.type === "USER_DESCRIPTION" ? body.query || "" : body.query;
+	const user = await get_user_detail(userId);
+	const system = buildSystemPrompt(body, user);
 
 	try {
 		const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -165,23 +219,29 @@ export async function aiGenerateService(userId: number, body: AiGenerateBody) {
 				max_tokens: 300,
 				messages: [
 					{ role: "system", content: system },
-					{ role: "user", content: userContent },
+					{ role: "user", content: body.query },
 				],
 			}),
 			signal: AbortSignal.timeout(10_000),
 		});
+
 		const raw = await res.text();
 		if (!res.ok) {
 			return { status: false, messages: raw };
 		}
-		const json = JSON.parse(raw);
+
+		const json = JSON.parse(raw) as {
+			choices?: Array<{ message?: { content?: string }; text?: string }>;
+		};
 		const text =
 			json?.choices?.[0]?.message?.content ||
 			json?.choices?.[0]?.text ||
 			"";
-		return { status: true, data: String(text) };
-	} catch (e: any) {
-		return { status: false, messages: e?.message || String(e) };
+
+		return { status: true, data: String(text).trim() };
+	} catch (e: unknown) {
+		const message = e instanceof Error ? e.message : String(e);
+		return { status: false, messages: message };
 	}
 }
 

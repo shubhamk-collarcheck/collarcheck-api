@@ -4,11 +4,13 @@ import { validateData } from "../middlewares/validation.middleware";
 import { getSetting, saveSetting } from "../controllers/common-auth.controller";
 import { updatePhone, updateEmail } from "../controllers/user.controller";
 import { updatePhoneSchema, updateEmailSchema } from "../types/general.types";
+import multer from "multer";
 
 const userRouter = Router();
 
+const formData = multer().none();
 userRouter.get("/getSetting", Authorization, getSetting);
-userRouter.post("/saveSetting", Authorization, saveSetting);
+userRouter.post("/saveSetting", formData, Authorization, saveSetting);
 
 // Endpoint #9: Update Phone
 userRouter.post("/updatePhone", Authorization, validateData(updatePhoneSchema), updatePhone);

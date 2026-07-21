@@ -261,14 +261,13 @@ export const inviteCompany = async (req: Request, res: Response) => {
 
 		const { body } = req.validated as { body: InviteCompanyBody };
 
-		// Handle file upload
-		let profileUrl = '';
-		if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-			const files = req.files as Express.MulterS3.File[];
-			profileUrl = files[0].location;
-		}
+		// .single("profile") puts the file on req.file (not req.files)
+		const profileFile = req.file as Express.MulterS3.File | undefined;
+		const profileUrl = profileFile?.location || profileFile?.key || "";
 
-		// TODO: Implement full invite logic
+		// TODO: Implement full invite logic (persist profileUrl, create company, relation, invite email)
+		void companyId;
+		void profileUrl;
 		return res.status(200).json({
 			status: true,
 			messages: "Successfully Registered",

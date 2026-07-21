@@ -69,16 +69,24 @@ export const companyListQuerySchema = z.object({
 	offset: z.coerce.number().int().optional().default(0),
 });
 
-export const inviteCompanySchema = z.object({
-	company_name: z.string().min(1, "Company name is required"),
-	contact_person: z.string().min(1, "Contact person is required"),
-	incorporate_date: z.string().min(1, "Incorporate date is required"),
-	industry: z.string().min(1, "Industry is required"),
-	email: z.string().email("Valid email is required"),
-	phone: z.string().min(10).max(15, "Phone must be 10-15 digits"),
-	website: z.string().optional(),
+const formString = z
+	.union([z.string(), z.number()])
+	.transform((v) => String(v).trim());
+
+export const inviteCompanyBodySchema = z.object({
+	company_name: formString.pipe(z.string().min(1, "Company name is required")),
+	contact_person: formString.pipe(z.string().min(1, "Contact person is required")),
+	incorporate_date: formString.pipe(z.string().min(1, "Incorporate date is required")),
+	industry: formString.pipe(z.string().min(1, "Industry is required")),
+	email: formString.pipe(z.string().email("Valid email is required")),
+	phone: formString.pipe(z.string().min(10).max(15, "Phone must be 10-15 digits")),
+	website: z
+		.union([z.string(), z.number()])
+		.optional()
+		.transform((v) => (v === undefined || v === null || String(v).trim() === "" ? undefined : String(v).trim())),
 	user_relation: z.coerce.number().int().optional(),
 });
+export const inviteCompanySchema = z.object({ body: inviteCompanyBodySchema });
 
 export const employmentRequestQuerySchema = z.object({
 	limit: z.coerce.number().int().positive().optional().default(10),
@@ -148,7 +156,7 @@ export type ValidToReviewParams = z.infer<typeof validToReviewParamsSchema>;
 export type FollowRequestListQuery = z.infer<typeof followRequestListQuerySchema>;
 export type CompanyDashboardQuery = z.infer<typeof companyDashboardQuerySchema>;
 export type CompanyListQuery = z.infer<typeof companyListQuerySchema>;
-export type InviteCompanyBody = z.infer<typeof inviteCompanySchema>;
+export type InviteCompanyBody = z.infer<typeof inviteCompanyBodySchema>;
 export type EmploymentRequestQuery = z.infer<typeof employmentRequestQuerySchema>;
 export type AllMessageListQuery = z.infer<typeof allMessageListQuerySchema>;
 export type AddMessageBody = z.infer<typeof addMessageSchema>;

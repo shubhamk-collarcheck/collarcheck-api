@@ -67,7 +67,6 @@ export async function sendOtp(req: Request, res: Response, next: NextFunction) {
 			});
 		}
 		const { body } = req.validated as { body: SendOtpBody };
-		console.log("data send otp  ", body)
 		const result = await sendOtpService(body);
 		return res.status(200).json(result);
 	} catch (error) {
