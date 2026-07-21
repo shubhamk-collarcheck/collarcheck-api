@@ -2,7 +2,6 @@ import { Router } from "express";
 import { Authorization } from "../middlewares/Authorization";
 import { validateData } from "../middlewares/validation.middleware";
 
-import loginRouter from "./login.route";
 
 import { peopleList, peopleListSignup } from "../controllers/common-auth.controller";
 import { claimCompany, companyList } from "../controllers/company-employee-request.controller";
@@ -21,7 +20,6 @@ import { dataDeletion } from "../controllers/frontend.controller";
 
 const rootRouter = Router();
 
-rootRouter.use("/login", loginRouter);
 
 // Meta data-deletion callback (public stub)
 rootRouter.get("/data-deletion", dataDeletion);

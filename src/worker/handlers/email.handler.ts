@@ -1,20 +1,37 @@
+import fs from "fs";
+import path from "path";
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import db from "../../db";
 import { cybTriggerEmail } from "../../db/schema";
 import type { EmailPayload, HandlerResult } from "../types";
 
-// Email template placeholders mapping
-const TEMPLATE_VARS: Record<number, string[]> = {
-	50: ["invite_url", "employee_name", "company_name"],
+/** Template id → { subject, html file under worker/templates/ } */
+const FILE_TEMPLATES: Record<number, { subject: string; file: string }> = {
+	1: {
+		subject: "One-Time Password (OTP) For User",
+		file: "otp.html",
+	},
 };
+
+const templateCache = new Map<string, string>();
+
+function loadHtmlTemplate(filename: string): string {
+	const cached = templateCache.get(filename);
+	if (cached) return cached;
+
+	const filePath = path.join(__dirname, "..", "templates", filename);
+	const content = fs.readFileSync(filePath, "utf8");
+	templateCache.set(filename, content);
+	return content;
+}
 
 function env(key: string, fallback = ""): string {
 	return (process.env[key] ?? fallback).trim().replace(/^['"]|['"]$/g, "");
 }
 
 function createMailTransporter() {
-	const host = env("SMTP_HOST", "smtp.gmail.com");
+	const host = process.env.SMTP_HOST
 	const port = parseInt(env("SMTP_PORT", "587"), 10) || 587;
 	const crypto = env("SMTP_CRYPTO", "tls").toLowerCase();
 	const user = env("SMTP_USER", "techsupport@collarcheck.com");
@@ -73,7 +90,6 @@ export async function handleEmail(data: EmailPayload): Promise<HandlerResult> {
 		});
 
 		if (emailSent) {
-			// Log trigger if provided
 			if (data.trigger) {
 				await logTriggerEmail(data.trigger);
 			}
@@ -93,11 +109,20 @@ async function buildEmailContent(mail: EmailPayload["mail"]): Promise<{ subject:
 	let html = mail.body || "";
 
 	// If template is provided, fetch and render template
-	if (mail.template && mail.vars) {
+	if (mail.template) {
 		const templateContent = await getTemplateContent(mail.template);
 		if (templateContent) {
 			subject = templateContent.subject || subject;
-			html = renderTemplate(templateContent.body, mail.vars);
+			const raw = mail.vars || {};
+			const displayName = raw.name || raw.username || "User";
+			const vars = {
+				year: String(new Date().getFullYear()),
+				...raw,
+				name: displayName,
+				username: displayName,
+				otp: raw.otp || "",
+			};
+			html = renderTemplate(templateContent.body, vars);
 		}
 	}
 
@@ -105,33 +130,23 @@ async function buildEmailContent(mail: EmailPayload["mail"]): Promise<{ subject:
 }
 
 async function getTemplateContent(templateId: number): Promise<{ subject: string; body: string } | null> {
-	// This would fetch from email_templates table
-	// For now, return default templates
-	const templates: Record<number, { subject: string; body: string }> = {
-		50: {
-			subject: "You've been invited to join CollarCheck",
-			body: `
-				<h1>Welcome to CollarCheck!</h1>
-				<p>Hello,</p>
-				<p>{{employee_name}} has invited you to join CollarCheck.</p>
-				<p>Click the link below to sign up:</p>
-				<a href="{{invite_url}}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Sign Up Now</a>
-				<p>If you have any questions, please contact us.</p>
-				<p>Best regards,<br/>The CollarCheck Team</p>
-			`,
-		},
-	};
+	const fileTpl = FILE_TEMPLATES[templateId];
+	if (!fileTpl) return null;
 
-	return templates[templateId] || null;
+	return {
+		subject: fileTpl.subject,
+		body: loadHtmlTemplate(fileTpl.file),
+	};
 }
 
 function renderTemplate(template: string, vars: Record<string, string>): string {
 	let rendered = template;
 	for (const [key, value] of Object.entries(vars)) {
-		rendered = rendered.replace(new RegExp(`{{${key}}}`, "g"), value);
+		rendered = rendered.replace(new RegExp(`{{${key}}}`, "g"), value ?? "");
 	}
 	return rendered;
 }
+
 
 interface SendEmailOptions {
 	to: string;

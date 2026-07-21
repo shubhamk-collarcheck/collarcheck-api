@@ -291,9 +291,7 @@ export async function getStatistics(userId: number, loginauth?: string) {
  * Phone: MSG91 direct (sync) — same as PHP otpSend. Optional SQS only if MSG91_USE_SQS=1.
  * Email: SQS SEND_EMAIL template.
  */
-async function sendOtpQuietly(params: {
-	phone?: string; email?: string; name?: string; otp: string;
-}): Promise<{ smsSent: boolean; emailQueued: boolean }> {
+async function sendOtpQuietly(params: { phone?: string; email?: string; name?: string; otp: string; }): Promise<{ smsSent: boolean; emailQueued: boolean }> {
 	await loginRepositery.upsertOtp({
 		phone: params.phone,
 		email: params.email,

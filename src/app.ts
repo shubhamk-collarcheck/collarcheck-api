@@ -21,6 +21,7 @@ import accountMigrationRouter from "./routes/account-migration.route";
 import testRoutesRouter from "./routes/test-routes.route";
 import bodyParser from "body-parser";
 import swaggerSpec from "./swagger";
+import loginRouter from "./routes/login.route";
 
 const app = express();
 
@@ -96,6 +97,7 @@ app.use("/wapi/company", companyRouter);
 app.use("/wapi/home", homeRouter);
 app.use("/wapi/contact", contactRouter);
 app.use("/wapi/career", careerRouter);
+app.use("/wapi/login", loginRouter)
 app.use("/wapi", rootRouter);
 app.use("/wapi", newRoutesRouter);
 app.use("/wapi", widgetRouter);
