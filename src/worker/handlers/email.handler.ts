@@ -1,37 +1,20 @@
-import fs from "fs";
-import path from "path";
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import db from "../../db";
 import { cybTriggerEmail } from "../../db/schema";
 import type { EmailPayload, HandlerResult } from "../types";
-
-/** Template id → { subject, html file under worker/templates/ } */
-const FILE_TEMPLATES: Record<number, { subject: string; file: string }> = {
-	1: {
-		subject: "One-Time Password (OTP) For User",
-		file: "otp.html",
-	},
-};
-
-const templateCache = new Map<string, string>();
-
-function loadHtmlTemplate(filename: string): string {
-	const cached = templateCache.get(filename);
-	if (cached) return cached;
-
-	const filePath = path.join(__dirname, "..", "templates", filename);
-	const content = fs.readFileSync(filePath, "utf8");
-	templateCache.set(filename, content);
-	return content;
-}
+import {
+	getFileTemplateMeta,
+	renderFileTemplate,
+	renderStringTemplate,
+} from "../template";
 
 function env(key: string, fallback = ""): string {
 	return (process.env[key] ?? fallback).trim().replace(/^['"]|['"]$/g, "");
 }
 
 function createMailTransporter() {
-	const host = process.env.SMTP_HOST
+	const host = process.env.SMTP_HOST;
 	const port = parseInt(env("SMTP_PORT", "587"), 10) || 587;
 	const crypto = env("SMTP_CRYPTO", "tls").toLowerCase();
 	const user = env("SMTP_USER", "techsupport@collarcheck.com");
@@ -75,10 +58,8 @@ export async function handleEmail(data: EmailPayload): Promise<HandlerResult> {
 			return { success: false, message: "Email body is empty" };
 		}
 
-		// Build email content
-		const emailContent = await buildEmailContent(data.mail);
+		const emailContent = buildEmailContent(data.mail);
 
-		// Send email via SMTP/API
 		const emailSent = await sendEmail({
 			to: data.mail.email,
 			subject: emailContent.subject,
@@ -96,7 +77,7 @@ export async function handleEmail(data: EmailPayload): Promise<HandlerResult> {
 			console.log("[EMAIL] Email sent OK");
 			return { success: true, message: "Email sent successfully" };
 		} else {
-			throw new Error(`Email FAILED for: ${data.mail.email || 'unknown'}`);
+			throw new Error(`Email FAILED for: ${data.mail.email || "unknown"}`);
 		}
 	} catch (error) {
 		console.error("[EMAIL] Error:", error);
@@ -104,49 +85,42 @@ export async function handleEmail(data: EmailPayload): Promise<HandlerResult> {
 	}
 }
 
-async function buildEmailContent(mail: EmailPayload["mail"]): Promise<{ subject: string; html: string }> {
+function buildTemplateVars(raw: Record<string, unknown> = {}): Record<string, unknown> {
+	const nameVal = raw.name ?? raw.username;
+	const displayName = typeof nameVal === "string" && nameVal.trim() ? nameVal : "User";
+	const otpVal = raw.otp;
+	return {
+		year: String(new Date().getFullYear()),
+		...raw,
+		name: displayName,
+		username: displayName,
+		otp: otpVal != null ? String(otpVal) : "",
+	};
+}
+
+function buildEmailContent(mail: EmailPayload["mail"]): { subject: string; html: string } {
 	let subject = mail.subject || "CollarCheck Notification";
 	let html = mail.body || "";
 
-	// If template is provided, fetch and render template
 	if (mail.template) {
-		const templateContent = await getTemplateContent(mail.template);
-		if (templateContent) {
-			subject = templateContent.subject || subject;
-			const raw = mail.vars || {};
-			const displayName = raw.name || raw.username || "User";
-			const vars = {
-				year: String(new Date().getFullYear()),
-				...raw,
-				name: displayName,
-				username: displayName,
-				otp: raw.otp || "",
-			};
-			html = renderTemplate(templateContent.body, vars);
+		const meta = getFileTemplateMeta(mail.template);
+		if (!meta) {
+			throw new Error(`Unknown email template id: ${mail.template}`);
+		}
+
+		const vars = buildTemplateVars(mail.vars);
+		subject = renderStringTemplate(meta.subject, vars);
+		html = renderFileTemplate(meta.file, vars);
+	} else if (html && mail.vars) {
+		// Allow {{placeholders}} in raw body as well
+		html = renderStringTemplate(html, buildTemplateVars(mail.vars));
+		if (mail.subject) {
+			subject = renderStringTemplate(mail.subject, buildTemplateVars(mail.vars));
 		}
 	}
 
 	return { subject, html };
 }
-
-async function getTemplateContent(templateId: number): Promise<{ subject: string; body: string } | null> {
-	const fileTpl = FILE_TEMPLATES[templateId];
-	if (!fileTpl) return null;
-
-	return {
-		subject: fileTpl.subject,
-		body: loadHtmlTemplate(fileTpl.file),
-	};
-}
-
-function renderTemplate(template: string, vars: Record<string, string>): string {
-	let rendered = template;
-	for (const [key, value] of Object.entries(vars)) {
-		rendered = rendered.replace(new RegExp(`{{${key}}}`, "g"), value ?? "");
-	}
-	return rendered;
-}
-
 
 interface SendEmailOptions {
 	to: string;
@@ -186,7 +160,7 @@ async function logTriggerEmail(trigger: EmailPayload["trigger"]): Promise<void> 
 	try {
 		await db.insert(cybTriggerEmail).values({
 			user: trigger.user_id,
-			email: "", // Will be filled by the caller if needed
+			email: "",
 			template: trigger.template_id || 0,
 			status: trigger.status,
 			createDate: new Date().toISOString(),
@@ -194,6 +168,5 @@ async function logTriggerEmail(trigger: EmailPayload["trigger"]): Promise<void> 
 		});
 	} catch (error) {
 		console.error("[EMAIL] Failed to log trigger:", error);
-		// Don't throw - logging is optional
 	}
 }

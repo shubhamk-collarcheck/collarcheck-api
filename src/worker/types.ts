@@ -19,7 +19,8 @@ export interface EmailMailData {
 	subject?: string;
 	body?: string;
 	template?: number;
-	vars?: Record<string, string>;
+	/** Handlebars context — {{name}}, {{otp}}, nested keys, etc. */
+	vars?: Record<string, unknown>;
 	from?: string;
 	cc?: string[];
 	bcc?: string[];
