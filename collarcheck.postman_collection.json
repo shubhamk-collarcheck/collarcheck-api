@@ -31,6 +31,640 @@
       ]
     },
     {
+      "name": "cron / ops",
+      "description": "HTTP cron jobs (Node). Require header X-Ops-Key: {{ops_key}} (or ALLOW_PUBLIC_OPS=1 / non-prod).\n\nPipeline: create-email-schedule \u2192 send-email-schedule \u2192 final-schedule-update\nDocs: src/api-ai-document/other/cronjobs.md",
+      "item": [
+        {
+          "name": "backup",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/backup",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "backup"
+              ]
+            },
+            "description": "mysqldump + S3 upload"
+          },
+          "response": []
+        },
+        {
+          "name": "update-view-request",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/update-view-request",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "update-view-request"
+              ]
+            },
+            "description": "Expire old profile view requests"
+          },
+          "response": []
+        },
+        {
+          "name": "lat-long-update",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/lat-long-update",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "lat-long-update"
+              ]
+            },
+            "description": "Geocode missing lat/long (GOOGLEKEY)"
+          },
+          "response": []
+        },
+        {
+          "name": "delete-otp",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/delete-otp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "delete-otp"
+              ]
+            },
+            "description": "Delete old OTP + trim master names"
+          },
+          "response": []
+        },
+        {
+          "name": "update-percentage",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/update-percentage",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "update-percentage"
+              ]
+            },
+            "description": "Batch profile % (1000)"
+          },
+          "response": []
+        },
+        {
+          "name": "percentage_status_reset",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/percentage_status_reset",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "percentage_status_reset"
+              ]
+            },
+            "description": "Reset percentage_status=0"
+          },
+          "response": []
+        },
+        {
+          "name": "update-account-setting",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/update-account-setting",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "update-account-setting"
+              ]
+            },
+            "description": "Backfill account_setting"
+          },
+          "response": []
+        },
+        {
+          "name": "create-email-schedule",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/create-email-schedule",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "create-email-schedule"
+              ]
+            },
+            "description": "Expand schedulars \u2192 temp emails"
+          },
+          "response": []
+        },
+        {
+          "name": "create-email-schedule by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/create-email-schedule/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "create-email-schedule",
+                "1"
+              ]
+            },
+            "description": "Single schedule expand"
+          },
+          "response": []
+        },
+        {
+          "name": "send-email-schedule",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/send-email-schedule",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "send-email-schedule"
+              ]
+            },
+            "description": "Send/queue up to 30 per schedule"
+          },
+          "response": []
+        },
+        {
+          "name": "send-email-schedule by id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/send-email-schedule/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "send-email-schedule",
+                "1"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "final-schedule-update",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/final-schedule-update",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "final-schedule-update"
+              ]
+            },
+            "description": "Close finished schedules"
+          },
+          "response": []
+        },
+        {
+          "name": "create-reschedule",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/create-reschedule/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "create-reschedule",
+                "1"
+              ]
+            },
+            "description": "Retry not_delivered list"
+          },
+          "response": []
+        },
+        {
+          "name": "cron-notice",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/cron-notice",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "cron-notice"
+              ]
+            },
+            "description": "NOTICE type producer"
+          },
+          "response": []
+        },
+        {
+          "name": "total-new-job-post",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/total-new-job-post",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "total-new-job-post"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "job-viewed-not-applied",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/job-viewed-not-applied",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "job-viewed-not-applied"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "has-not-applied-any-job",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/has-not-applied-any-job",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "has-not-applied-any-job"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "new-job-match-your-skill",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/new-job-match-your-skill",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "new-job-match-your-skill"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "candidate-matches-your-job-requirement",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/candidate-matches-your-job-requirement",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "candidate-matches-your-job-requirement"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "gentle-reminder",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/gentle-reminder",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "gentle-reminder"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "marked-immidiate-joiner",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/marked-immidiate-joiner",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "marked-immidiate-joiner"
+              ]
+            },
+            "description": "Spelling intentional"
+          },
+          "response": []
+        },
+        {
+          "name": "no-login-or-action",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/no-login-or-action",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "no-login-or-action"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "got-a-message",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/got-a-message",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "got-a-message"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "unified-email",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/unified-email",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "unified-email"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        },
+        {
+          "name": "send-email-import-employee",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/send-email-import-employee",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "send-email-import-employee"
+              ]
+            },
+            "description": ""
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "login",
       "description": "Login & OTP flows (Node): unified login, legacy send/verify OTP, social login. Public endpoints.\n\nAfter phone/email OTP for **new** users, continue with **employees \u2192 signup / registration (public)**.\nDocs: `src/api-ai-document/login-registration-endpoints.md`, `employee-signup-endpoints.md`.",
       "item": [
@@ -9192,6 +9826,11 @@
     },
     {
       "key": "client_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ops_key",
       "value": "",
       "type": "string"
     }
