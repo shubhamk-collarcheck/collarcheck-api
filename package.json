@@ -9,6 +9,11 @@
     "dev": "nodemon --watch 'src/**/*.ts' --exec ts-node src/server.ts",
     "worker": "ts-node src/worker/index.ts",
     "start": "node dist/server.js",
+    "start:worker": "node dist/worker/index.js",
+    "pm2:start": "pm2 start ecosystem.config.js",
+    "pm2:restart": "pm2 restart ecosystem.config.js",
+    "pm2:stop": "pm2 stop ecosystem.config.js",
+    "pm2:logs": "pm2 logs",
     "lint": "eslint . --ext .ts"
   },
   "keywords": [],
