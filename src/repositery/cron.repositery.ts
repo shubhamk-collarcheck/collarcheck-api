@@ -462,8 +462,7 @@ class CronRepository {
 
 	async countJobsCreatedYesterday() {
 		const yesterday = dateDaysAgo(1);
-		const [row] = await db
-			.select({ count: sql<number>`count(*)` })
+		const [row] = await db.select({ count: sql<number>`count(*)` })
 			.from(cybCompanyJob)
 			.where(
 				and(

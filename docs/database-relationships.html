@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CollarCheck — Simple Database Diagrams</title>
+<style>
+  :root {
+    --bg: #000000;
+    --header-bg: #f5f0e6;
+    --header-text: #1a1a1a;
+    --row-bg: #2a2a2a;
+    --row-alt: #232323;
+    --row-text: #e8e8e8;
+    --type: #a0a0a0;
+    --line: #c8c8c8;
+    --label-bg: #3a3a3a;
+    --label-text: #ddd;
+    --pk: #f0e6c8;
+    --fk: #c8e0f0;
+    --note: #888;
+    --tab: #1a1a1a;
+    --tab-active: #2d2d2d;
+    --muted: #9a9a9a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: #eee;
+    min-height: 100vh;
+  }
+  header {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #222;
+    background: #0a0a0a;
+  }
+  header h1 {
+    margin: 0 0 .25rem;
+    font-size: 1.25rem;
+    font-weight: 600;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: .88rem;
+    max-width: 70ch;
+  }
+  .note-bar {
+    margin-top: .65rem;
+    font-size: .78rem;
+    color: #c9a227;
+    background: #1a1508;
+    border: 1px solid #3d3210;
+    border-radius: 6px;
+    padding: .4rem .65rem;
+    display: inline-block;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+    padding: .85rem 1.25rem;
+    border-bottom: 1px solid #222;
+    background: #0d0d0d;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .tab {
+    border: 1px solid #333;
+    background: var(--tab);
+    color: #bbb;
+    border-radius: 8px;
+    padding: .45rem .85rem;
+    font-size: .82rem;
+    cursor: pointer;
+  }
+  .tab:hover { border-color: #555; color: #fff; }
+  .tab.active {
+    background: var(--tab-active);
+    color: #fff;
+    border-color: #666;
+    box-shadow: 0 0 0 1px #444;
+  }
+
+  .panel { display: none; padding: 1.25rem; }
+  .panel.active { display: block; }
+
+  .panel-title {
+    font-size: 1rem;
+    margin: 0 0 .35rem;
+    color: #fff;
+  }
+  .panel-desc {
+    margin: 0 0 1.25rem;
+    color: var(--muted);
+    font-size: .85rem;
+    max-width: 80ch;
+  }
+
+  /* ER canvas */
+  .erd {
+    position: relative;
+    background: #000;
+    border: 1px solid #1a1a1a;
+    border-radius: 12px;
+    overflow: auto;
+    min-height: 420px;
+  }
+  .erd-inner {
+    position: relative;
+    margin: 0 auto;
+  }
+  .erd svg.wires {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  /* Table card — matches reference style */
+  .tbl {
+    position: absolute;
+    min-width: 240px;
+    max-width: 320px;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,.55);
+    border: 1px solid #444;
+    font-size: 12.5px;
+    z-index: 2;
+  }
+  .tbl .th {
+    background: var(--header-bg);
+    color: var(--header-text);
+    text-align: center;
+    font-weight: 700;
+    letter-spacing: .04em;
+    padding: .55rem .7rem;
+    font-size: 13px;
+    text-transform: uppercase;
+  }
+  .tbl .tr {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
+    gap: .35rem;
+    align-items: center;
+    padding: .32rem .55rem;
+    background: var(--row-bg);
+    color: var(--row-text);
+    border-top: 1px solid #1a1a1a;
+  }
+  .tbl .tr:nth-child(even) { background: var(--row-alt); }
+  .tbl .tr .ty { color: var(--type); font-size: 11px; font-family: ui-monospace, Menlo, Consolas, monospace; }
+  .tbl .tr .nm { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+  .tbl .tr .badge {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .03em;
+    color: var(--pk);
+    min-width: 22px;
+    text-align: right;
+  }
+  .tbl .tr .badge.fk { color: var(--fk); }
+  .tbl .tr .extra {
+    grid-column: 1 / -1;
+    color: var(--note);
+    font-size: 10.5px;
+    padding-left: 72px;
+    margin-top: -2px;
+  }
+  .tbl.hub { border-color: #c9a227; box-shadow: 0 0 0 1px #c9a22755, 0 4px 24px rgba(0,0,0,.55); }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 1rem 0 0;
+    font-size: .8rem;
+    color: var(--muted);
+  }
+  .legend item, .legend span {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .crow {
+    display: inline-block;
+    width: 36px;
+    height: 14px;
+    position: relative;
+  }
+  .crow::before {
+    content: "";
+    position: absolute;
+    left: 0; right: 14px; top: 6px;
+    height: 2px;
+    background: var(--line);
+  }
+  .crow.one-many::after {
+    content: "";
+    position: absolute;
+    right: 0; top: 1px;
+    width: 0; height: 0;
+    border-left: 12px solid var(--line);
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+  }
+  .crow.one-one::after {
+    content: "";
+    position: absolute;
+    right: 2px; top: 2px;
+    width: 2px; height: 10px;
+    background: var(--line);
+    box-shadow: -5px 0 0 var(--line);
+  }
+
+  .key-facts {
+    margin-top: 1.25rem;
+    padding: 1rem;
+    background: #111;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    font-size: .85rem;
+    color: #ccc;
+  }
+  .key-facts h3 { margin: 0 0 .5rem; font-size: .9rem; color: #fff; }
+  .key-facts ul { margin: 0; padding-left: 1.15rem; }
+  .key-facts li { margin-bottom: .35rem; }
+  .key-facts code {
+    background: #1e1e1e;
+    padding: .1rem .35rem;
+    border-radius: 4px;
+    font-size: .82em;
+  }
+
+  footer {
+    padding: 1rem 1.5rem 2rem;
+    color: #666;
+    font-size: .75rem;
+    border-top: 1px solid #1a1a1a;
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>CollarCheck database — simple relationship diagrams</h1>
+  <p>
+    Same style as a classic ER diagram: tables, columns, PK/FK, and crow’s-foot lines.
+    Split by topic so each picture stays readable. Soft links today (IDs stored, no MySQL FK constraints yet).
+  </p>
+  <div class="note-bar">
+    Important: companies and employees share one table — <strong>cyb_user</strong>
+    (user_type 1 = employee, 2 = company). Columns named company / company_id → cyb_user.id
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button type="button" class="tab active" data-panel="p0">1. Big picture</button>
+  <button type="button" class="tab" data-panel="p1">2. User &amp; profile</button>
+  <button type="button" class="tab" data-panel="p2">3. Employment &amp; reviews</button>
+  <button type="button" class="tab" data-panel="p3">4. Jobs &amp; applications</button>
+  <button type="button" class="tab" data-panel="p4">5. Skills &amp; education</button>
+  <button type="button" class="tab" data-panel="p5">6. Company extras</button>
+  <button type="button" class="tab" data-panel="p6">7. Social &amp; messages</button>
+</nav>
+
+<!-- ========== PANEL 0: Big picture ========== -->
+<section class="panel active" id="p0">
+  <h2 class="panel-title">Big picture — how the product hangs together</h2>
+  <p class="panel-desc">
+    One hub table (<code>cyb_user</code>) owns almost everything. Read lines as:
+    <strong>one parent → many children</strong>. Junction tables sit in the middle for many-to-many.
+  </p>
+  <div class="erd" id="erd0" data-w="1100" data-h="780">
+    <div class="erd-inner" style="width:1100px;height:780px">
+      <svg class="wires" id="wires0"></svg>
+      <!-- tables placed by JS -->
+    </div>
+  </div>
+  <div class="legend">
+    <span><i class="crow one-many"></i> One → many</span>
+    <span><i class="crow one-one"></i> One → one (or optional one)</span>
+    <span style="color:#c9a227">Gold border = hub table</span>
+    <span style="color:#c8e0f0">FK = foreign key column (logical)</span>
+  </div>
+  <div class="key-facts">
+    <h3>How to read this</h3>
+    <ul>
+      <li><strong>1 user (employee)</strong> has many experiences, skills, educations, job applications.</li>
+      <li><strong>1 user (company)</strong> has many jobs, benefits, galleries; also appears as <code>company</code> on experiences and jobs.</li>
+      <li><strong>Junction</strong> tables (application, user_skill, company_benefits, follow) connect two sides — that is many-to-many.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ========== PANEL 1: User ========== -->
+<section class="panel" id="p1">
+  <h2 class="panel-title">User &amp; profile (1 : many children)</h2>
+  <p class="panel-desc">
+    Profile side tables hang off <code>cyb_user</code>. Lookups (city, designation, …) are shared master lists.
+  </p>
+  <div class="erd" id="erd1" data-w="1180" data-h="720">
+    <div class="erd-inner" style="width:1180px;height:720px">
+      <svg class="wires" id="wires1"></svg>
+    </div>
+  </div>
+  <div class="key-facts">
+    <h3>V2 tip</h3>
+    <ul>
+      <li>Add real FKs: <code>user_details.user_id → cyb_user.id</code>, etc.</li>
+      <li>Consider splitting employee vs company into separate tables (or strict checks on user_type).</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ========== PANEL 2: Employment ========== -->
+<section class="panel" id="p2">
+  <h2 class="panel-title">Employment &amp; company reviews</h2>
+  <p class="panel-desc">
+    Core product graph: employee works at company → experience → company writes a review (rating).
+  </p>
+  <div class="erd" id="erd2" data-w="1100" data-h="680">
+    <div class="erd-inner" style="width:1100px;height:680px">
+      <svg class="wires" id="wires2"></svg>
+    </div>
+  </div>
+  <div class="key-facts">
+    <h3>Cardinalities</h3>
+    <ul>
+      <li>Employee <strong>1 → N</strong> experiences</li>
+      <li>Company <strong>1 → N</strong> experiences (as employer)</li>
+      <li>Experience <strong>1 → N</strong> ratings/reviews</li>
+      <li>Rating <strong>1 → N</strong> history rows</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ========== PANEL 3: Jobs ========== -->
+<section class="panel" id="p3">
+  <h2 class="panel-title">Jobs &amp; applications (many-to-many)</h2>
+  <p class="panel-desc">
+    Company posts jobs. Employees apply via <code>cyb_application</code> (junction). Collaborators help manage a job.
+  </p>
+  <div class="erd" id="erd3" data-w="1100" data-h="700">
+    <div class="erd-inner" style="width:1100px;height:700px">
+      <svg class="wires" id="wires3"></svg>
+    </div>
+  </div>
+  <div class="key-facts">
+    <h3>Many-to-many</h3>
+    <ul>
+      <li><code>cyb_application</code> = Job ↔ Employee (like cart_items between cart and product).</li>
+      <li>V2: <code>UNIQUE(job, user)</code> + FKs to both tables.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ========== PANEL 4: Skills & education ========== -->
+<section class="panel" id="p4">
+  <h2 class="panel-title">Skills, languages &amp; education</h2>
+  <p class="panel-desc">
+    Skills and languages are many-to-many (junction tables). Education is one-to-many from the user.
+  </p>
+  <div class="erd" id="erd4" data-w="1100" data-h="640">
+    <div class="erd-inner" style="width:1100px;height:640px">
+      <svg class="wires" id="wires4"></svg>
+    </div>
+  </div>
+  <div class="key-facts">
+    <h3>Many-to-many</h3>
+    <ul>
+      <li><code>cyb_user_skill</code> links user ↔ skill (like cart_items).</li>
+      <li><code>cyb_user_language</code> links user ↔ language.</li>
+      <li>V2: unique pair + FKs on each junction.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ========== PANEL 5: Company extras ========== -->
+<section class="panel" id="p5">
+  <h2 class="panel-title">Company extras (benefits, wishlist, connection)</h2>
+  <p class="panel-desc">
+    Features that hang off a company user: benefits (N:M), gallery, wishlist, connection to employees.
+  </p>
+  <div class="erd" id="erd5" data-w="1100" data-h="640">
+    <div class="erd-inner" style="width:1100px;height:640px">
+      <svg class="wires" id="wires5"></svg>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PANEL 6: Social ========== -->
+<section class="panel" id="p6">
+  <h2 class="panel-title">Social, messages &amp; notifications</h2>
+  <p class="panel-desc">
+    Users follow users, message each other, and receive notifications — all pointing back at cyb_user.
+  </p>
+  <div class="erd" id="erd6" data-w="1000" data-h="600">
+    <div class="erd-inner" style="width:1000px;height:600px">
+      <svg class="wires" id="wires6"></svg>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Style inspired by classic crow’s-foot ER diagrams.
+  Data from <code>src/db/schema.ts</code>. Open this file in any browser. Full column catalog still available via older generator if needed.
+</footer>
+
+<script>
+/**
+ * Simple ER renderer — table cards + SVG crow's-foot connectors
+ * Matches the visual style of the reference image (USERS / CARTS / PRODUCTS).
+ */
+
+function el(tag, attrs = {}, html = "") {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v;
+    else if (k === "style" && typeof v === "object") Object.assign(n.style, v);
+    else n.setAttribute(k, v);
+  }
+  if (html) n.innerHTML = html;
+  return n;
+}
+
+/** @param {HTMLElement} rootInner */
+function drawTable(rootInner, def) {
+  const card = el("div", {
+    class: "tbl" + (def.hub ? " hub" : ""),
+    id: def.id,
+    style: { left: def.x + "px", top: def.y + "px", width: (def.w || 260) + "px" },
+  });
+  card.appendChild(el("div", { class: "th" }, def.title));
+  for (const col of def.cols) {
+    const tr = el("div", { class: "tr" });
+    tr.appendChild(el("div", { class: "ty" }, col.t));
+    tr.appendChild(el("div", { class: "nm" }, col.n));
+    const badge = col.pk ? "PK" : col.fk ? "FK" : "";
+    tr.appendChild(el("div", { class: "badge" + (col.fk && !col.pk ? " fk" : "") }, badge));
+    if (col.note) tr.appendChild(el("div", { class: "extra" }, col.note));
+    card.appendChild(tr);
+  }
+  rootInner.appendChild(card);
+  return card;
+}
+
+/**
+ * Draw crow's-foot style link between two table boxes.
+ * fromSide/toSide: 'bottom' | 'top' | 'left' | 'right'
+ * cardinality: '1:N' | 'N:1' | '1:1' | 'N:M'
+ * Many side gets the crow's foot (three lines / fork).
+ */
+function drawLink(svg, fromEl, toEl, opts) {
+  const parent = fromEl.offsetParent;
+  const fr = fromEl.getBoundingClientRect();
+  const tr = toEl.getBoundingClientRect();
+  const pr = parent.getBoundingClientRect();
+
+  const fSide = opts.fromSide || "bottom";
+  const tSide = opts.toSide || "top";
+
+  function anchor(rect, side, bias = 0.5) {
+    const x = rect.left - pr.left;
+    const y = rect.top - pr.top;
+    const w = rect.width;
+    const h = rect.height;
+    if (side === "bottom") return { x: x + w * bias, y: y + h };
+    if (side === "top") return { x: x + w * bias, y: y };
+    if (side === "left") return { x: x, y: y + h * bias };
+    return { x: x + w, y: y + h * bias };
+  }
+
+  const a = anchor(fr, fSide, opts.fromBias ?? 0.5);
+  const b = anchor(tr, tSide, opts.toBias ?? 0.5);
+
+  // path with simple elbow
+  let d;
+  if (fSide === "bottom" && tSide === "top") {
+    const midY = (a.y + b.y) / 2;
+    d = `M ${a.x} ${a.y} L ${a.x} ${midY} L ${b.x} ${midY} L ${b.x} ${b.y}`;
+  } else if (fSide === "right" && tSide === "left") {
+    const midX = (a.x + b.x) / 2;
+    d = `M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`;
+  } else if (fSide === "left" && tSide === "right") {
+    const midX = (a.x + b.x) / 2;
+    d = `M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`;
+  } else if (fSide === "bottom" && tSide === "left") {
+    d = `M ${a.x} ${a.y} L ${a.x} ${b.y} L ${b.x} ${b.y}`;
+  } else if (fSide === "right" && tSide === "top") {
+    d = `M ${a.x} ${a.y} L ${b.x} ${a.y} L ${b.x} ${b.y}`;
+  } else {
+    d = `M ${a.x} ${a.y} L ${b.x} ${b.y}`;
+  }
+
+  const ns = "http://www.w3.org/2000/svg";
+  const path = document.createElementNS(ns, "path");
+  path.setAttribute("d", d);
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", "#c8c8c8");
+  path.setAttribute("stroke-width", "1.5");
+  svg.appendChild(path);
+
+  // endpoint markers: double bar = one, crow foot = many, circle = optional
+  function drawOne(x, y, angle) {
+    // two short bars perpendicular to direction
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("transform", `translate(${x},${y}) rotate(${angle})`);
+    for (const ox of [-4, -8]) {
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", ox);
+      line.setAttribute("y1", -6);
+      line.setAttribute("x2", ox);
+      line.setAttribute("y2", 6);
+      line.setAttribute("stroke", "#c8c8c8");
+      line.setAttribute("stroke-width", "1.5");
+      g.appendChild(line);
+    }
+    svg.appendChild(g);
+  }
+  function drawMany(x, y, angle) {
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("transform", `translate(${x},${y}) rotate(${angle})`);
+    // crow's foot: three lines from tip
+    const pts = [
+      [0, 0, -12, -7],
+      [0, 0, -12, 0],
+      [0, 0, -12, 7],
+    ];
+    for (const [x1, y1, x2, y2] of pts) {
+      const line = document.createElementNS(ns, "line");
+      line.setAttribute("x1", x1);
+      line.setAttribute("y1", y1);
+      line.setAttribute("x2", x2);
+      line.setAttribute("y2", y2);
+      line.setAttribute("stroke", "#c8c8c8");
+      line.setAttribute("stroke-width", "1.5");
+      g.appendChild(line);
+    }
+    svg.appendChild(g);
+  }
+  function drawOptional(x, y, angle) {
+    const g = document.createElementNS(ns, "g");
+    g.setAttribute("transform", `translate(${x},${y}) rotate(${angle})`);
+    const c = document.createElementNS(ns, "circle");
+    c.setAttribute("cx", -10);
+    c.setAttribute("cy", 0);
+    c.setAttribute("r", 4.5);
+    c.setAttribute("fill", "#000");
+    c.setAttribute("stroke", "#c8c8c8");
+    c.setAttribute("stroke-width", "1.5");
+    g.appendChild(c);
+    svg.appendChild(g);
+  }
+
+  function angleFor(side) {
+    if (side === "bottom") return 90;
+    if (side === "top") return -90;
+    if (side === "left") return 180;
+    return 0;
+  }
+
+  // parse card: which end is many?
+  // opts.card: '1:N' means from=1 to=N, 'N:1' from=N to=1, 'N:M' both many-ish with junction feel, '1:1'
+  const card = opts.card || "1:N";
+  if (card === "1:N") {
+    drawOne(a.x, a.y, angleFor(fSide));
+    drawOptional(b.x, b.y, angleFor(tSide));
+    drawMany(b.x, b.y, angleFor(tSide));
+  } else if (card === "N:1") {
+    drawMany(a.x, a.y, angleFor(fSide));
+    drawOptional(a.x, a.y, angleFor(fSide));
+    drawOne(b.x, b.y, angleFor(tSide));
+  } else if (card === "1:1") {
+    drawOne(a.x, a.y, angleFor(fSide));
+    drawOptional(b.x, b.y, angleFor(tSide));
+    drawOne(b.x, b.y, angleFor(tSide));
+  } else if (card === "N:M") {
+    drawMany(a.x, a.y, angleFor(fSide));
+    drawMany(b.x, b.y, angleFor(tSide));
+  }
+
+  // label
+  if (opts.label) {
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2 + (opts.labelDy || 0);
+    const fo = document.createElementNS(ns, "foreignObject");
+    const lw = Math.max(70, opts.label.length * 7);
+    fo.setAttribute("x", midX - lw / 2);
+    fo.setAttribute("y", midY - 10 + (opts.labelOffY || 0));
+    fo.setAttribute("width", lw);
+    fo.setAttribute("height", 20);
+    const lab = document.createElement("div");
+    lab.style.cssText =
+      "background:#3a3a3a;color:#ddd;font-size:11px;text-align:center;border-radius:4px;padding:1px 6px;font-family:sans-serif;";
+    lab.textContent = opts.label;
+    fo.appendChild(lab);
+    svg.appendChild(fo);
+  }
+}
+
+/* ---------- Diagram definitions ---------- */
+
+const diagrams = {
+  p0: {
+    erd: "erd0",
+    wires: "wires0",
+    tables: [
+      {
+        id: "t0_user",
+        hub: true,
+        title: "CYB_USER",
+        x: 420, y: 20, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_type", note: "1=employee · 2=company" },
+          { t: "varchar", n: "email" },
+          { t: "varchar", n: "fname / lname" },
+          { t: "int", n: "city / state / country", fk: true },
+          { t: "int", n: "current_company", fk: true, note: "→ cyb_user (company)" },
+        ],
+      },
+      {
+        id: "t0_exp",
+        title: "CYB_USER_EXPERIENCE",
+        x: 40, y: 320, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true, note: "employee" },
+          { t: "int", n: "company", fk: true, note: "→ cyb_user company" },
+          { t: "int", n: "designation", fk: true },
+          { t: "int", n: "department", fk: true },
+        ],
+      },
+      {
+        id: "t0_job",
+        title: "CYB_COMPANY_JOB",
+        x: 400, y: 320, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "company", fk: true, note: "→ cyb_user company" },
+          { t: "text", n: "job_title" },
+          { t: "int", n: "designation", fk: true },
+          { t: "int", n: "city / state", fk: true },
+        ],
+      },
+      {
+        id: "t0_app",
+        title: "CYB_APPLICATION",
+        x: 400, y: 560, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "job", fk: true },
+          { t: "int", n: "user", fk: true, note: "applicant employee" },
+        ],
+      },
+      {
+        id: "t0_skill",
+        title: "CYB_USER_SKILL",
+        x: 780, y: 320, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true },
+          { t: "int", n: "skill", fk: true },
+          { t: "int", n: "rating" },
+        ],
+      },
+    ],
+    links: [
+      { from: "t0_user", to: "t0_exp", card: "1:N", label: "works at", fromSide: "bottom", toSide: "top", fromBias: 0.25, toBias: 0.5 },
+      { from: "t0_user", to: "t0_job", card: "1:N", label: "posts (as company)", fromSide: "bottom", toSide: "top", fromBias: 0.5, toBias: 0.5 },
+      { from: "t0_user", to: "t0_skill", card: "1:N", label: "has skills", fromSide: "bottom", toSide: "top", fromBias: 0.75, toBias: 0.5 },
+      { from: "t0_job", to: "t0_app", card: "1:N", label: "receives", fromSide: "bottom", toSide: "top", fromBias: 0.4 },
+      { from: "t0_user", to: "t0_app", card: "1:N", label: "applies", fromSide: "bottom", toSide: "left", fromBias: 0.9, toBias: 0.5, labelOffY: 40 },
+    ],
+  },
+
+  p1: {
+    erd: "erd1",
+    wires: "wires1",
+    tables: [
+      {
+        id: "t1_user",
+        hub: true,
+        title: "CYB_USER",
+        x: 420, y: 40, w: 300,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_type" },
+          { t: "varchar", n: "email" },
+          { t: "varchar", n: "phone" },
+          { t: "int", n: "city", fk: true },
+          { t: "int", n: "state", fk: true },
+          { t: "int", n: "country", fk: true },
+          { t: "int", n: "gender", fk: true },
+          { t: "int", n: "notice_period", fk: true },
+          { t: "int", n: "industry", fk: true, note: "company profile" },
+        ],
+      },
+      {
+        id: "t1_details",
+        title: "CYB_USER_DETAILS",
+        x: 40, y: 80, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_id", fk: true },
+          { t: "varchar", n: "latitude / longitude" },
+          { t: "varchar", n: "domain" },
+        ],
+      },
+      {
+        id: "t1_doc",
+        title: "CYB_USER_DOCUMENT",
+        x: 40, y: 320, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true },
+          { t: "int", n: "doctype", fk: true },
+          { t: "text", n: "doc / docnumber" },
+        ],
+      },
+      {
+        id: "t1_cert",
+        title: "CYB_USER_CERTIFICATE",
+        x: 820, y: 80, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true },
+          { t: "text", n: "university / course" },
+          { t: "text", n: "certificate" },
+        ],
+      },
+      {
+        id: "t1_port",
+        title: "CYB_USER_PROTFOLIO",
+        x: 820, y: 320, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true },
+          { t: "int", n: "type", fk: true },
+          { t: "text", n: "title / image / url" },
+        ],
+      },
+      {
+        id: "t1_settings",
+        title: "CYB_ACCOUNT_SETTING",
+        x: 420, y: 420, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_id", fk: true },
+          { t: "varchar", n: "key / value" },
+        ],
+      },
+      {
+        id: "t1_city",
+        title: "CYB_CITIES (lookup)",
+        x: 420, y: 580, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "varchar", n: "name" },
+          { t: "int", n: "state", fk: true },
+        ],
+      },
+    ],
+    links: [
+      { from: "t1_user", to: "t1_details", card: "1:1", label: "has profile", fromSide: "left", toSide: "right", fromBias: 0.3, toBias: 0.4 },
+      { from: "t1_user", to: "t1_doc", card: "1:N", label: "has documents", fromSide: "left", toSide: "right", fromBias: 0.7, toBias: 0.4 },
+      { from: "t1_user", to: "t1_cert", card: "1:N", label: "has certificates", fromSide: "right", toSide: "left", fromBias: 0.3 },
+      { from: "t1_user", to: "t1_port", card: "1:N", label: "has portfolio", fromSide: "right", toSide: "left", fromBias: 0.65 },
+      { from: "t1_user", to: "t1_settings", card: "1:N", label: "has settings", fromSide: "bottom", toSide: "top" },
+      { from: "t1_user", to: "t1_city", card: "N:1", label: "lives in", fromSide: "bottom", toSide: "top", fromBias: 0.5, toBias: 0.5, labelOffY: -8 },
+    ],
+  },
+
+  p2: {
+    erd: "erd2",
+    wires: "wires2",
+    tables: [
+      {
+        id: "t2_emp",
+        hub: true,
+        title: "CYB_USER (employee)",
+        x: 40, y: 40, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_type", note: "= 1" },
+          { t: "varchar", n: "email" },
+        ],
+      },
+      {
+        id: "t2_co",
+        hub: true,
+        title: "CYB_USER (company)",
+        x: 780, y: 40, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_type", note: "= 2" },
+          { t: "varchar", n: "fname", note: "company name fields" },
+        ],
+      },
+      {
+        id: "t2_exp",
+        title: "CYB_USER_EXPERIENCE",
+        x: 380, y: 200, w: 300,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true, note: "→ employee" },
+          { t: "int", n: "company", fk: true, note: "→ company" },
+          { t: "int", n: "designation", fk: true },
+          { t: "int", n: "department", fk: true },
+          { t: "int", n: "employment_type", fk: true },
+          { t: "int", n: "still_working" },
+        ],
+      },
+      {
+        id: "t2_rate",
+        title: "CYB_USER_EXPERIENCE_RATING",
+        x: 380, y: 460, w: 300,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "experience", fk: true },
+          { t: "int", n: "company", fk: true },
+          { t: "int", n: "rating" },
+          { t: "text", n: "review" },
+          { t: "int", n: "added_by", fk: true, note: "reviewer" },
+        ],
+      },
+      {
+        id: "t2_hist",
+        title: "RATING_HISTORY",
+        x: 40, y: 480, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "rating_id", fk: true },
+          { t: "int", n: "rating" },
+          { t: "text", n: "review" },
+        ],
+      },
+    ],
+    links: [
+      { from: "t2_emp", to: "t2_exp", card: "1:N", label: "owns", fromSide: "bottom", toSide: "left", fromBias: 0.5, toBias: 0.25 },
+      { from: "t2_co", to: "t2_exp", card: "1:N", label: "employs", fromSide: "bottom", toSide: "right", fromBias: 0.5, toBias: 0.25 },
+      { from: "t2_exp", to: "t2_rate", card: "1:N", label: "reviewed as", fromSide: "bottom", toSide: "top" },
+      { from: "t2_rate", to: "t2_hist", card: "1:N", label: "history", fromSide: "left", toSide: "right", fromBias: 0.5, toBias: 0.5 },
+    ],
+  },
+
+  p3: {
+    erd: "erd3",
+    wires: "wires3",
+    tables: [
+      {
+        id: "t3_co",
+        hub: true,
+        title: "CYB_USER (company)",
+        x: 400, y: 20, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_type", note: "= 2" },
+        ],
+      },
+      {
+        id: "t3_job",
+        title: "CYB_COMPANY_JOB",
+        x: 380, y: 200, w: 320,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "company", fk: true },
+          { t: "text", n: "job_title" },
+          { t: "int", n: "department", fk: true },
+          { t: "int", n: "designation", fk: true },
+          { t: "int", n: "salary", fk: true, note: "lookup range" },
+          { t: "int", n: "job_mode", fk: true },
+        ],
+      },
+      {
+        id: "t3_app",
+        title: "CYB_APPLICATION  (junction)",
+        x: 380, y: 480, w: 300,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "job", fk: true },
+          { t: "int", n: "user", fk: true, note: "applicant" },
+          { t: "int", n: "status" },
+        ],
+      },
+      {
+        id: "t3_emp",
+        hub: true,
+        title: "CYB_USER (employee)",
+        x: 40, y: 480, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_type", note: "= 1" },
+          { t: "varchar", n: "email" },
+        ],
+      },
+      {
+        id: "t3_col",
+        title: "CYB_JOB_COLLABORATORS",
+        x: 800, y: 220, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "company_id", fk: true },
+          { t: "int", n: "job_id", fk: true },
+          { t: "text", n: "user_id", fk: true, note: "type smell → should be int" },
+          { t: "enum", n: "role" },
+        ],
+      },
+    ],
+    links: [
+      { from: "t3_co", to: "t3_job", card: "1:N", label: "posts", fromSide: "bottom", toSide: "top" },
+      { from: "t3_job", to: "t3_app", card: "1:N", label: "contains", fromSide: "bottom", toSide: "top" },
+      { from: "t3_emp", to: "t3_app", card: "1:N", label: "applies", fromSide: "right", toSide: "left" },
+      { from: "t3_job", to: "t3_col", card: "1:N", label: "shared with", fromSide: "right", toSide: "left" },
+    ],
+  },
+
+  p4: {
+    erd: "erd4",
+    wires: "wires4",
+    tables: [
+      {
+        id: "t4_user",
+        hub: true,
+        title: "CYB_USER",
+        x: 400, y: 40, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "varchar", n: "email" },
+        ],
+      },
+      {
+        id: "t4_us",
+        title: "CYB_USER_SKILL  (junction)",
+        x: 80, y: 260, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true },
+          { t: "int", n: "skill", fk: true },
+          { t: "int", n: "rating" },
+        ],
+      },
+      {
+        id: "t4_sk",
+        title: "CYB_SKILL",
+        x: 80, y: 480, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "text", n: "name" },
+          { t: "int", n: "user_defined" },
+        ],
+      },
+      {
+        id: "t4_ul",
+        title: "CYB_USER_LANGUAGE  (junction)",
+        x: 700, y: 260, w: 300,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true },
+          { t: "int", n: "language", fk: true },
+          { t: "int", n: "verbal / written" },
+        ],
+      },
+      {
+        id: "t4_lang",
+        title: "CYB_LANGUAGES",
+        x: 720, y: 480, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "varchar", n: "name" },
+        ],
+      },
+      {
+        id: "t4_edu",
+        title: "CYB_USER_EDUCATION",
+        x: 400, y: 280, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user", fk: true },
+          { t: "int", n: "university", fk: true },
+          { t: "int", n: "course", fk: true },
+          { t: "int", n: "course_type", fk: true },
+        ],
+      },
+    ],
+    links: [
+      { from: "t4_user", to: "t4_us", card: "1:N", label: "has", fromSide: "bottom", toSide: "top", fromBias: 0.25 },
+      { from: "t4_us", to: "t4_sk", card: "N:1", label: "references", fromSide: "bottom", toSide: "top" },
+      { from: "t4_user", to: "t4_ul", card: "1:N", label: "has", fromSide: "bottom", toSide: "top", fromBias: 0.75 },
+      { from: "t4_ul", to: "t4_lang", card: "N:1", label: "references", fromSide: "bottom", toSide: "top" },
+      { from: "t4_user", to: "t4_edu", card: "1:N", label: "studied", fromSide: "bottom", toSide: "top", fromBias: 0.5 },
+    ],
+  },
+
+  p5: {
+    erd: "erd5",
+    wires: "wires5",
+    tables: [
+      {
+        id: "t5_co",
+        hub: true,
+        title: "CYB_USER (company)",
+        x: 400, y: 30, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "user_type", note: "= 2" },
+        ],
+      },
+      {
+        id: "t5_cb",
+        title: "CYB_COMPANY_BENEFITS  (junction)",
+        x: 40, y: 260, w: 300,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "company_id", fk: true },
+          { t: "int", n: "benefit_id", fk: true },
+          { t: "text", n: "description" },
+        ],
+      },
+      {
+        id: "t5_ben",
+        title: "CYB_BENEFITS",
+        x: 60, y: 480, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "text", n: "name" },
+          { t: "varchar", n: "image" },
+        ],
+      },
+      {
+        id: "t5_gal",
+        title: "CYB_GALLERIES",
+        x: 400, y: 280, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "company_id", fk: true },
+          { t: "text", n: "name / image" },
+        ],
+      },
+      {
+        id: "t5_wish",
+        title: "CYB_COMPANY_WISHLIST",
+        x: 760, y: 220, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "company", fk: true },
+          { t: "int", n: "user", fk: true, note: "employee who saved" },
+        ],
+      },
+      {
+        id: "t5_conn",
+        title: "CYB_COMPANY_CONNECTION",
+        x: 760, y: 420, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "company", fk: true },
+          { t: "int", n: "user", fk: true },
+          { t: "int", n: "current_employee" },
+        ],
+      },
+    ],
+    links: [
+      { from: "t5_co", to: "t5_cb", card: "1:N", label: "offers", fromSide: "bottom", toSide: "top", fromBias: 0.25 },
+      { from: "t5_cb", to: "t5_ben", card: "N:1", label: "references", fromSide: "bottom", toSide: "top" },
+      { from: "t5_co", to: "t5_gal", card: "1:N", label: "has gallery", fromSide: "bottom", toSide: "top" },
+      { from: "t5_co", to: "t5_wish", card: "1:N", label: "wishlisted", fromSide: "right", toSide: "left", fromBias: 0.4 },
+      { from: "t5_co", to: "t5_conn", card: "1:N", label: "connected to", fromSide: "right", toSide: "left", fromBias: 0.7 },
+    ],
+  },
+
+  p6: {
+    erd: "erd6",
+    wires: "wires6",
+    tables: [
+      {
+        id: "t6_user",
+        hub: true,
+        title: "CYB_USER",
+        x: 360, y: 40, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "varchar", n: "email" },
+        ],
+      },
+      {
+        id: "t6_fol",
+        title: "CYB_FOLLOW  (junction)",
+        x: 40, y: 260, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "follower_id", fk: true },
+          { t: "int", n: "followed_id", fk: true },
+          { t: "int", n: "status" },
+        ],
+      },
+      {
+        id: "t6_msg",
+        title: "CYB_MESSAGE",
+        x: 360, y: 280, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "sender", fk: true },
+          { t: "int", n: "receiver", fk: true },
+        ],
+      },
+      {
+        id: "t6_hist",
+        title: "CYB_MESSAGE_HISTORY",
+        x: 360, y: 480, w: 280,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "message_id", fk: true },
+          { t: "int", n: "sender", fk: true },
+          { t: "text", n: "message" },
+        ],
+      },
+      {
+        id: "t6_not",
+        title: "CYB_NOTIFICATIONS",
+        x: 700, y: 260, w: 260,
+        cols: [
+          { t: "int", n: "id", pk: true },
+          { t: "int", n: "sender", fk: true },
+          { t: "int", n: "receiver", fk: true },
+          { t: "text", n: "message" },
+        ],
+      },
+    ],
+    links: [
+      { from: "t6_user", to: "t6_fol", card: "1:N", label: "follows", fromSide: "bottom", toSide: "top", fromBias: 0.25 },
+      { from: "t6_user", to: "t6_msg", card: "1:N", label: "sends / receives", fromSide: "bottom", toSide: "top" },
+      { from: "t6_msg", to: "t6_hist", card: "1:N", label: "contains", fromSide: "bottom", toSide: "top" },
+      { from: "t6_user", to: "t6_not", card: "1:N", label: "notified", fromSide: "bottom", toSide: "top", fromBias: 0.75 },
+    ],
+  },
+};
+
+function renderDiagram(key) {
+  const def = diagrams[key];
+  if (!def) return;
+  const erd = document.getElementById(def.erd);
+  const inner = erd.querySelector(".erd-inner");
+  const svg = document.getElementById(def.wires);
+  // clear previous tables (keep svg)
+  [...inner.querySelectorAll(".tbl")].forEach((n) => n.remove());
+  while (svg.firstChild) svg.removeChild(svg.firstChild);
+
+  for (const t of def.tables) drawTable(inner, t);
+
+  // links after layout
+  requestAnimationFrame(() => {
+    for (const link of def.links) {
+      const a = document.getElementById(link.from);
+      const b = document.getElementById(link.to);
+      if (a && b) drawLink(svg, a, b, link);
+    }
+  });
+}
+
+// tabs
+const tabs = document.getElementById("tabs");
+tabs.addEventListener("click", (e) => {
+  const btn = e.target.closest(".tab");
+  if (!btn) return;
+  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+  document.querySelectorAll(".panel").forEach((p) => p.classList.remove("active"));
+  btn.classList.add("active");
+  const id = btn.dataset.panel;
+  document.getElementById(id).classList.add("active");
+  renderDiagram(id);
+});
+
+// initial
+renderDiagram("p0");
+// re-render on resize for link positions
+window.addEventListener("resize", () => {
+  const active = document.querySelector(".tab.active");
+  if (active) renderDiagram(active.dataset.panel);
+});
+</script>
+</body>
+</html>
