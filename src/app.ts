@@ -19,6 +19,7 @@ import newRoutesRouter from "./routes/new-routes.route";
 import widgetRouter from "./routes/widget.route";
 import accountMigrationRouter from "./routes/account-migration.route";
 import testRoutesRouter from "./routes/test-routes.route";
+import swipeCollaboratorRatingRouter from "./routes/swipe-collaborator-rating.route";
 import bodyParser from "body-parser";
 import swaggerSpec from "./swagger";
 import loginRouter from "./routes/login.route";
@@ -105,6 +106,7 @@ app.use("/wapi", newRoutesRouter);
 app.use("/wapi", widgetRouter);
 app.use("/wapi", accountMigrationRouter);
 app.use("/wapi", testRoutesRouter);
+app.use("/wapi", swipeCollaboratorRatingRouter);
 app.use("/wapi", aiRouter);
 
 app.use(errorHandler);
