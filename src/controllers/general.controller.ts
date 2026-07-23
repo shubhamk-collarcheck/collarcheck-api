@@ -549,9 +549,14 @@ export const verificationStatusGeneral = async (req: Request, res: Response, nex
 
 export const followDataListGeneral = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
-		const data = await followDataListGeneralService(user_id);
-		return res.status(200).json({ status: true, message: '', data });
+		// Acting user: JWT user, or company when X-Company is set
+		const { id: actingUserId } = req.auth as AuthUser;
+		const query = (req.validated as { query?: { limit?: number; offset?: number } })?.query
+			?? (req.query as { limit?: string; offset?: string });
+		const limit = query?.limit != null ? Number(query.limit) : 50;
+		const offset = query?.offset != null ? Number(query.offset) : 0;
+		const result = await followDataListGeneralService(actingUserId, limit, offset);
+		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
 	}
@@ -652,10 +657,10 @@ export const removeNotificationByParams = async (req: Request, res: Response, ne
 
 export const unfollow = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { params } = req.validated as UnfollowParams;
-		const data = await unfollowService(user_id, params.id);
-		return res.status(200).json({ status: true, message: '', data });
+		const result = await unfollowService(actingUserId, params.id);
+		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
 	}
@@ -665,10 +670,10 @@ export const unfollow = async (req: Request, res: Response, next: NextFunction) 
 
 export const removeFollower = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { params } = req.validated as RemoveFollowerParams;
-		const data = await removeFollowerService(user_id, params.id);
-		return res.status(200).json({ status: true, message: '', data });
+		const result = await removeFollowerService(actingUserId, params.id);
+		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
 	}
@@ -678,10 +683,10 @@ export const removeFollower = async (req: Request, res: Response, next: NextFunc
 
 export const multiUnfollow = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { body } = req.validated as MultiUnfollowBody;
-		const data = await multiUnfollowService(user_id, body.user_ids);
-		return res.status(200).json({ status: true, message: '', data });
+		const result = await multiUnfollowService(actingUserId, body.id);
+		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
 	}
@@ -691,10 +696,10 @@ export const multiUnfollow = async (req: Request, res: Response, next: NextFunct
 
 export const multiRemoveFollower = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { body } = req.validated as MultiRemoveFollowerBody;
-		const data = await multiRemoveFollowerService(user_id, body.user_ids);
-		return res.status(200).json({ status: true, message: '', data });
+		const result = await multiRemoveFollowerService(actingUserId, body.id);
+		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
 	}
@@ -704,9 +709,9 @@ export const multiRemoveFollower = async (req: Request, res: Response, next: Nex
 
 export const follow = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { id: userId } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { body } = req.validated as { body: FollowBody };
-		const result = await followUserService(userId, body.follower_id);
+		const result = await followUserService(actingUserId, body.follower_id);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
@@ -715,9 +720,9 @@ export const follow = async (req: Request, res: Response, next: NextFunction) =>
 
 export const acceptFollow = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { id: userId } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { params } = req.validated as { params: AcceptFollowParams };
-		const result = await acceptFollowService(userId, params.id);
+		const result = await acceptFollowService(actingUserId, params.id);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
@@ -726,9 +731,9 @@ export const acceptFollow = async (req: Request, res: Response, next: NextFuncti
 
 export const rejectFollow = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { id: userId } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { params } = req.validated as { params: RejectFollowParams };
-		const result = await rejectFollowService(userId, params.id);
+		const result = await rejectFollowService(actingUserId, params.id);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
@@ -737,9 +742,9 @@ export const rejectFollow = async (req: Request, res: Response, next: NextFuncti
 
 export const multiAcceptFollow = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { id: userId } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { body } = req.validated as { body: MultiFollowIdsBody };
-		const result = await multiAcceptFollowService(userId, body.id);
+		const result = await multiAcceptFollowService(actingUserId, body.id);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
@@ -748,9 +753,9 @@ export const multiAcceptFollow = async (req: Request, res: Response, next: NextF
 
 export const multiRejectFollow = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { id: userId } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { body } = req.validated as { body: MultiFollowIdsBody };
-		const result = await multiRejectFollowService(userId, body.id);
+		const result = await multiRejectFollowService(actingUserId, body.id);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);

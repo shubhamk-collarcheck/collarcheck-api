@@ -15,10 +15,10 @@ import { Authorization } from '../middlewares/Authorization';
 import { markViewedParamsSchema } from '../types/misc.types';
 import { markViewed } from '../controllers/misc.controller';
 import {
-	allMessageListQuerySchema, addMessageSchema, chatMessageReadParamsSchema, followDataListQuerySchema,
+	allMessageListQuerySchema, addMessageSchema, chatMessageReadParamsSchema,
 } from '../types/company-employee-request.types';
 import {
-	allMessageList, addMessage, chatMessageRead, followDataList,
+	allMessageList, addMessage, chatMessageRead,
 	verificationStatus,
 } from '../controllers/company-employee-request.controller';
 import { uploadToS3 } from '../utils/uploadToS3';
@@ -32,6 +32,7 @@ import {
 	multiRemoveFollowerSchema,
 	followSchema, acceptFollowParamsSchema, rejectFollowParamsSchema,
 	deleteMessageParamsSchema, skillByCategoryParamsSchema, companyProfileParamsSchema,
+	followDataListGeneralQuerySchema,
 } from '../types/general.types';
 import { sitemapQuerySchema } from '../types/frontend.types';
 import { sitemap } from '../controllers/frontend.controller';
@@ -95,7 +96,7 @@ generalRoute.put("/markViewed/:id", Authorization, validateData(markViewedParams
 generalRoute.get("/all-message-company", Authorization, validateData(allMessageListQuerySchema), allMessageList)
 generalRoute.post("/send-message-company", Authorization, uploadToS3.single("doc"), validateData(addMessageSchema), addMessage)
 generalRoute.put("/chatMessageReadCompany/:id", Authorization, validateData(chatMessageReadParamsSchema), chatMessageRead)
-generalRoute.get("/company-followDataList", Authorization, validateData(followDataListQuerySchema), followDataList)
+generalRoute.get("/company-followDataList", Authorization, validateData(followDataListGeneralQuerySchema), followDataListGeneral)
 generalRoute.get("/company-verificationStatus", Authorization, verificationStatus)
 
 // ====== New API Endpoints from Documentation ======
@@ -106,10 +107,10 @@ generalRoute.get("/doc-list/:id", Authorization, validateData(docListParamsSchem
 generalRoute.get("/all-message", Authorization, allMessageListGeneral)
 generalRoute.get("/all-notification", Authorization, allNotification)
 generalRoute.get("/verificationStatus", Authorization, verificationStatusGeneral)
-generalRoute.get("/followDataList", Authorization, followDataListGeneral)
 generalRoute.post("/saveDocument", Authorization, validateData(saveDocumentSchema), saveDocument)
 generalRoute.put("/allReadNotification", Authorization, allReadNotification)
 generalRoute.put("/chatMessageRead/:id", Authorization, validateData(chatMessageReadIdParamsSchema), chatMessageReadGeneral)
+generalRoute.get("/followDataList", Authorization, validateData(followDataListGeneralQuerySchema), followDataListGeneral)
 generalRoute.delete("/unfollow/:id", Authorization, validateData(unfollowParamsSchema), unfollow)
 generalRoute.delete("/removeFollower/:id", Authorization, validateData(removeFollowerParamsSchema), removeFollower)
 generalRoute.post("/multi-remove-follower", Authorization, validateData(multiRemoveFollowerSchema), multiRemoveFollower)

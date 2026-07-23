@@ -370,31 +370,36 @@ class commonAuthRepositery {
 	// ====== Follow ======
 
 	async getFollowerCount(userId: number): Promise<number> {
-		const [result] = await db.select({ count: sql<number>`count(*)` })
-			.from(cybFollow)
-			.where(and(
-				eq(cybFollow.followedId, userId),
-				eq(cybFollow.isDeleted, 0),
-			));
-		return result.count;
-	}
-
-	async getFollowingCount(userId: number): Promise<number> {
+		// PHP: people following me → follower_id = me, status=1
 		const [result] = await db.select({ count: sql<number>`count(*)` })
 			.from(cybFollow)
 			.where(and(
 				eq(cybFollow.followerId, userId),
+				eq(cybFollow.status, 1),
 				eq(cybFollow.isDeleted, 0),
 			));
-		return result.count;
+		return Number(result?.count ?? 0);
 	}
 
-	async getFollowStatus(followerId: number, followedId: number) {
+	async getFollowingCount(userId: number): Promise<number> {
+		// PHP: people I follow → followed_id = me, status=1
+		const [result] = await db.select({ count: sql<number>`count(*)` })
+			.from(cybFollow)
+			.where(and(
+				eq(cybFollow.followedId, userId),
+				eq(cybFollow.status, 1),
+				eq(cybFollow.isDeleted, 0),
+			));
+		return Number(result?.count ?? 0);
+	}
+
+	/** viewer followed target? (PHP: followed_id=viewer, follower_id=target) */
+	async getFollowStatus(viewerId: number, targetId: number) {
 		const [row] = await db.select()
 			.from(cybFollow)
 			.where(and(
-				eq(cybFollow.followerId, followerId),
-				eq(cybFollow.followedId, followedId),
+				eq(cybFollow.followedId, viewerId),
+				eq(cybFollow.followerId, targetId),
 				eq(cybFollow.isDeleted, 0),
 			));
 		return !!row;

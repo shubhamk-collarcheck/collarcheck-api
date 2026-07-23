@@ -475,13 +475,14 @@ class WidgetRepositery {
 
 	// ---- follow / explore ----
 	async getFollowStatus(viewerId: number, targetId: number) {
+		// PHP: viewer followed target → followed_id=viewer, follower_id=target
 		const [row] = await db
 			.select({ id: cybFollow.id, status: cybFollow.status })
 			.from(cybFollow)
 			.where(
 				and(
-					eq(cybFollow.followerId, viewerId),
-					eq(cybFollow.followedId, targetId),
+					eq(cybFollow.followedId, viewerId),
+					eq(cybFollow.followerId, targetId),
 					eq(cybFollow.isDeleted, 0)
 				)
 			)
@@ -490,12 +491,13 @@ class WidgetRepositery {
 	}
 
 	async getFollowCounts(userId: number) {
+		// PHP inverted: following = followed_id=me; follower = follower_id=me
 		const [following] = await db
 			.select({ count: sql<number>`count(*)`.mapWith(Number) })
 			.from(cybFollow)
 			.where(
 				and(
-					eq(cybFollow.followerId, userId),
+					eq(cybFollow.followedId, userId),
 					eq(cybFollow.status, 1),
 					eq(cybFollow.isDeleted, 0)
 				)
@@ -505,7 +507,7 @@ class WidgetRepositery {
 			.from(cybFollow)
 			.where(
 				and(
-					eq(cybFollow.followedId, userId),
+					eq(cybFollow.followerId, userId),
 					eq(cybFollow.status, 1),
 					eq(cybFollow.isDeleted, 0)
 				)

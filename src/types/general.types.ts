@@ -203,18 +203,29 @@ export const removeFollowerParamsSchema = z.object({
 });
 
 // ====== Multi Unfollow (Endpoint #18) ======
+// Body key is `id` (array of target user ids) — PHP locked
 
 export const multiUnfollowSchema = z.object({
 	body: z.object({
-		user_ids: z.array(z.coerce.number().int().positive()).min(1, "At least one user ID is required"),
+		id: z.array(z.coerce.number().int().positive()).min(1, "Id Required"),
 	}),
 });
 
 // ====== Multi Remove Follower (Endpoint #19) ======
+// Body key is `id` (array of initiator user ids) — PHP locked
 
 export const multiRemoveFollowerSchema = z.object({
 	body: z.object({
-		user_ids: z.array(z.coerce.number().int().positive()).min(1, "At least one user ID is required"),
+		id: z.array(z.coerce.number().int().positive()).min(1, "Id Required"),
+	}),
+});
+
+// ====== Follow Data List query ======
+
+export const followDataListGeneralQuerySchema = z.object({
+	query: z.object({
+		limit: z.coerce.number().int().positive().optional().default(50),
+		offset: z.coerce.number().int().optional().default(0),
 	}),
 });
 

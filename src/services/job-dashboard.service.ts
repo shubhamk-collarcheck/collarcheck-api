@@ -266,23 +266,27 @@ export async function deleteViewRequestService(userId: number, id: number) {
 // ====== Multi delete / approve view requests ======
 
 export async function multiDeleteViewRequestService(userId: number, ids: number[]) {
+	const user = await jobDashboardRepositery.getUserForPercentage(userId);
+	if (!user) {
+		return { status: false, messages: "Access Denied!" };
+	}
+
 	if (!ids || ids.length === 0) {
 		return { status: false, messages: "id Required!" };
 	}
 
-	for (const id of ids) {
-		const request = await jobDashboardRepositery.findViewRequestByIdAndUser(id, userId);
-		if (!request) {
-			return { status: false, messages: "Invalid delete id!" };
-		}
-		try {
+	try {
+		for (const id of ids) {
+			const request = await jobDashboardRepositery.findViewRequestByIdAndUser(id, userId);
+			if (!request) {
+				return { status: false, messages: "Invalid delete id!" };
+			}
 			await jobDashboardRepositery.softDeleteViewRequest(id, userId);
-		} catch {
-			return { status: false, messages: "Delete unsuccessfully!" };
 		}
+		return { status: true, messages: "Delete Successfully!" };
+	} catch {
+		return { status: false, messages: "Something went wrong!" };
 	}
-
-	return { status: true, messages: "Delete Successfully!" };
 }
 
 export async function multiApprovedVeiwRequestService(
@@ -295,14 +299,33 @@ export async function multiApprovedVeiwRequestService(
 		return { status: false, messages: "The id field is required." };
 	}
 
-	let accessPayload: string | string[] | undefined;
-	if (access && typeof access === 'object' && !Array.isArray(access)) {
-		accessPayload = JSON.stringify(access);
-	} else {
-		accessPayload = access as string | string[] | undefined;
-	}
+	try {
+		const request = await jobDashboardRepositery.findViewRequestByIdAndUser(id, userId);
+		if (!request) {
+			return { status: false, messages: "Record not found!" };
+		}
 
-	return approvedVeiwRequestService(userId, id, accessPayload, day);
+		const toggledStatus = request.status === 0 ? 1 : 0;
+		const days = day || 1;
+		const expiryDate = new Date();
+		expiryDate.setDate(expiryDate.getDate() + days);
+		const expiry = expiryDate.toISOString().slice(0, 19).replace('T', ' ');
+
+		// PHP: if access present, JSON-stringify into DB column as-is
+		let accessJson: string;
+		if (access == null) {
+			accessJson = JSON.stringify(['1', '2']);
+		} else if (typeof access === 'string') {
+			accessJson = access;
+		} else {
+			accessJson = JSON.stringify(access);
+		}
+
+		await jobDashboardRepositery.approveViewRequest(id, toggledStatus, expiry, accessJson);
+		return { status: true, messages: "Approved successfully!" };
+	} catch {
+		return { status: false, messages: "Access denied" };
+	}
 }
 
 // ====== 10. Check Current Company ======

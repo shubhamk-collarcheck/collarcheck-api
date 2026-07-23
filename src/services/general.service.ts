@@ -1020,25 +1020,95 @@ export const verificationStatusGeneralService = async (userId: number) => {
 };
 
 // ====== Follow Data List (Endpoint #6) ======
+// PHP inverted naming: followed_id = initiator, follower_id = target
 
-export const followDataListGeneralService = async (userId: number) => {
-	const { followers, following } = await generalRepositery.getFollowData(userId);
+function pageToSqlOffset(page: number, limit: number): number {
+	return page <= 1 ? 0 : page * limit - limit;
+}
+
+async function mapFollowCard(
+	row: any,
+	actingUserId: number,
+	userVerified: (userId: number | null) => Promise<boolean | unknown>
+) {
+	const remoteUserId = Number(row.userId);
+	const userType = Number(row.userType ?? 1);
+	const isVerified = await userVerified(remoteUserId);
+	const followBack = await generalRepositery.checkFollowBack(actingUserId, remoteUserId);
+
+	const profile = row.profile
+		? `${s3Prefix}${row.profile}`
+		: (row.socialImage || null);
+
+	const name = userType === 2
+		? (row.fname || '')
+		: `${row.fname || ''} ${row.lname || ''}`.trim();
+
+	const base: Record<string, unknown> = {
+		id: row.id,
+		individual_id: row.individualId ?? null,
+		name,
+		profile,
+		slug: row.slug || '',
+		user_type: userType,
+		user_id: remoteUserId,
+		is_verified: !!isVerified,
+		state_name: row.stateName ?? null,
+		country_name: row.countryName ?? null,
+		followBack,
+		create_date: row.createDate ?? null,
+		notice_date: row.noticeDate ?? null,
+	};
+
+	if (userType === 1) {
+		const onExploreRaw = Number(row.onExplore || 0) === 1 ? 1 : 0;
+		// show_exploring helper not ported; use raw flag (self lists already gated by privacy elsewhere)
+		const onExplore = onExploreRaw;
+		const today = new Date().toISOString().slice(0, 10);
+		const noticeDate = row.noticeDate ? String(row.noticeDate).slice(0, 10) : null;
+		base.designation_name = row.designationName ?? null;
+		base.on_explore = onExplore;
+		base.on_immediate = onExplore === 1 && Number(row.onImmediate || 0) === 1 ? 1 : 0;
+		base.on_notice = onExplore === 1 && noticeDate && noticeDate > today ? 1 : 0;
+	} else {
+		base.industry_name = row.industryName ?? null;
+		base.exploreTalent = await generalRepositery.companyHasActiveJobs(remoteUserId);
+	}
+
+	return base;
+}
+
+export const followDataListGeneralService = async (
+	userId: number,
+	limit = 50,
+	offsetPage = 0
+) => {
+	const page = Number(offsetPage) || 0;
+	const pageSize = Number(limit) || 50;
+	const sqlOffset = pageToSqlOffset(page, pageSize);
+	const { user_verified } = await import('./users.service');
+
+	const [followers, following, followerCount, followingCount] = await Promise.all([
+		generalRepositery.getFollowerList(userId, pageSize, sqlOffset),
+		generalRepositery.getFollowingList(userId, pageSize, sqlOffset),
+		generalRepositery.countFollowerList(userId),
+		generalRepositery.countFollowingList(userId),
+	]);
+
+	const [followerList, followingList] = await Promise.all([
+		Promise.all(followers.map((f) => mapFollowCard(f, userId, user_verified))),
+		Promise.all(following.map((f) => mapFollowCard(f, userId, user_verified))),
+	]);
 
 	return {
-		followers: followers.map(f => ({
-			id: f.followerId,
-			full_name: f.fullName || `${f.fname || ''} ${f.lname || ''}`.trim(),
-			avatar_url: f.profile ? `${s3Prefix}${f.profile}` : (f.socialImage || ''),
-			followed_at: f.createDate,
-		})),
-		following: following.map(f => ({
-			id: f.followedId,
-			full_name: f.fullName || `${f.fname || ''} ${f.lname || ''}`.trim(),
-			avatar_url: f.profile ? `${s3Prefix}${f.profile}` : (f.socialImage || ''),
-			followed_at: f.createDate,
-		})),
-		followers_count: followers.length,
-		following_count: following.length,
+		status: true,
+		messages: "Follow Data List",
+		data: {
+			followerList,
+			followerCount,
+			followingList,
+			followingCount,
+		},
 	};
 };
 
@@ -1152,63 +1222,93 @@ export const logoutService = async (
 };
 
 // ====== Unfollow (Endpoint #16) ======
+// Acting user stops following target: row followed_id=me, follower_id=target, status=1
 
 export const unfollowService = async (userId: number, targetUserId: number) => {
-	const follow = await generalRepositery.findFollowRelationship(userId, targetUserId);
-	if (!follow) {
-		throw new NotFoundError("Follow relationship not found");
+	if (!targetUserId) {
+		return { status: false, messages: "Id Required" };
 	}
 
-	await generalRepositery.softDeleteFollow(userId, targetUserId);
+	const follow = await generalRepositery.findFollowRelationship(userId, targetUserId, true);
+	if (!follow) {
+		return { status: false, messages: "you can't unfollow you are not following yet!" };
+	}
 
-	return {
-		message: "Unfollowed successfully",
-		unfollowed_user_id: targetUserId,
-	};
+	try {
+		await generalRepositery.softDeleteFollowByRowId(follow.id);
+		return { status: true, messages: "Unfollowed Successfully!" };
+	} catch {
+		return { status: false, messages: "Something went wrong!" };
+	}
 };
 
 // ====== Remove Follower (Endpoint #17) ======
+// Acting user removes initiator: row follower_id=me, followed_id=path id
 
-export const removeFollowerService = async (userId: number, followerId: number) => {
-	const follow = await generalRepositery.findFollowerRelationship(followerId, userId);
-	if (!follow) {
-		throw new NotFoundError("Follow relationship not found");
+export const removeFollowerService = async (userId: number, initiatorUserId: number) => {
+	if (!initiatorUserId) {
+		return { status: false, messages: "Id Required" };
 	}
 
-	await generalRepositery.softDeleteFollow(followerId, userId);
+	const follow = await generalRepositery.findFollowRelationship(initiatorUserId, userId, false);
+	if (!follow) {
+		return { status: false, messages: "you can't unfollow you are not follower yet!" };
+	}
 
-	return {
-		message: "Follower removed",
-		removed_follower_id: followerId,
-	};
+	try {
+		await generalRepositery.softDeleteFollowByRowId(follow.id);
+		return { status: true, messages: "Unfollowed Successfully!" };
+	} catch {
+		return { status: false, messages: "Something went wrong!" };
+	}
 };
 
 // ====== Multi Unfollow (Endpoint #18) ======
+// body.id[] = target user ids; no status=1 filter (unlike single unfollow)
 
-export const multiUnfollowService = async (userId: number, userIds: number[]) => {
-	const unfollowedCount = await generalRepositery.multiUnfollow(userId, userIds);
+export const multiUnfollowService = async (userId: number, ids: number[]) => {
+	if (!ids || ids.length === 0) {
+		return { status: false, messages: "Id Required" };
+	}
 
-	return {
-		message: "Multiple users unfollowed",
-		unfollowed_count: unfollowedCount,
-		unfollowed_user_ids: userIds,
-	};
+	try {
+		for (const targetId of ids) {
+			const follow = await generalRepositery.findFollowRelationship(userId, targetId, false);
+			if (!follow) {
+				return { status: false, messages: "you can't unfollow you are not following yet!" };
+			}
+			await generalRepositery.softDeleteFollowByRowId(follow.id);
+		}
+		return { status: true, messages: "Unfollowed Successfully!" };
+	} catch {
+		return { status: false, messages: "Something went wrong!" };
+	}
 };
 
 // ====== Multi Remove Follower (Endpoint #19) ======
+// body.id[] = initiator user ids
 
-export const multiRemoveFollowerService = async (userId: number, userIds: number[]) => {
-	const removedCount = await generalRepositery.multiRemoveFollower(userId, userIds);
+export const multiRemoveFollowerService = async (userId: number, ids: number[]) => {
+	if (!ids || ids.length === 0) {
+		return { status: false, messages: "Id Required" };
+	}
 
-	return {
-		message: "Multiple followers removed",
-		removed_count: removedCount,
-		removed_follower_ids: userIds,
-	};
+	try {
+		for (const initiatorId of ids) {
+			const follow = await generalRepositery.findFollowRelationship(initiatorId, userId, false);
+			if (!follow) {
+				return { status: false, messages: "you can't unfollow you are not follower yet!" };
+			}
+			await generalRepositery.softDeleteFollowByRowId(follow.id);
+		}
+		return { status: true, messages: "Unfollowed Successfully!" };
+	} catch {
+		return { status: false, messages: "Something went wrong!" };
+	}
 };
 
 // ====== Follow (POST) ======
-// Legacy naming: follower_id = user/company you want to follow; current user is the follower
+// Body follower_id = target. Insert: followed_id=me, follower_id=target
 
 export const followUserService = async (currentUserId: number, targetUserId: number) => {
 	if (!targetUserId) {
@@ -1220,18 +1320,18 @@ export const followUserService = async (currentUserId: number, targetUserId: num
 		return { status: false, messages: "Invalid Follwer Id" };
 	}
 
-	const existing = await generalRepositery.findFollowRelationship(currentUserId, targetUserId);
+	const existing = await generalRepositery.findFollowRelationship(currentUserId, targetUserId, false);
 	if (existing) {
 		return { status: false, messages: "Already Followed" };
 	}
 
-	// Company targets auto-accept; users stay pending
+	// Company targets auto-accept; employees stay pending (status 0)
 	const status = target.userType === 2 ? 1 : 0;
 
 	try {
 		await generalRepositery.createFollow({
-			followedId: targetUserId,
-			followerId: currentUserId,
+			followedId: currentUserId,
+			followerId: targetUserId,
 			status,
 		});
 		return { status: true, messages: "Request Send successfully!" };
@@ -1250,8 +1350,8 @@ export const acceptFollowService = async (userId: number, followId: number) => {
 		return { status: false, messages: "Invalid Id" };
 	}
 
-	// Current user must be the one being followed (request recipient)
-	if (follow.followedId !== userId) {
+	// Recipient is follower_id (target of the follow request)
+	if (follow.followerId !== userId) {
 		return { status: false, messages: "Invalid request!" };
 	}
 
@@ -1273,7 +1373,7 @@ export const rejectFollowService = async (userId: number, followId: number) => {
 		return { status: false, messages: "Invalid Id" };
 	}
 
-	if (follow.followedId !== userId) {
+	if (follow.followerId !== userId) {
 		return { status: false, messages: "Invalid Reject request !" };
 	}
 

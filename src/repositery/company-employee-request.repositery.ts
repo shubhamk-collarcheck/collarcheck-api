@@ -342,9 +342,10 @@ class companyEmployeeRequestRepositery {
 	}
 
 	async getFollowRequests(companyId: number, limit = 6, offset = 0) {
+		// Pending requests TO company: follower_id=company, join initiator on followed_id
 		return db.select({
 			id: cybFollow.id,
-			followerId: cybFollow.followerId,
+			followerId: cybFollow.followedId,
 			createDate: cybFollow.createDate,
 			fname: cybUser.fname,
 			lname: cybUser.lname,
@@ -355,9 +356,9 @@ class companyEmployeeRequestRepositery {
 			userType: cybUser.userType,
 		})
 			.from(cybFollow)
-			.innerJoin(cybUser, eq(cybFollow.followerId, cybUser.id))
+			.innerJoin(cybUser, eq(cybFollow.followedId, cybUser.id))
 			.where(and(
-				eq(cybFollow.followedId, companyId),
+				eq(cybFollow.followerId, companyId),
 				eq(cybFollow.status, 0),
 				eq(cybFollow.isDeleted, 0),
 			))
@@ -437,10 +438,11 @@ class companyEmployeeRequestRepositery {
 	}
 
 	async getFollowRequestCount(companyId: number) {
+		// Pending requests TO company: follower_id = company, status = 0
 		const [result] = await db.select({ count: count() })
 			.from(cybFollow)
 			.where(and(
-				eq(cybFollow.followedId, companyId),
+				eq(cybFollow.followerId, companyId),
 				eq(cybFollow.status, 0),
 				eq(cybFollow.isDeleted, 0),
 			));
@@ -652,34 +654,10 @@ class companyEmployeeRequestRepositery {
 	}
 
 	async getFollowData(userId: number, limit = 50, offset = 0) {
+		// PHP inverted lists (kept for any legacy callers; prefer generalRepositery)
 		const followers = await db.select({
 			id: cybFollow.id,
-			followerId: cybFollow.followerId,
-			createDate: cybFollow.createDate,
-			fname: cybUser.fname,
-			lname: cybUser.lname,
-			fullName: cybUser.fullName,
-			profile: cybUser.profile,
-			slug: cybUser.slug,
-			individualId: cybUser.individualId,
-			userType: cybUser.userType,
-			onExplore: cybUser.onExplore,
-			onImmediate: cybUser.onImmediate,
-			onNotice: cybUser.onNotice,
-		})
-			.from(cybFollow)
-			.innerJoin(cybUser, eq(cybFollow.followerId, cybUser.id))
-			.where(and(
-				eq(cybFollow.followedId, userId),
-				eq(cybFollow.status, 1),
-				eq(cybFollow.isDeleted, 0),
-			))
-			.limit(limit)
-			.offset(offset);
-
-		const following = await db.select({
-			id: cybFollow.id,
-			followedId: cybFollow.followedId,
+			followerId: cybFollow.followedId,
 			createDate: cybFollow.createDate,
 			fname: cybUser.fname,
 			lname: cybUser.lname,
@@ -702,15 +680,41 @@ class companyEmployeeRequestRepositery {
 			.limit(limit)
 			.offset(offset);
 
+		const following = await db.select({
+			id: cybFollow.id,
+			followedId: cybFollow.followerId,
+			createDate: cybFollow.createDate,
+			fname: cybUser.fname,
+			lname: cybUser.lname,
+			fullName: cybUser.fullName,
+			profile: cybUser.profile,
+			slug: cybUser.slug,
+			individualId: cybUser.individualId,
+			userType: cybUser.userType,
+			onExplore: cybUser.onExplore,
+			onImmediate: cybUser.onImmediate,
+			onNotice: cybUser.onNotice,
+		})
+			.from(cybFollow)
+			.innerJoin(cybUser, eq(cybFollow.followerId, cybUser.id))
+			.where(and(
+				eq(cybFollow.followedId, userId),
+				eq(cybFollow.status, 1),
+				eq(cybFollow.isDeleted, 0),
+			))
+			.limit(limit)
+			.offset(offset);
+
 		return { followers, following };
 	}
 
 	async checkFollowStatus(userId: number, companyId: number) {
+		// user followed company → followed_id=user, follower_id=company
 		const [row] = await db.select()
 			.from(cybFollow)
 			.where(and(
-				eq(cybFollow.followerId, userId),
-				eq(cybFollow.followedId, companyId),
+				eq(cybFollow.followedId, userId),
+				eq(cybFollow.followerId, companyId),
 				eq(cybFollow.isDeleted, 0),
 			));
 		return row;

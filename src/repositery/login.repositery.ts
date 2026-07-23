@@ -495,17 +495,18 @@ class LoginRepository {
 	// ====== Stats helpers ======
 
 	async getFollowCounts(userId: number) {
+		// PHP inverted: following = followed_id=me; follower = follower_id=me
 		const [following] = await db
 			.select({ count: sql<number>`count(*)` })
 			.from(cybFollow)
 			.where(
-				and(eq(cybFollow.followerId, userId), eq(cybFollow.status, 1), eq(cybFollow.isDeleted, 0))
+				and(eq(cybFollow.followedId, userId), eq(cybFollow.status, 1), eq(cybFollow.isDeleted, 0))
 			);
 		const [follower] = await db
 			.select({ count: sql<number>`count(*)` })
 			.from(cybFollow)
 			.where(
-				and(eq(cybFollow.followedId, userId), eq(cybFollow.status, 1), eq(cybFollow.isDeleted, 0))
+				and(eq(cybFollow.followerId, userId), eq(cybFollow.status, 1), eq(cybFollow.isDeleted, 0))
 			);
 		return {
 			following: Number(following?.count || 0),

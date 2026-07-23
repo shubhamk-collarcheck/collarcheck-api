@@ -4,6 +4,7 @@ import db from '../db';
 import {
 	cybUser, cybUserDocument, cybDoctype, cybMessage, cybMessageHistory,
 	cybNotifications, cybClearNotification, cybFollow,
+	cybState, cybCountry, cybDesignation, cybIndustries, cybCompanyJob,
 } from '../db/schema';
 
 class generalRepositery {
@@ -243,119 +244,195 @@ class generalRepositery {
 		return user;
 	}
 
-	// ====== Follow Data (Endpoint #6) ======
+	// ====== Follow (PHP inverted naming) ======
+	// followed_id = initiator (who clicked Follow)
+	// follower_id = target (profile being followed)
 
-	async getFollowData(userId: number) {
-		const followers = await db.select({
+	/** Users who follow me (UI followers): follower_id = me, card user = followed_id */
+	async getFollowerList(userId: number, limit?: number, sqlOffset?: number) {
+		const q = db.select({
 			id: cybFollow.id,
-			followerId: cybFollow.followerId,
 			createDate: cybFollow.createDate,
+			userId: cybUser.id,
+			individualId: cybUser.individualId,
 			fname: cybUser.fname,
 			lname: cybUser.lname,
-			fullName: cybUser.fullName,
 			profile: cybUser.profile,
 			socialImage: cybUser.socialImage,
+			slug: cybUser.slug,
+			userType: cybUser.userType,
+			noticeDate: cybUser.noticeDate,
+			onExplore: cybUser.onExplore,
+			onImmediate: cybUser.onImmediate,
+			onNotice: cybUser.onNotice,
+			stateName: cybState.name,
+			countryName: cybCountry.name,
+			designationName: cybDesignation.name,
+			industryName: cybIndustries.name,
+		})
+			.from(cybFollow)
+			.innerJoin(cybUser, eq(cybFollow.followedId, cybUser.id))
+			.leftJoin(cybState, eq(cybUser.state, cybState.id))
+			.leftJoin(cybCountry, eq(cybUser.country, cybCountry.id))
+			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
+			.leftJoin(cybIndustries, eq(cybUser.industry, cybIndustries.id))
+			.where(and(
+				eq(cybFollow.followerId, userId),
+				eq(cybFollow.status, 1),
+				eq(cybFollow.isDeleted, 0),
+				eq(cybUser.isDeleted, 0),
+			))
+			.orderBy(desc(cybFollow.id));
+
+		if (limit != null) {
+			return q.limit(limit).offset(sqlOffset ?? 0);
+		}
+		return q;
+	}
+
+	/** Users I follow (UI following): followed_id = me, card user = follower_id */
+	async getFollowingList(userId: number, limit?: number, sqlOffset?: number) {
+		const q = db.select({
+			id: cybFollow.id,
+			createDate: cybFollow.createDate,
+			userId: cybUser.id,
+			individualId: cybUser.individualId,
+			fname: cybUser.fname,
+			lname: cybUser.lname,
+			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			slug: cybUser.slug,
+			userType: cybUser.userType,
+			noticeDate: cybUser.noticeDate,
+			onExplore: cybUser.onExplore,
+			onImmediate: cybUser.onImmediate,
+			onNotice: cybUser.onNotice,
+			stateName: cybState.name,
+			countryName: cybCountry.name,
+			designationName: cybDesignation.name,
+			industryName: cybIndustries.name,
 		})
 			.from(cybFollow)
 			.innerJoin(cybUser, eq(cybFollow.followerId, cybUser.id))
+			.leftJoin(cybState, eq(cybUser.state, cybState.id))
+			.leftJoin(cybCountry, eq(cybUser.country, cybCountry.id))
+			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
+			.leftJoin(cybIndustries, eq(cybUser.industry, cybIndustries.id))
 			.where(and(
 				eq(cybFollow.followedId, userId),
 				eq(cybFollow.status, 1),
 				eq(cybFollow.isDeleted, 0),
+				eq(cybUser.isDeleted, 0),
 			))
-			.orderBy(desc(cybFollow.createDate));
+			.orderBy(desc(cybFollow.id));
 
-		const following = await db.select({
-			id: cybFollow.id,
-			followedId: cybFollow.followedId,
-			createDate: cybFollow.createDate,
-			fname: cybUser.fname,
-			lname: cybUser.lname,
-			fullName: cybUser.fullName,
-			profile: cybUser.profile,
-			socialImage: cybUser.socialImage,
-		})
+		if (limit != null) {
+			return q.limit(limit).offset(sqlOffset ?? 0);
+		}
+		return q;
+	}
+
+	async countFollowerList(userId: number): Promise<number> {
+		const [row] = await db.select({ count: count() })
 			.from(cybFollow)
 			.innerJoin(cybUser, eq(cybFollow.followedId, cybUser.id))
 			.where(and(
 				eq(cybFollow.followerId, userId),
 				eq(cybFollow.status, 1),
 				eq(cybFollow.isDeleted, 0),
+				eq(cybUser.isDeleted, 0),
+			));
+		return Number(row?.count ?? 0);
+	}
+
+	async countFollowingList(userId: number): Promise<number> {
+		const [row] = await db.select({ count: count() })
+			.from(cybFollow)
+			.innerJoin(cybUser, eq(cybFollow.followerId, cybUser.id))
+			.where(and(
+				eq(cybFollow.followedId, userId),
+				eq(cybFollow.status, 1),
+				eq(cybFollow.isDeleted, 0),
+				eq(cybUser.isDeleted, 0),
+			));
+		return Number(row?.count ?? 0);
+	}
+
+	/**
+	 * Find non-deleted follow where initiator clicked Follow on target.
+	 * Row: followed_id = initiatorId, follower_id = targetId
+	 */
+	async findFollowRelationship(initiatorId: number, targetId: number, requireApproved = false) {
+		const conditions = [
+			eq(cybFollow.followedId, initiatorId),
+			eq(cybFollow.followerId, targetId),
+			eq(cybFollow.isDeleted, 0),
+		];
+		if (requireApproved) {
+			conditions.push(eq(cybFollow.status, 1));
+		}
+		const [row] = await db.select()
+			.from(cybFollow)
+			.where(and(...conditions))
+			.limit(1);
+		return row;
+	}
+
+	/** Soft-delete by initiator + target (PHP column direction). */
+	async softDeleteFollow(initiatorId: number, targetId: number) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		await db.update(cybFollow)
+			.set({ isDeleted: 1, modifyDate: now })
+			.where(and(
+				eq(cybFollow.followedId, initiatorId),
+				eq(cybFollow.followerId, targetId),
+				eq(cybFollow.isDeleted, 0),
+			));
+	}
+
+	async softDeleteFollowByRowId(id: number) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		await db.update(cybFollow)
+			.set({ isDeleted: 1, modifyDate: now })
+			.where(and(
+				eq(cybFollow.id, id),
+				eq(cybFollow.isDeleted, 0),
+			));
+	}
+
+	/**
+	 * PHP followBack: both directions exist (any status / is_deleted).
+	 * exists(follower_id=me, followed_id=remote) AND exists(followed_id=me, follower_id=remote)
+	 */
+	async checkFollowBack(me: number, remoteUserId: number): Promise<boolean> {
+		const [a] = await db.select({ id: cybFollow.id })
+			.from(cybFollow)
+			.where(and(
+				eq(cybFollow.followerId, me),
+				eq(cybFollow.followedId, remoteUserId),
 			))
-			.orderBy(desc(cybFollow.createDate));
-
-		return { followers, following };
-	}
-
-	// ====== Unfollow (Endpoint #16) ======
-
-	async findFollowRelationship(followerId: number, followedId: number) {
-		const [row] = await db.select()
+			.limit(1);
+		if (!a) return false;
+		const [b] = await db.select({ id: cybFollow.id })
 			.from(cybFollow)
 			.where(and(
-				eq(cybFollow.followerId, followerId),
-				eq(cybFollow.followedId, followedId),
-				eq(cybFollow.isDeleted, 0),
-			));
-		return row;
+				eq(cybFollow.followedId, me),
+				eq(cybFollow.followerId, remoteUserId),
+			))
+			.limit(1);
+		return !!b;
 	}
 
-	async softDeleteFollow(followerId: number, followedId: number) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-		await db.update(cybFollow)
-			.set({ isDeleted: 1, modifyDate: now })
+	async companyHasActiveJobs(companyId: number): Promise<number> {
+		const [row] = await db.select({ id: cybCompanyJob.id })
+			.from(cybCompanyJob)
 			.where(and(
-				eq(cybFollow.followerId, followerId),
-				eq(cybFollow.followedId, followedId),
-				eq(cybFollow.isDeleted, 0),
-			));
-	}
-
-	// ====== Remove Follower (Endpoint #17) ======
-
-	async findFollowerRelationship(followerId: number, followedId: number) {
-		const [row] = await db.select()
-			.from(cybFollow)
-			.where(and(
-				eq(cybFollow.followerId, followerId),
-				eq(cybFollow.followedId, followedId),
-				eq(cybFollow.isDeleted, 0),
-			));
-		return row;
-	}
-
-	// ====== Multi Unfollow (Endpoint #18) ======
-
-	async multiUnfollow(followerId: number, followedIds: number[]) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-		if (followedIds.length === 0) return 0;
-
-		await db.update(cybFollow)
-			.set({ isDeleted: 1, modifyDate: now })
-			.where(and(
-				eq(cybFollow.followerId, followerId),
-				sql`${cybFollow.followedId} IN ${followedIds}`,
-				eq(cybFollow.isDeleted, 0),
-			));
-
-		return followedIds.length;
-	}
-
-	// ====== Multi Remove Follower (Endpoint #19) ======
-
-	async multiRemoveFollower(followingId: number, followerIds: number[]) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-		if (followerIds.length === 0) return 0;
-
-		await db.update(cybFollow)
-			.set({ isDeleted: 1, modifyDate: now })
-			.where(and(
-				eq(cybFollow.followedId, followingId),
-				sql`${cybFollow.followerId} IN ${followerIds}`,
-				eq(cybFollow.isDeleted, 0),
-			));
-
-		return followerIds.length;
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.status, 1),
+				eq(cybCompanyJob.isDeleted, 0),
+			))
+			.limit(1);
+		return row ? 1 : 0;
 	}
 
 	// ====== Save Document (Endpoint #8) ======
