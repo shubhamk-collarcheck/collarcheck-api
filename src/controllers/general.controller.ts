@@ -177,7 +177,7 @@ export const tagList = async (req: Request, res: Response, next: NextFunction) =
 export const languageList = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const data = await getLanguagesService();
-		return res.status(200).json({ status: true, message: 'language list', data });
+		return res.status(200).json({ status: true, messages: 'language list', data });
 	} catch (error) {
 		next(error);
 	}
@@ -227,7 +227,8 @@ export const alldesignation = async (req: Request, res: Response, next: NextFunc
 export const allSkill = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const data = await allSkillService();
-		return res.status(200).json({ status: true, message: 'Skill List', data });
+		// Locked PHP contract: messages plural + exact "skill list"
+		return res.status(200).json({ status: true, messages: 'skill list', data });
 	}
 	catch (error) {
 		next(error);

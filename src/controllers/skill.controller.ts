@@ -6,12 +6,12 @@ import type { CommonIdParams } from "../utils/validation"
 
 export async function addSkill(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser
+		const { id: actingUserId } = req.auth as AuthUser
 		const { body } = req.validated as { body: SkillBody }
 
-		const messages = await addSkillService(user_id, body)
+		const messages = await addSkillService(actingUserId, body)
 
-		return res.status(201).json({
+		return res.status(200).json({
 			status: true,
 			messages,
 		})
@@ -22,14 +22,17 @@ export async function addSkill(req: Request, res: Response, next: NextFunction) 
 
 export async function allSkill(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser
+		const { id: actingUserId } = req.auth as AuthUser
 
-		const skills = await allSkillService(user_id)
-		const data = skills.map((s) => ({
-			id: s.id,
-			skill: s.skillName,
-			rating: s.rating,
-		}))
+		const skills = await allSkillService(actingUserId)
+		// PHP: skip empty/0/null ratings; skill = master name string (or "")
+		const data = skills
+			.filter((s) => s.rating != null && s.rating !== 0 && String(s.rating).trim() !== "")
+			.map((s) => ({
+				id: s.id,
+				skill: s.skillName || "",
+				rating: s.rating,
+			}))
 
 		return res.status(200).json({
 			status: true,
@@ -37,16 +40,19 @@ export async function allSkill(req: Request, res: Response, next: NextFunction) 
 			data,
 		})
 	} catch (err) {
-		next(err)
+		return res.status(200).json({
+			status: false,
+			messages: "Access denied",
+		})
 	}
 }
 
 export async function deleteSkill(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser
+		const { id: actingUserId } = req.auth as AuthUser
 		const { params } = req.validated as CommonIdParams
 
-		const messages = await deleteSkillService(user_id, params.id)
+		const messages = await deleteSkillService(actingUserId, params.id)
 
 		return res.status(200).json({
 			status: true,

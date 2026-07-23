@@ -1,4 +1,4 @@
-import { and, desc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import { cybUserLanguage, cybLanguages } from '../db/schema';
@@ -8,6 +8,8 @@ type NewUserLanguage = InferInsertModel<typeof cybUserLanguage>
 
 class languageRepositery {
 	async getAllByUserId(userId: number) {
+		// PHP: status=1 only, ORDER BY language name ASC (no is_deleted filter in legacy)
+		// Keep is_deleted=0 so Node soft-deletes (if any) stay hidden.
 		return await db.select({
 			id: cybUserLanguage.id,
 			user: cybUserLanguage.user,
@@ -27,7 +29,7 @@ class languageRepositery {
 				eq(cybUserLanguage.status, 1),
 				eq(cybUserLanguage.isDeleted, 0),
 			))
-			.orderBy(desc(cybUserLanguage.createDate));
+			.orderBy(asc(cybLanguages.name));
 	}
 
 	async findByIdAndUser(id: number, userId: number) {
