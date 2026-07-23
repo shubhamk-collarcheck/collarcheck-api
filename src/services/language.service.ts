@@ -65,7 +65,8 @@ export async function upsertLanguageService(
 			modifyDate: now,
 		};
 		await languageRepositery.update(existing.id, save);
-		return "Successfully updated";
+		// PHP upsert always returns "Successfully added"
+		return "Successfully added";
 	} else {
 		const save = {
 			user: userId,
@@ -74,6 +75,8 @@ export async function upsertLanguageService(
 			written: data.written,
 			status: 1,
 			isDeleted: 0,
+			createDate: now,
+			modifyDate: now,
 		};
 		const result = await languageRepositery.create(save);
 		if (!result) {
@@ -83,16 +86,33 @@ export async function upsertLanguageService(
 	}
 }
 
+function mapUserLanguageRow(item: {
+	id: number;
+	user: number | null;
+	language: number | null;
+	verbal: number | null;
+	written: number | null;
+	status: number | null;
+	createDate: string | null;
+	modifyDate: string | null;
+	languageName: string | null;
+}) {
+	return {
+		id: item.id,
+		user: item.user,
+		language: item.language,
+		verbal: item.verbal,
+		written: item.written,
+		status: item.status,
+		create_date: item.createDate ?? null,
+		modify_date: item.modifyDate ?? null,
+		language_name: item.languageName ?? null,
+	};
+}
+
 export async function allLanguageListService(userId: number) {
 	const items = await languageRepositery.getAllByUserId(userId);
-	return items.map(item => ({
-		id: item.id,
-		language: item.languageName || "",
-		languageId: item.language,
-		verbal: item.verbal || "",
-		written: item.written || "",
-		create_date: item.createDate || "",
-	}));
+	return items.map(mapUserLanguageRow);
 }
 
 export async function languageDetailService(userId: number, id: number) {
@@ -100,14 +120,7 @@ export async function languageDetailService(userId: number, id: number) {
 	if (!item) {
 		throw new BadRequestError("No record found!");
 	}
-	return {
-		id: item.id,
-		language: item.languageName || "",
-		languageId: item.language,
-		verbal: item.verbal || "",
-		written: item.written || "",
-		create_date: item.createDate || "",
-	};
+	return mapUserLanguageRow(item);
 }
 
 export async function deleteLanguageService(userId: number, id: number) {
