@@ -137,12 +137,13 @@ class FrontendRepositery {
 	}
 
 	async getFollowCounts(userId: number) {
+		// PHP inverted: following = followed_id=me; follower = follower_id=me
 		const [following] = await db
 			.select({ count: sql<number>`count(*)`.mapWith(Number) })
 			.from(cybFollow)
 			.where(
 				and(
-					eq(cybFollow.followerId, userId),
+					eq(cybFollow.followedId, userId),
 					eq(cybFollow.status, 1),
 					eq(cybFollow.isDeleted, 0)
 				)
@@ -152,7 +153,7 @@ class FrontendRepositery {
 			.from(cybFollow)
 			.where(
 				and(
-					eq(cybFollow.followedId, userId),
+					eq(cybFollow.followerId, userId),
 					eq(cybFollow.status, 1),
 					eq(cybFollow.isDeleted, 0)
 				)
@@ -164,6 +165,7 @@ class FrontendRepositery {
 	}
 
 	async getFollowStatus(viewerId: number, companyId: number) {
+		// PHP: viewer followed company → followed_id=viewer, follower_id=company
 		const [row] = await db
 			.select({
 				id: cybFollow.id,
@@ -172,8 +174,8 @@ class FrontendRepositery {
 			.from(cybFollow)
 			.where(
 				and(
-					eq(cybFollow.followerId, viewerId),
-					eq(cybFollow.followedId, companyId),
+					eq(cybFollow.followedId, viewerId),
+					eq(cybFollow.followerId, companyId),
 					eq(cybFollow.isDeleted, 0)
 				)
 			)

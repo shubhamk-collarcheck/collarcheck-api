@@ -102,9 +102,9 @@ export async function deleteViewRequest(req: Request, res: Response, next: NextF
 
 export async function multiDeleteViewRequest(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { body } = req.validated as { body: { id: number[] } };
-		const result = await multiDeleteViewRequestService(user_id, body.id);
+		const result = await multiDeleteViewRequestService(actingUserId, body.id);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
@@ -113,11 +113,11 @@ export async function multiDeleteViewRequest(req: Request, res: Response, next: 
 
 export async function multiApprovedVeiwRequest(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		const { id: actingUserId } = req.auth as AuthUser;
 		const { body } = req.validated as {
 			body: { id: number; access?: string | string[] | Record<string, number>; day?: number }
 		};
-		const result = await multiApprovedVeiwRequestService(user_id, body.id, body.access, body.day);
+		const result = await multiApprovedVeiwRequestService(actingUserId, body.id, body.access, body.day);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
