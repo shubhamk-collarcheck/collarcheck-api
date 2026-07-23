@@ -30,6 +30,8 @@ const allowedOrigins = [
 	"https://localhost:3000",
 	"http://admin.collarcheck.com",
 	"https://admin.collarcheck.com",
+	"https://collarcheck-frontend.vercel.app/",
+	"https://test.collarcheck.com",
 ];
 
 app.use(
