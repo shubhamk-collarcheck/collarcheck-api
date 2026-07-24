@@ -51,6 +51,18 @@ class designationRepositery {
 
 		return slug;
 	}
+
+	/** PHP alldesignation: status=1 ORDER BY RAND() LIMIT 30 */
+	async getRandomActive(limit = 30) {
+		return db.select({
+			id: cybDesignation.id,
+			name: cybDesignation.name,
+		})
+			.from(cybDesignation)
+			.where(eq(cybDesignation.status, 1))
+			.orderBy(sql`RAND()`)
+			.limit(limit);
+	}
 }
 
 export default new designationRepositery();

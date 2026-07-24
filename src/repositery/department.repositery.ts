@@ -29,6 +29,18 @@ class departmentRepositery {
 		}
 		return department;
 	}
+
+	/** PHP allDepartment: status=1 ORDER BY RAND() LIMIT 30 */
+	async getRandomActive(limit = 30) {
+		return db.select({
+			id: cybDepartment.id,
+			name: cybDepartment.name,
+		})
+			.from(cybDepartment)
+			.where(eq(cybDepartment.status, 1))
+			.orderBy(sql`RAND()`)
+			.limit(limit);
+	}
 }
 
 export default new departmentRepositery();

@@ -1,9 +1,6 @@
 import languageRepositery from "../repositery/language.repositery";
 import { BadRequestError } from "../middlewares/errorHandler";
 import type { LanguageRequestBody } from "../types/language.types";
-import { cybLanguages } from "../db/schema";
-import { and, eq } from "drizzle-orm";
-import db from "../db";
 
 type ResolveResult = {
 	id: number | null
@@ -15,9 +12,7 @@ async function resolveLanguage(value: string | number, userId: number): Promise<
 		return { id: value, data: null };
 	}
 	const name = value.trim();
-	const [existing] = await db.select().from(cybLanguages).where(
-		and(eq(cybLanguages.name, name), eq(cybLanguages.status, 1))
-	);
+	const existing = await languageRepositery.findMasterByName(name);
 	if (existing) {
 		return { id: existing.id, data: null };
 	}
@@ -32,58 +27,48 @@ async function resolveLanguage(value: string | number, userId: number): Promise<
 	};
 }
 
-async function languageTransaction(userId: number, data: LanguageRequestBody) {
-	const language = await resolveLanguage(data.language, userId);
-
-	const result = await db.transaction(async (tx) => {
-		let languageId = language.id;
-		if (!languageId && language.data) {
-			const [inserted] = await tx.insert(cybLanguages).values(language.data).$returningId();
-			languageId = inserted.id;
-		}
-
-		return { languageId };
-	});
-
-	return result;
-}
-
 export async function upsertLanguageService(
 	userId: number,
 	data: LanguageRequestBody,
 ) {
-	const { languageId } = await languageTransaction(userId, data);
+	const resolved = await resolveLanguage(data.language, userId);
 
-	const existing = await languageRepositery.findByUserAndLanguage(userId, languageId!);
+	let languageId = resolved.id;
+	if (!languageId && resolved.data) {
+		languageId = await languageRepositery.createMasterLanguage(resolved.data);
+	}
 
+	if (!languageId) {
+		throw new BadRequestError("Something Went Wrong");
+	}
+
+	const existing = await languageRepositery.findByUserAndLanguage(userId, languageId);
 	const now = new Date().toISOString().replace("T", " ").split(".")[0];
 
 	if (existing) {
-		const save = {
+		await languageRepositery.update(existing.id, {
 			verbal: data.verbal,
 			written: data.written,
 			modifyDate: now,
-		};
-		await languageRepositery.update(existing.id, save);
+		});
 		// PHP upsert always returns "Successfully added"
 		return "Successfully added";
-	} else {
-		const save = {
-			user: userId,
-			language: languageId,
-			verbal: data.verbal,
-			written: data.written,
-			status: 1,
-			isDeleted: 0,
-			createDate: now,
-			modifyDate: now,
-		};
-		const result = await languageRepositery.create(save);
-		if (!result) {
-			throw new BadRequestError("Something Went Wrong");
-		}
-		return "Successfully added";
 	}
+
+	const result = await languageRepositery.create({
+		user: userId,
+		language: languageId,
+		verbal: data.verbal,
+		written: data.written,
+		status: 1,
+		isDeleted: 0,
+		createDate: now,
+		modifyDate: now,
+	});
+	if (!result) {
+		throw new BadRequestError("Something Went Wrong");
+	}
+	return "Successfully added";
 }
 
 function mapUserLanguageRow(item: {

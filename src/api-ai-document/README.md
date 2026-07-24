@@ -18,12 +18,17 @@ Documentation for the **Node.js** CollarCheck API in this repository.
 ```
 src/routes/*.ts       → path + middleware (auth, upload, validate)
 src/controllers/*.ts  → req/res, call service
-src/services/*.ts     → business rules + response messages
-src/repositery/*.ts   → Drizzle queries
+src/services/*.ts     → business rules + response messages ONLY
+src/repositery/*.ts   → Drizzle queries (ALL DB access)
 src/types/*.ts        → Zod schemas + TS types
 src/db/schema.ts      → table definitions
 src/worker/           → SQS consumers
 ```
+
+**Hard rules (also in repo-root `AGENTS.md`):**
+
+1. Never write `db.select` / drizzle queries inside `src/services/**`. Add a repositery method, then call it from the service. Use static repositery imports (no `await import('../repositery/...')`).
+2. Do not re-coerce values already typed by Zod (`req.validated` / `z.infer`) or by Drizzle row selects. No `Number(row.userId)` when `userId` is already a number — type the row instead.
 
 ## Doc index
 

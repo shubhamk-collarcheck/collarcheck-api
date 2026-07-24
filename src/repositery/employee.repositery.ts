@@ -313,6 +313,31 @@ class employmentRepositery {
 		return Math.round(result?.avgRating || 0);
 	}
 
+	/**
+	 * PHP UserModel::getoverallprofileScore —
+	 * average of positive per-company employment scores for approved experiences.
+	 */
+	async getOverallProfileRating(userId: number): Promise<number> {
+		const companies = await db.selectDistinct({ company: cybUserExperience.company })
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUserExperience.approved, 1),
+				eq(cybUserExperience.status, 1),
+			));
+
+		const scores: number[] = [];
+		for (const row of companies) {
+			if (row.company == null) continue;
+			const score = await this.getAllEmploymentScore(userId, row.company);
+			if (score > 0) scores.push(score);
+		}
+		if (scores.length === 0) return 0;
+		const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+		return Number.isInteger(avg) ? avg : Math.round(avg * 10) / 10;
+	}
+
 	async getAverageRatingBySkill(experienceId: number): Promise<number> {
 		const [result] = await db
 			.select({

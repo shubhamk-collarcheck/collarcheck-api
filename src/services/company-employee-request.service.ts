@@ -1,6 +1,135 @@
 import companyEmployeeRequestRepositery from "../repositery/company-employee-request.repositery";
+import companyReviewRepositery from "../repositery/company-review.repositery";
+import employmentRepositery from "../repositery/employee.repositery";
+import skillRepositery from "../repositery/skill.repositery";
+import { user_verified } from "./users.service";
 
 const S3_PREFIX = process.env.S3_PREFIX || '';
+
+function pageToSqlOffset(page: number, limit: number): number {
+	return page <= 1 ? 0 : page * limit - limit;
+}
+
+function profileUrl(profile: string | null | undefined, socialImage: string | null | undefined) {
+	return profile ? `${S3_PREFIX}${profile}` : (socialImage || '');
+}
+
+/** Company branch of PHP ProfilePercentage */
+async function companyProfilePercentage(company: Awaited<ReturnType<typeof companyEmployeeRequestRepositery.getCompanyDetailForDashboard>>) {
+	if (!company) {
+		return { total: 0, uncomplete: [] as string[], complete: {} as Record<string, string | number>, incomplete: [] as { key: string; value: string }[] };
+	}
+
+	const checks: { key: string; label: string; points: number; ok: boolean }[] = [
+		{ key: 'profile', label: 'Profile Image', points: 3, ok: !!(company.profile || company.socialImage) },
+		{ key: 'company_name', label: 'Company Name', points: 2, ok: !!company.fname },
+		{ key: 'email', label: 'Email', points: 3, ok: !!company.email },
+		{ key: 'email_verified', label: 'Email Verification', points: 3, ok: !!company.emailVerified },
+		{ key: 'phone', label: 'Phone No.', points: 3, ok: !!company.phone },
+		{ key: 'phone_verified', label: 'Phone verification', points: 3, ok: !!company.phoneVerified },
+		{ key: 'website', label: 'Website', points: 5, ok: !!company.website },
+		{ key: 'profile_description', label: 'About Company', points: 5, ok: !!company.profileDescription },
+		{ key: 'contact_person', label: 'Contact person', points: 2, ok: !!company.contactPerson },
+		{ key: 'incorporate_date', label: 'Incorporation Date', points: 5, ok: !!company.incorporateDate },
+		{ key: 'turnover', label: 'Turnover', points: 2, ok: !!company.turnover },
+		{ key: 'industry', label: 'Industry Type', points: 3, ok: !!company.industry },
+		{ key: 'country', label: 'Country', points: 2, ok: !!company.country },
+		{ key: 'state', label: 'State', points: 2, ok: !!company.state },
+		{ key: 'city', label: 'City', points: 2, ok: !!company.city },
+		{ key: 'present_address', label: 'Office Address', points: 2, ok: !!company.presentAddress },
+		{
+			key: 'social', label: 'Social Media', points: 3,
+			ok: !!(company.linkdin || company.youtube || company.instagram || company.facebook || company.twitter),
+		},
+	];
+
+	const [isVerified, empCount, reviewCount, jobCount, galleryCount, benefitCount] = await Promise.all([
+		user_verified(company.id),
+		companyEmployeeRequestRepositery.countApprovedEmployees(company.id),
+		companyEmployeeRequestRepositery.countCompanyWrittenReviews(company.id),
+		companyEmployeeRequestRepositery.getDashboardStats(company.id).then((s) => s.postedJobs),
+		companyEmployeeRequestRepositery.countCompanyGallery(company.id),
+		companyEmployeeRequestRepositery.countCompanyBenefits(company.id),
+	]);
+
+	checks.push(
+		{ key: 'company_verification', label: 'Company Verification', points: 10, ok: !!isVerified },
+		{ key: 'add_employee', label: 'Add 1 Employee', points: 10, ok: empCount >= 1 },
+		{ key: 'write_review', label: 'Write a review', points: 10, ok: reviewCount >= 1 },
+		{ key: 'job_post', label: 'Job Post', points: 10, ok: jobCount >= 1 },
+		{ key: 'gallery', label: 'Add gallery', points: 3, ok: galleryCount >= 1 },
+		{ key: 'benefits', label: 'Add 3 Perks and benefits', points: 5, ok: benefitCount >= 3 },
+		{ key: 'company_size', label: 'Employee count', points: 2, ok: !!company.companySize },
+	);
+
+	let total = 0;
+	const uncomplete: string[] = [];
+	const complete: Record<string, string | number> = {};
+	const incomplete: { key: string; value: string }[] = [];
+
+	for (const c of checks) {
+		if (c.ok) {
+			total += c.points;
+			complete[c.key] = String(c.points);
+		} else {
+			uncomplete.push(c.label);
+			incomplete.push({ key: c.label, value: `${c.points}%` });
+		}
+	}
+
+	return { total, uncomplete, complete, incomplete };
+}
+
+async function mapApplicationCard(
+	app: Awaited<ReturnType<typeof companyReviewRepositery.getAllApplication>>[number],
+	nameKey: 'fname' | 'name',
+) {
+	const applicantId = app.userId;
+	const [isVerified, rating, userRating] = await Promise.all([
+		applicantId != null ? user_verified(applicantId) : Promise.resolve(false),
+		applicantId != null
+			? companyReviewRepositery.getUserRating(applicantId)
+			: Promise.resolve({ rating: 0, noofrecord: 0 }),
+		applicantId != null
+			? employmentRepositery.getOverallProfileRating(applicantId)
+			: Promise.resolve(0),
+	]);
+
+	const onExplore = app.onExplore === 1 ? 1 : 0;
+	const fullName = `${app.fname || ''} ${app.lname || ''}`.trim();
+
+	return {
+		id: app.id,
+		job: app.jobTitle || '',
+		job_slug: app.jobSlug || '',
+		user_id: app.userId,
+		individual_id: app.individualId ?? null,
+		[nameKey]: fullName,
+		email: app.email || '',
+		phone: app.phone || '',
+		city_name: app.cityName ?? null,
+		state_name: app.stateName ?? null,
+		country_name: app.countryName ?? null,
+		profile: profileUrl(app.profile, app.socialImage),
+		slug: app.slug || '',
+		company_name: app.companyName ?? null,
+		designation_name: app.designationName ?? null,
+		present_address: app.presentAddress ?? null,
+		profile_description: app.profileDescription ?? null,
+		date: app.createDate || '',
+		resume: app.resume ? `${S3_PREFIX}${app.resume}` : '',
+		resumeName: app.resumeName || '',
+		expected_salary: app.expectedSalary ?? null,
+		notice_period: app.noticePeriod ?? null,
+		notice_date: app.noticeDate ?? null,
+		isVerified: !!isVerified,
+		rating,
+		userRating,
+		on_explore: onExplore,
+		on_immediate: onExplore === 1 && app.onImmediate === 1 ? 1 : 0,
+		on_notice: onExplore === 1 && app.onNotice === 1 ? 1 : 0,
+	};
+}
 
 class companyEmployeeRequestService {
 
@@ -324,35 +453,107 @@ class companyEmployeeRequestService {
 		};
 	}
 
-	async dashboardService(companyId: number, limit = 10, offset = 0) {
-		const stats = await companyEmployeeRequestRepositery.getDashboardStats(companyId);
-		const pendingRequests = await companyEmployeeRequestRepositery.getPendingEmploymentRequests(companyId);
+	/**
+	 * GET /wapi/company/dashboard
+	 * limit/offsetPage are Zod-coerced; offset is page number (default limit 10).
+	 */
+	async dashboardService(companyId: number, limit = 10, offsetPage = 0) {
+		const company = await companyEmployeeRequestRepositery.getCompanyDetailForDashboard(companyId);
+		if (!company) {
+			return { status: false as const, messages: "Company not found!" };
+		}
+
+		const sqlOffset = pageToSqlOffset(offsetPage, limit);
+
+		const [stats, pendingRequests, appRows, mostAppliedJob, percentage] = await Promise.all([
+			companyEmployeeRequestRepositery.getDashboardStats(companyId),
+			companyEmployeeRequestRepositery.getPendingEmploymentRequests(companyId, limit, sqlOffset),
+			// dashboard applications: company-wide, no job filter, isVerify unset → ASC (PHP)
+			companyReviewRepositery.getAllApplication({
+				companyId,
+				isVerify: false,
+				limit,
+				sqlOffset,
+			}),
+			companyEmployeeRequestRepositery.getTopAppliedJobs(companyId, limit, sqlOffset),
+			companyProfilePercentage(company),
+		]);
+
+		const employementRequestList = await Promise.all(pendingRequests.map(async (r) => {
+			let skillNames: string[] = [];
+			if (r.skill) {
+				try {
+					const ids = JSON.parse(r.skill as string);
+					if (Array.isArray(ids) && ids.length) {
+						const map = await skillRepositery.getSkillNamesByIds(ids.map(Number).filter(Boolean));
+						skillNames = [...map.values()];
+					}
+				} catch { /* ignore */ }
+			}
+
+			const docs = r.certificate
+				? String(r.certificate).split(',').filter(Boolean).map((p) => `${S3_PREFIX}${p.trim()}`)
+				: [];
+
+			const onExplore = r.onExplore === 1 ? 1 : 0;
+			const isVerified = r.user != null ? await user_verified(r.user) : false;
+
+			return {
+				id: r.id,
+				profile: profileUrl(r.profile, r.socialImage),
+				userName: `${r.fname || ''} ${r.lname || ''}`.trim(),
+				salary: r.salary || '',
+				employment_type: r.employmentTypeName || '',
+				designation: r.designationName || '',
+				joining_date: r.joiningDate || '',
+				worked_till_date: r.workedTillDate || '',
+				still_working: r.stillWorking,
+				approved: r.approved,
+				skill: skillNames,
+				description: r.description || '',
+				document: docs,
+				salary_inhand: r.salaryInhand || '',
+				salary_mode: r.salaryMode || '',
+				department: r.departmentName || '',
+				claim_status: r.claimStatus ? 1 : 0,
+				rating: [] as unknown[],
+				employment_status: 'pending',
+				employement_id: r.id,
+				slug: r.slug || '',
+				individual_id: r.individualId ?? null,
+				status: r.status,
+				is_verified: !!isVerified,
+				user_slug: r.slug || '',
+				updateHistory: [] as unknown[],
+				on_explore: onExplore,
+				on_immediate: onExplore === 1 && r.onImmediate === 1 ? 1 : 0,
+				on_notice: onExplore === 1 && r.onNotice === 1 ? 1 : 0,
+			};
+		}));
+
+		const allApplicationList = await Promise.all(
+			appRows.map((app) => mapApplicationCard(app, 'name'))
+		);
 
 		return {
-			success: true,
+			status: true as const,
 			data: {
 				postedJobs: stats.postedJobs,
-				applications: 0,
+				applications: stats.applications,
 				currentEmployies: stats.currentEmployies,
-				followRequests: [],
-				messages: 0,
-				employementRequestList: pendingRequests.map(r => ({
-					id: r.id,
-					userName: `${r.fname || ''} ${r.lname || ''}`.trim(),
-					profile: r.profile ? `${S3_PREFIX}${r.profile}` : '',
-					approved: r.approved,
-					designation: r.designationName || '',
-				})),
-				percentage: { total: 0, uncomplete: [], complete: [] },
-				allApplicationList: [],
-				mostAppliedJob: [],
+				followRequests: [] as unknown[],
+				messages: stats.messages,
+				employementRequestList,
+				percentage,
+				allApplicationList,
+				mostAppliedJob,
 			},
 		};
 	}
 
 	async sidebarCountService(companyId: number) {
 		const reviewRequest = await companyEmployeeRequestRepositery.getPendingReviewCount(companyId);
-		const employmentRequest = await companyEmployeeRequestRepositery.getPendingEmploymentRequests(companyId);
+		const employmentRequest = await companyEmployeeRequestRepositery.getPendingEmploymentRequests(companyId, 100, 0);
 		const followRequests = await companyEmployeeRequestRepositery.getFollowRequestCount(companyId);
 
 		return {

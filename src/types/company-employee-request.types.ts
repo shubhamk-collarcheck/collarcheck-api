@@ -59,9 +59,12 @@ export const followRequestListQuerySchema = z.object({
 	offset: z.coerce.number().int().optional().default(0),
 });
 
+// validateData wraps { params, query, body } — nest under query
 export const companyDashboardQuerySchema = z.object({
-	limit: z.coerce.number().int().positive().optional().default(10),
-	offset: z.coerce.number().int().optional().default(0),
+	query: z.object({
+		limit: z.coerce.number().int().positive().optional().default(10),
+		offset: z.coerce.number().int().optional().default(0), // page number, not SQL offset
+	}),
 });
 
 export const companyListQuerySchema = z.object({

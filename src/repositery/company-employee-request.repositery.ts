@@ -1,4 +1,4 @@
-import { and, eq, sql, desc, asc, count, ne } from 'drizzle-orm';
+import { and, eq, sql, desc, asc, count, ne, inArray } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import {
@@ -6,7 +6,8 @@ import {
 	cybUserUpdateExperience, cybUserUpdateExperienceHistory, cybFollow, cybMessage, cybMessageHistory,
 	cybCompanyJob, cybDesignation, cybDepartment, cybEmployementType, cybIndustries,
 	cybUserRelation, cybAccountDeleteRequests, cybCompanyInvite, cybAccountSetting,
-	cybUserPermission, cybUserGroup, cybSkillRating,
+	cybUserPermission, cybUserGroup, cybSkillRating, cybApplication, cybCities, cybState, cybCountry,
+	cybGalleries, cybCompanyBenefits,
 } from '../db/schema';
 
 class companyEmployeeRequestRepositery {
@@ -367,6 +368,19 @@ class companyEmployeeRequestRepositery {
 			.orderBy(desc(cybFollow.createDate));
 	}
 
+	async getCompanyDetailForDashboard(companyId: number) {
+		const [row] = await db.select()
+			.from(cybUser)
+			.where(and(
+				eq(cybUser.id, companyId),
+				eq(cybUser.userType, 2),
+				eq(cybUser.status, 1),
+				eq(cybUser.isDeleted, 0),
+			))
+			.limit(1);
+		return row;
+	}
+
 	async getDashboardStats(companyId: number) {
 		const [jobCount] = await db.select({ count: count() })
 			.from(cybCompanyJob)
@@ -376,53 +390,164 @@ class companyEmployeeRequestRepositery {
 				eq(cybCompanyJob.isDeleted, 0),
 			));
 
-		const [empCount] = await db.select({ count: count() })
-			.from(cybUserExperience)
+		// applications on company's active jobs (no app.is_deleted filter — PHP)
+		const [appCount] = await db.select({ count: count() })
+			.from(cybApplication)
+			.innerJoin(cybCompanyJob, eq(cybApplication.job, cybCompanyJob.id))
 			.where(and(
-				eq(cybUserExperience.company, companyId),
-				eq(cybUserExperience.stillWorking, 1),
-				eq(cybUserExperience.approved, 1),
-				eq(cybUserExperience.isDeleted, 0),
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.isDeleted, 0),
+				eq(cybCompanyJob.status, 1),
 			));
 
-		const [pendingCount] = await db.select({ count: count() })
+		// distinct current employees
+		const empRows = await db.select({ user: cybUserExperience.user })
 			.from(cybUserExperience)
+			.innerJoin(cybUser, eq(cybUser.id, cybUserExperience.user))
 			.where(and(
 				eq(cybUserExperience.company, companyId),
-				eq(cybUserExperience.approved, 3),
+				eq(cybUserExperience.approved, 1),
+				eq(cybUserExperience.status, 1),
+				eq(cybUserExperience.stillWorking, 1),
 				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUser.status, 1),
+				eq(cybUser.isDeleted, 0),
+			))
+			.groupBy(cybUserExperience.user);
+
+		const [msgCount] = await db.select({ count: count() })
+			.from(cybMessageHistory)
+			.where(and(
+				eq(cybMessageHistory.receiver, companyId),
+				ne(cybMessageHistory.isViewed, 1),
 			));
 
 		return {
 			postedJobs: jobCount?.count ?? 0,
-			currentEmployies: empCount?.count ?? 0,
-			employementRequestCount: pendingCount?.count ?? 0,
+			applications: appCount?.count ?? 0,
+			currentEmployies: empRows.length,
+			messages: msgCount?.count ?? 0,
 		};
 	}
 
-	async getPendingEmploymentRequests(companyId: number) {
+	/** Pending employment: approved=0 (PHP magic filter 3 → DB 0) */
+	async getPendingEmploymentRequests(companyId: number, limit = 10, sqlOffset = 0) {
 		return db.select({
 			id: cybUserExperience.id,
 			user: cybUserExperience.user,
 			approved: cybUserExperience.approved,
+			status: cybUserExperience.status,
 			stillWorking: cybUserExperience.stillWorking,
 			joiningDate: cybUserExperience.joiningDate,
+			workedTillDate: cybUserExperience.workedTillDate,
+			salary: cybUserExperience.salary,
+			salaryInhand: cybUserExperience.salaryInhand,
+			salaryMode: cybUserExperience.salaryMode,
+			skill: cybUserExperience.skill,
+			description: cybUserExperience.description,
+			certificate: cybUserExperience.certificate,
 			fname: cybUser.fname,
 			lname: cybUser.lname,
-			fullName: cybUser.fullName,
 			slug: cybUser.slug,
 			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			individualId: cybUser.individualId,
+			claimStatus: cybUser.claimStatus,
+			onExplore: cybUser.onExplore,
+			onImmediate: cybUser.onImmediate,
+			onNotice: cybUser.onNotice,
 			designationName: cybDesignation.name,
+			departmentName: cybDepartment.name,
+			employmentTypeName: cybEmployementType.name,
 		})
 			.from(cybUserExperience)
 			.leftJoin(cybUser, eq(cybUserExperience.user, cybUser.id))
 			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
+			.leftJoin(cybDepartment, eq(cybUserExperience.department, cybDepartment.id))
+			.leftJoin(cybEmployementType, eq(cybUserExperience.employmentType, cybEmployementType.id))
 			.where(and(
 				eq(cybUserExperience.company, companyId),
-				eq(cybUserExperience.approved, 3),
+				eq(cybUserExperience.approved, 0),
 				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUser.isDeleted, 0),
+				eq(cybUser.userType, 1),
 			))
-			.limit(10);
+			.orderBy(desc(cybUserExperience.id))
+			.limit(limit)
+			.offset(sqlOffset);
+	}
+
+	async getTopAppliedJobs(companyId: number, limit = 10, sqlOffset = 0) {
+		// ORDER BY must use the aggregate expression (MySQL: alias alone often fails / wasn't emitted)
+		const applicantsCount = sql<number>`COUNT(${cybApplication.user})`.mapWith(Number);
+		return db.select({
+			applicants: applicantsCount.as('applicants'),
+			job_title: cybCompanyJob.jobTitle,
+			id: cybCompanyJob.id,
+			modify_date: cybCompanyJob.modifyDate,
+			country_name: cybCountry.name,
+			state_name: cybState.name,
+			city_name: cybCities.name,
+		})
+			.from(cybApplication)
+			.leftJoin(cybCompanyJob, eq(cybApplication.job, cybCompanyJob.id))
+			.leftJoin(cybCountry, eq(cybCompanyJob.country, cybCountry.id))
+			.leftJoin(cybState, eq(cybCompanyJob.state, cybState.id))
+			.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id))
+			.where(and(
+				eq(cybCompanyJob.isDeleted, 0),
+				eq(cybCompanyJob.status, 1),
+				eq(cybApplication.isDeleted, 0),
+				eq(cybCompanyJob.company, companyId),
+			))
+			.groupBy(cybApplication.job)
+			.orderBy(desc(sql`COUNT(${cybApplication.user})`))
+			.limit(limit)
+			.offset(sqlOffset);
+	}
+
+	async countApprovedEmployees(companyId: number) {
+		const [row] = await db.select({ count: count() })
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperience.approved, 1),
+				eq(cybUserExperience.isDeleted, 0),
+			));
+		return row?.count ?? 0;
+	}
+
+	async countCompanyWrittenReviews(companyId: number) {
+		const [row] = await db.select({ count: count() })
+			.from(cybUserExperienceRating)
+			.innerJoin(cybUserExperience, eq(cybUserExperienceRating.experience, cybUserExperience.id))
+			.where(and(
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperienceRating.addedBy, 1),
+				eq(cybUserExperienceRating.approved, 1),
+				eq(cybUserExperienceRating.isDeleted, 0),
+			));
+		return row?.count ?? 0;
+	}
+
+	async countCompanyGallery(companyId: number) {
+		const [row] = await db.select({ count: count() })
+			.from(cybGalleries)
+			.where(and(
+				eq(cybGalleries.companyId, companyId),
+				eq(cybGalleries.isDeleted, 0),
+			));
+		return row?.count ?? 0;
+	}
+
+	async countCompanyBenefits(companyId: number) {
+		const [row] = await db.select({ count: count() })
+			.from(cybCompanyBenefits)
+			.where(and(
+				eq(cybCompanyBenefits.companyId, companyId),
+				eq(cybCompanyBenefits.isDeleted, 0),
+			));
+		return row?.count ?? 0;
 	}
 
 	async getPendingReviewCount(companyId: number) {

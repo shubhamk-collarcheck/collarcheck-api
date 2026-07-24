@@ -140,34 +140,23 @@ export const addHelp = async (req: Request, res: Response) => {
 
 export const allApplication = async (req: Request, res: Response) => {
 	try {
-		const { user_id: companyId } = req.auth as AuthUser;
-
-		const { query } = req.validated as { query: AllApplicationQuery };
-
-		const jobId = query.job ? query.job.split(',')[0] : '';
-		const jobIdNum = parseInt(jobId);
-		if (isNaN(jobIdNum) || jobIdNum <= 0) {
-			return res.status(400).json({ status: false, messages: "Invalid job ID" });
-		}
+		// Acting company / collab identity (honours X-Company)
+		const { id: actingUserId } = req.auth as AuthUser;
+		const { query } = req.validated as AllApplicationQuery;
 
 		const result = await companyReviewService.getAllApplicationService(
-			companyId,
-			jobIdNum,
+			actingUserId,
+			query.job,
 			query.keyword,
 			query.limit,
 			query.offset,
 		);
 
-		return res.status(result.success ? 200 : 403).json({
-			status: result.success,
-			messages: result.message,
-			job_title: result.job_title,
-			data: result.data,
-			totalCounts: result.totalCounts,
-		});
+		// Business failures stay HTTP 200 (PHP contract)
+		return res.status(200).json(result);
 	} catch (error) {
 		console.error("allApplication error:", error);
-		return res.status(500).json({ status: false, messages: "Internal server error" });
+		return res.status(200).json({ status: false, messages: "Access denied" });
 	}
 };
 

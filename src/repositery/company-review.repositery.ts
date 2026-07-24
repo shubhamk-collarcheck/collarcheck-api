@@ -1,9 +1,11 @@
-import { and, eq, sql, desc, asc, count } from 'drizzle-orm';
+import { and, eq, sql, desc, asc, count, inArray, like, or, SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import {
 	cybUser, cybUserExperience, cybUserExperienceRating, cybUserExperienceRatingHistory,
 	cybUserUpdateExperience, cybHelp, cybApplication, cybCompanyJob, cybDesignation,
 	cybSkillRating, cybJobCollaborators, cybNotifications,
+	cybCities, cybState, cybCountry,
 } from '../db/schema';
 
 class companyReviewRepositery {
@@ -258,7 +260,7 @@ class companyReviewRepositery {
 		return nextId;
 	}
 
-	async getCollaboratorCompanyIds(userId: number) {
+	async getCollaboratorRows(userId: number) {
 		return db.select({
 			companyId: cybJobCollaborators.companyId,
 			jobId: cybJobCollaborators.jobId,
@@ -271,69 +273,170 @@ class companyReviewRepositery {
 			));
 	}
 
-	async getAllApplication(jobId: number, companyId: number, keyword?: string, limit = 50, offset = 0) {
-		const conditions = [
-			eq(cybApplication.job, jobId),
-			eq(cybApplication.status, 1),
-			eq(cybApplication.isDeleted, 0),
-		];
-
-		const rows = await db.select({
-			id: cybApplication.id,
-			job: cybApplication.job,
-			userId: cybApplication.user,
-			createDate: cybApplication.createDate,
-			// User details
-			fname: cybUser.fname,
-			lname: cybUser.lname,
-			fullName: cybUser.fullName,
-			email: cybUser.email,
-			phone: cybUser.phone,
-			slug: cybUser.slug,
-			profile: cybUser.profile,
-			individualId: cybUser.individualId,
-			city: cybUser.city,
-			state: cybUser.state,
-			country: cybUser.country,
-			presentAddress: cybUser.presentAddress,
-			profileDescription: cybUser.profileDescription,
-			expectedSalary: cybUser.expectedSalary,
-			noticePeriod: cybUser.noticePeriod,
-			onNotice: cybUser.onNotice,
-			onImmediate: cybUser.onImmediate,
-			onExplore: cybUser.onExplore,
-			noticeDate: cybUser.noticeDate,
-			resume: cybUser.resume,
-			resumeName: cybUser.resumeName,
-			currentCompany: cybUser.currentCompany,
-			currentPossition: cybUser.currentPossition,
-		})
-			.from(cybApplication)
-			.innerJoin(cybUser, eq(cybApplication.user, cybUser.id))
-			.where(and(...conditions))
-			.limit(limit)
-			.offset(offset)
-			.orderBy(desc(cybApplication.createDate));
-
-		return rows;
+	/** @deprecated use getCollaboratorRows */
+	async getCollaboratorCompanyIds(userId: number) {
+		return this.getCollaboratorRows(userId);
 	}
 
-	async getApplicationCount(jobId: number) {
-		const [result] = await db.select({ count: count() })
-			.from(cybApplication)
-			.where(and(
-				eq(cybApplication.job, jobId),
-				eq(cybApplication.status, 1),
-				eq(cybApplication.isDeleted, 0),
-			));
-		return result?.count ?? 0;
+	async getJobTitleAndSlug(jobId: number) {
+		const [row] = await db.select({
+			jobTitle: cybCompanyJob.jobTitle,
+			slug: cybCompanyJob.slug,
+		})
+			.from(cybCompanyJob)
+			.where(eq(cybCompanyJob.id, jobId))
+			.limit(1);
+		return { jobTitle: row?.jobTitle ?? '', jobSlug: row?.slug ?? '' };
 	}
 
 	async getJobTitle(jobId: number) {
-		const [row] = await db.select({ jobTitle: cybCompanyJob.jobTitle })
-			.from(cybCompanyJob)
-			.where(eq(cybCompanyJob.id, jobId));
-		return row?.jobTitle ?? '';
+		const { jobTitle } = await this.getJobTitleAndSlug(jobId);
+		return jobTitle;
+	}
+
+	/**
+	 * PHP CompanyModel::getAllApplication
+	 * - No filter on app.is_deleted / app.status
+	 * - filter.job optional; company OR companyIds
+	 * - order by app.id DESC if isVerify else ASC
+	 * - limit/sqlOffset optional (omit for count mode — use countAllApplication)
+	 */
+	async getAllApplication(filter: {
+		jobId?: number;
+		companyId?: number;
+		companyIds?: number[];
+		keyword?: string;
+		isVerify?: boolean;
+		limit?: number;
+		sqlOffset?: number;
+	}) {
+		const applicant = cybUser;
+		const companyUser = alias(cybUser, 'app_current_company');
+
+		const conditions: SQL[] = [eq(applicant.isDeleted, 0)];
+
+		if (filter.companyIds && filter.companyIds.length > 0) {
+			conditions.push(inArray(cybCompanyJob.company, filter.companyIds));
+		} else if (filter.companyId != null) {
+			conditions.push(eq(cybCompanyJob.company, filter.companyId));
+		}
+
+		if (filter.jobId != null) {
+			conditions.push(eq(cybApplication.job, filter.jobId));
+		}
+
+		if (filter.keyword) {
+			const kw = `%${filter.keyword}%`;
+			conditions.push(or(
+				like(applicant.fname, kw),
+				like(applicant.lname, kw),
+				like(cybCompanyJob.jobTitle, kw),
+			)!);
+		}
+
+		const orderBy = filter.isVerify ? desc(cybApplication.id) : asc(cybApplication.id);
+
+		let q = db.select({
+			id: cybApplication.id,
+			jobId: cybApplication.job,
+			userId: cybApplication.user,
+			createDate: cybApplication.createDate,
+			fname: applicant.fname,
+			lname: applicant.lname,
+			email: applicant.email,
+			phone: applicant.phone,
+			slug: applicant.slug,
+			profile: applicant.profile,
+			socialImage: applicant.socialImage,
+			individualId: applicant.individualId,
+			presentAddress: applicant.presentAddress,
+			profileDescription: applicant.profileDescription,
+			expectedSalary: applicant.expectedSalary,
+			noticePeriod: applicant.noticePeriod,
+			onNotice: applicant.onNotice,
+			onImmediate: applicant.onImmediate,
+			onExplore: applicant.onExplore,
+			noticeDate: applicant.noticeDate,
+			resume: applicant.resume,
+			resumeName: applicant.resumeName,
+			jobTitle: cybCompanyJob.jobTitle,
+			jobSlug: cybCompanyJob.slug,
+			cityName: cybCities.name,
+			stateName: cybState.name,
+			countryName: cybCountry.name,
+			companyName: companyUser.fname,
+			designationName: cybDesignation.name,
+		})
+			.from(cybApplication)
+			.leftJoin(cybCompanyJob, eq(cybApplication.job, cybCompanyJob.id))
+			.leftJoin(applicant, eq(cybApplication.user, applicant.id))
+			.leftJoin(companyUser, eq(companyUser.id, applicant.currentCompany))
+			.leftJoin(cybCities, eq(applicant.city, cybCities.id))
+			.leftJoin(cybState, eq(applicant.state, cybState.id))
+			.leftJoin(cybCountry, eq(applicant.country, cybCountry.id))
+			.leftJoin(cybDesignation, eq(applicant.currentPossition, cybDesignation.id))
+			.where(and(...conditions))
+			.orderBy(orderBy)
+			.$dynamic();
+
+		if (filter.limit != null) {
+			q = q.limit(filter.limit).offset(filter.sqlOffset ?? 0);
+		}
+
+		return q;
+	}
+
+	async countAllApplication(filter: {
+		jobId?: number;
+		companyId?: number;
+		companyIds?: number[];
+		keyword?: string;
+	}) {
+		const applicant = cybUser;
+		const conditions: SQL[] = [eq(applicant.isDeleted, 0)];
+
+		if (filter.companyIds && filter.companyIds.length > 0) {
+			conditions.push(inArray(cybCompanyJob.company, filter.companyIds));
+		} else if (filter.companyId != null) {
+			conditions.push(eq(cybCompanyJob.company, filter.companyId));
+		}
+		if (filter.jobId != null) {
+			conditions.push(eq(cybApplication.job, filter.jobId));
+		}
+		if (filter.keyword) {
+			const kw = `%${filter.keyword}%`;
+			conditions.push(or(
+				like(applicant.fname, kw),
+				like(applicant.lname, kw),
+				like(cybCompanyJob.jobTitle, kw),
+			)!);
+		}
+
+		const [result] = await db.select({ count: count() })
+			.from(cybApplication)
+			.leftJoin(cybCompanyJob, eq(cybApplication.job, cybCompanyJob.id))
+			.leftJoin(applicant, eq(cybApplication.user, applicant.id))
+			.where(and(...conditions));
+		return result?.count ?? 0;
+	}
+
+	/** PHP get_user_rating: sum of ratings + count of approved reviews */
+	async getUserRating(userId: number) {
+		const [result] = await db.select({
+			noofrecord: sql<number>`count(*)`.mapWith(Number),
+			rating: sql<number>`COALESCE(SUM(${cybUserExperienceRating.rating}), 0)`.mapWith(Number),
+		})
+			.from(cybUserExperienceRating)
+			.leftJoin(cybUserExperience, eq(cybUserExperienceRating.experience, cybUserExperience.id))
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperienceRating.status, 1),
+				eq(cybUserExperienceRating.isDeleted, 0),
+			));
+		return {
+			rating: result?.rating ?? 0,
+			noofrecord: result?.noofrecord ?? 0,
+		};
 	}
 
 	async getUpdateExperienceRecord(id: number) {

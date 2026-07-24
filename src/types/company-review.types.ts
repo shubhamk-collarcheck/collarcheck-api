@@ -27,11 +27,27 @@ export const addHelpSchema = z.object({
 	message: z.string().min(1, "Message is required"),
 });
 
+// validateData wraps { params, query, body } — nest under query
+// job is optional: PHP only filters app.job when set; FE often sends it, but ?limit=5 alone must work
+const optionalJobId = z
+	.union([z.string(), z.number()])
+	.optional()
+	.transform((v) => {
+		if (v === undefined || v === null || v === '') return undefined;
+		const segment = String(v).split(',')[0].trim();
+		if (!segment) return undefined;
+		const n = Number(segment);
+		if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n)) return undefined;
+		return n;
+	});
+
 export const allApplicationQuerySchema = z.object({
-	job: z.string().min(1, "Job ID is required"),
-	keyword: z.string().optional(),
-	limit: z.coerce.number().int().positive().optional().default(50),
-	offset: z.coerce.number().int().optional().default(0),
+	query: z.object({
+		job: optionalJobId,
+		keyword: z.string().optional(),
+		limit: z.coerce.number().int().positive().optional().default(50),
+		offset: z.coerce.number().int().optional().default(0), // page number, not SQL offset
+	}),
 });
 
 export const updateBasicExperienceParamsSchema = z.object({
