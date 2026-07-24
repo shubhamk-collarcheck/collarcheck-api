@@ -189,7 +189,7 @@ class AccountMigrationRepositery {
 	async getMenusByIds(ids: number[]) {
 		if (!ids.length) return [];
 		return db
-			.select({ id: cybWebMenu.id, name: cybWebMenu.name, icon: cybWebMenu.icon })
+			.select({ id: cybWebMenu.id, name: cybWebMenu.name, menu_link: cybWebMenu.link, sort_order: cybWebMenu.sortOrder, icon: cybWebMenu.icon })
 			.from(cybWebMenu)
 			.where(and(inArray(cybWebMenu.id, ids), eq(cybWebMenu.status, 1)));
 	}

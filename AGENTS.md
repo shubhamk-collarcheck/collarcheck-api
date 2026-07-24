@@ -13,6 +13,35 @@ src/types/*.ts         → Zod schemas + TS types
 src/db/schema.ts       → table definitions
 ```
 
+### Controllers: plain async/await only
+
+**Do not** wrap handlers in helpers like `handle(fn)` / HOFs that hide `req/res/next`.
+
+**Forbidden:**
+
+```ts
+function handle(fn: (req: Request) => Promise<unknown>) {
+  return async (req, res, next) => { ... };
+}
+export const userPermissionList = handle((req) => svc.userPermissionListService(...));
+```
+
+**Required (simple, explicit):**
+
+```ts
+export const userPermissionList = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id: companyId } = req.auth as AuthUser;
+    const result = await svc.userPermissionListService(companyId);
+    return res.status(200).json(result);
+  } catch (error) {
+    next(error);
+  }
+};
+```
+
+Each exported handler is its own `async` function with try/catch, `await` service, `res.json` / `res.send`.
+
 ### NEVER put database access in services
 
 **Forbidden in `src/services/**`:**
