@@ -7,6 +7,14 @@ type City = InferSelectModel<typeof cybCities>
 type NewCity = InferInsertModel<typeof cybCities>
 
 class cityRepositery {
+	async findById(id: number): Promise<City | undefined> {
+		const [city] = await db.select()
+			.from(cybCities)
+			.where(eq(cybCities.id, id))
+			.limit(1);
+		return city;
+	}
+
 	async findByName(name: string): Promise<City | undefined> {
 		const [city] = await db.select()
 			.from(cybCities)

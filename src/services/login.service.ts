@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import loginRepositery from "../repositery/login.repositery";
 import usersRepositery, { USER_PREFIX, USER_TYPE } from "../repositery/users.repositery";
+import designationRepositery from "../repositery/designation.repositery";
 import { get_user_detail, user_verified, get_all_connection } from "./users.service";
 import { profilePercentageService } from "./job-dashboard.service";
 import { createEducationService, updateEducationService } from "./education.service";
@@ -130,7 +131,7 @@ export async function getStatistics(userId: number, loginauth?: string) {
 			: `${s3Prefix}${userDetail.profile}`
 		: userDetail.socialImage || "";
 
-	if (userDetail.userType === 2) {
+	if (userDetail.userType === USER_TYPE.COMPANY) {
 		const [totalConnection, exploreTalent, relation] = await Promise.all([
 			get_all_connection(userId),
 			loginRepositery.hasActiveJobs(userId),
@@ -286,11 +287,6 @@ export async function getStatistics(userId: number, loginauth?: string) {
 	};
 }
 
-/**
- * Persist OTP, then deliver (fail-soft for client parity with PHP).
- * Phone: MSG91 direct (sync) — same as PHP otpSend. Optional SQS only if MSG91_USE_SQS=1.
- * Email: SQS SEND_EMAIL template.
- */
 async function sendOtpQuietly(params: { phone?: string; email?: string; name?: string; otp: string; }): Promise<{ smsSent: boolean; emailQueued: boolean }> {
 	await loginRepositery.upsertOtp({
 		phone: params.phone,
@@ -1307,7 +1303,6 @@ export async function finalSignupService(
 			if (pos.asId != null) {
 				positionId = pos.asId;
 			} else if (pos.asName) {
-				const designationRepositery = (await import("../repositery/designation.repositery")).default;
 				const existing = await designationRepositery.findByName(pos.asName);
 				if (existing.length > 0) {
 					positionId = existing[0].id;

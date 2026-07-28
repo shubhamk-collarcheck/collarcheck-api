@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { readFile } from "fs/promises";
 import { AuthUser } from "../types/express";
 import type {
 	ResumeDownloadBody,
@@ -28,8 +29,7 @@ export const getSlug = async (req: Request, res: Response, next: NextFunction) =
 		if (file?.buffer) {
 			text = file.buffer.toString("utf8");
 		} else if ((file as { path?: string } | undefined)?.path) {
-			const fs = await import("fs/promises");
-			text = await fs.readFile((file as { path: string }).path, "utf8");
+			text = await readFile((file as { path: string }).path, "utf8");
 		} else if (typeof req.body?.csv === "string") {
 			text = req.body.csv;
 		}
