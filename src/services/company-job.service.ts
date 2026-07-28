@@ -1,6 +1,10 @@
 import companyJobRepositery from '../repositery/company-job.repositery';
+import type { AllJobQuery } from '../types/company-job.types';
 
 const s3Prefix = process.env.S3_PREFIX || '';
+
+type JobDetailRow = NonNullable<Awaited<ReturnType<typeof companyJobRepositery.getJobDetail>>>;
+type CollaboratorRow = Awaited<ReturnType<typeof companyJobRepositery.getJobCollaborators>>[number];
 
 function generateSlug(title: string, stateName: string | null, designationName: string | null, experienceName: string | null): string {
 	const now = new Date();
@@ -17,19 +21,24 @@ function generateSlug(title: string, stateName: string | null, designationName: 
 	return parts.join('-');
 }
 
-async function formatJobDetail(job: any, companyId?: number) {
-	if (!job) return null;
+function profileUrl(profile: string | null | undefined, socialImage: string | null | undefined) {
+	return profile ? `${s3Prefix}${profile}` : (socialImage || '');
+}
 
-	const [applicationCount, collaborators, gallery] = await Promise.all([
-		companyJobRepositery.countJobApplications(job.id),
-		companyJobRepositery.getJobCollaborators(job.id),
-		companyJobRepositery.getJobGallery(job.company),
-	]);
-
+function formatJobDetail(
+	job: JobDetailRow,
+	opts: {
+		companyId: number;
+		applicationCount: number;
+		collaborators: CollaboratorRow[];
+		gallery: (string | null)[];
+	},
+) {
+	const { companyId, applicationCount, collaborators, gallery } = opts;
 	const isVerified = job.companyEmailVerified === 1 || job.companyPhoneVerified === 1;
-	const isCollaborator = companyId
-		? collaborators.some((c: any) => Number(c.userId) === companyId)
-		: false;
+	// userId is text in cyb_job_collaborators
+	const companyIdKey = String(companyId);
+	const isCollaborator = collaborators.some((c) => c.userId === companyIdKey);
 
 	return {
 		id: job.id,
@@ -48,32 +57,57 @@ async function formatJobDetail(job: any, companyId?: number) {
 		city_name: job.cityName,
 		salary_name: job.salaryName,
 		company_name: job.companyName,
-		profile: job.companyProfile ? `${s3Prefix}${job.companyProfile}` : (job.companySocialImage || ''),
+		profile: profileUrl(job.companyProfile, job.companySocialImage),
 		document: job.document ? `${s3Prefix}${job.document}` : '',
 		applicationCount,
 		status: job.status,
 		slug: job.slug,
 		create_date: job.createDate,
-		gallery: gallery.map((g) => g ? `${s3Prefix}${g}` : ''),
+		gallery: gallery.map((g) => (g ? `${s3Prefix}${g}` : '')),
 		company_slug: job.companySlug,
 		is_verified: isVerified,
 		apply: false,
+		// Locked PHP key (typo preserved)
 		colloborator: isCollaborator,
-		collaboratorList: collaborators.map((c: any) => ({
+		collaboratorList: collaborators.map((c) => ({
 			id: c.id,
 			full_name: `${c.userFname ?? ''} ${c.userLname ?? ''}`.trim(),
 			slug: c.userSlug,
 			individual_id: c.userIndividualId,
-			profile: c.userProfile ? `${s3Prefix}${c.userProfile}` : (c.userSocialImage || ''),
+			profile: profileUrl(c.userProfile, c.userSocialImage),
 			designation_name: c.designationName,
 		})),
 		totalCount: collaborators.length,
 	};
 }
 
+function mapJobsByIds(
+	ids: number[],
+	jobById: Map<number, JobDetailRow>,
+	appCounts: Map<number, number>,
+	collabsByJob: Map<number, CollaboratorRow[]>,
+	gallery: (string | null)[],
+	companyId: number,
+) {
+	return ids
+		.map((id) => {
+			const job = jobById.get(id);
+			if (!job) return null;
+			return formatJobDetail(job, {
+				companyId,
+				applicationCount: appCounts.get(id) ?? 0,
+				collaborators: collabsByJob.get(id) ?? [],
+				gallery,
+			});
+		})
+		.filter((job): job is NonNullable<typeof job> => job != null);
+}
+
 // ====== 1. All Job ======
 
-export async function allJobService(companyId: number, keyword: string, limit: number, offset: number) {
+export async function allJobService(companyId: number, query: AllJobQuery['query']) {
+	const { keyword, limit, offset } = query;
+
 	const [draftIds, publishIds, cancelIds, draftCount, publishCount, cancelCount] = await Promise.all([
 		companyJobRepositery.getJobsByStatus(companyId, 0, keyword, limit, offset),
 		companyJobRepositery.getJobsByStatus(companyId, 1, keyword, limit, offset),
@@ -83,28 +117,25 @@ export async function allJobService(companyId: number, keyword: string, limit: n
 		companyJobRepositery.countJobsByStatus(companyId, 2),
 	]);
 
-	const [draftJobs, publishJobs, cancelJobs] = await Promise.all([
-		Promise.all(draftIds.map(async (id) => {
-			const job = await companyJobRepositery.getJobDetail(id);
-			return formatJobDetail(job, companyId);
-		})),
-		Promise.all(publishIds.map(async (id) => {
-			const job = await companyJobRepositery.getJobDetail(id);
-			return formatJobDetail(job, companyId);
-		})),
-		Promise.all(cancelIds.map(async (id) => {
-			const job = await companyJobRepositery.getJobDetail(id);
-			return formatJobDetail(job, companyId);
-		})),
+	const allIds = [...draftIds, ...publishIds, ...cancelIds];
+	const uniqueIds = [...new Set(allIds)];
+
+	const [jobRows, appCounts, collabsByJob, gallery] = await Promise.all([
+		companyJobRepositery.getJobDetailsByIds(uniqueIds),
+		companyJobRepositery.countApplicationsByJobIds(uniqueIds),
+		companyJobRepositery.getCollaboratorsByJobIds(uniqueIds),
+		companyJobRepositery.getJobGallery(companyId),
 	]);
+
+	const jobById = new Map(jobRows.map((row) => [row.id, row]));
 
 	return {
 		status: true,
 		messages: "job List",
 		data: {
-			draftJobs: draftJobs.filter(Boolean),
-			publishJobs: publishJobs.filter(Boolean),
-			cancelJobs: cancelJobs.filter(Boolean),
+			draftJobs: mapJobsByIds(draftIds, jobById, appCounts, collabsByJob, gallery, companyId),
+			publishJobs: mapJobsByIds(publishIds, jobById, appCounts, collabsByJob, gallery, companyId),
+			cancelJobs: mapJobsByIds(cancelIds, jobById, appCounts, collabsByJob, gallery, companyId),
 			draftJobsCounts: draftCount,
 			publishJobsCounts: publishCount,
 			cancelJobsCounts: cancelCount,
@@ -299,7 +330,18 @@ export async function jobDetailService(companyId: number, jobId: number) {
 		return { status: false, messages: "No Record found!" };
 	}
 
-	const detail = await formatJobDetail(job, companyId);
+	const [applicationCount, collaborators, gallery] = await Promise.all([
+		companyJobRepositery.countJobApplications(job.id),
+		companyJobRepositery.getJobCollaborators(job.id),
+		companyJobRepositery.getJobGallery(job.company),
+	]);
+
+	const detail = formatJobDetail(job, {
+		companyId,
+		applicationCount,
+		collaborators,
+		gallery,
+	});
 	return {
 		status: true,
 		messages: "Job Detail",

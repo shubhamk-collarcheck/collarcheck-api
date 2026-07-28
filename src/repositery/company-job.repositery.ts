@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql, like, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import {
@@ -39,12 +39,11 @@ class companyJobRepositery {
 				eq(cybCompanyJob.status, status),
 				eq(cybCompanyJob.isDeleted, 0),
 			));
-		return result.count;
+		return Number(result.count);
 	}
 
-	async getJobDetail(jobId: number) {
-		const companyUser = alias(cybUser, 'jobCompany');
-		const [row] = await db.select({
+	private jobDetailSelect(companyUser: ReturnType<typeof alias<typeof cybUser, 'jobCompany'>>) {
+		return {
 			id: cybCompanyJob.id,
 			company: cybCompanyJob.company,
 			jobTitle: cybCompanyJob.jobTitle,
@@ -85,7 +84,12 @@ class companyJobRepositery {
 			countryName: cybCountry.name,
 			stateName: cybState.name,
 			cityName: cybCities.name,
-		})
+		};
+	}
+
+	private jobDetailQuery() {
+		const companyUser = alias(cybUser, 'jobCompany');
+		return db.select(this.jobDetailSelect(companyUser))
 			.from(cybCompanyJob)
 			.leftJoin(companyUser, eq(cybCompanyJob.company, companyUser.id))
 			.leftJoin(cybJobExperiences, eq(cybCompanyJob.experience, cybJobExperiences.id))
@@ -97,10 +101,20 @@ class companyJobRepositery {
 			.leftJoin(cybSalary, eq(cybCompanyJob.salary, cybSalary.id))
 			.leftJoin(cybCountry, eq(cybCompanyJob.country, cybCountry.id))
 			.leftJoin(cybState, eq(cybCompanyJob.state, cybState.id))
-			.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id))
+			.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id));
+	}
+
+	async getJobDetail(jobId: number) {
+		const [row] = await this.jobDetailQuery()
 			.where(eq(cybCompanyJob.id, jobId))
 			.limit(1);
 		return row;
+	}
+
+	async getJobDetailsByIds(jobIds: number[]) {
+		if (jobIds.length === 0) return [];
+		return this.jobDetailQuery()
+			.where(inArray(cybCompanyJob.id, jobIds));
 	}
 
 	async countJobApplications(jobId: number): Promise<number> {
@@ -110,12 +124,37 @@ class companyJobRepositery {
 				eq(cybApplication.job, jobId),
 				eq(cybApplication.isDeleted, 0),
 			));
-		return result.count;
+		return Number(result.count);
+	}
+
+	/** Map jobId → application count for listed jobs. Missing ids imply 0. */
+	async countApplicationsByJobIds(jobIds: number[]): Promise<Map<number, number>> {
+		const counts = new Map<number, number>();
+		if (jobIds.length === 0) return counts;
+
+		const rows = await db.select({
+			jobId: cybApplication.job,
+			count: sql<number>`count(*)`,
+		})
+			.from(cybApplication)
+			.where(and(
+				inArray(cybApplication.job, jobIds),
+				eq(cybApplication.isDeleted, 0),
+			))
+			.groupBy(cybApplication.job);
+
+		for (const row of rows) {
+			if (row.jobId != null) {
+				counts.set(row.jobId, Number(row.count));
+			}
+		}
+		return counts;
 	}
 
 	async getJobCollaborators(jobId: number) {
 		const rows = await db.select({
 			id: cybJobCollaborators.id,
+			jobId: cybJobCollaborators.jobId,
 			userId: cybJobCollaborators.userId,
 			role: cybJobCollaborators.role,
 			userFname: cybUser.fname,
@@ -134,6 +173,42 @@ class companyJobRepositery {
 				eq(cybJobCollaborators.isDeleted, 0),
 			));
 		return rows;
+	}
+
+	/** Map jobId → collaborators for listed jobs. */
+	async getCollaboratorsByJobIds(jobIds: number[]) {
+		const byJob = new Map<number, Awaited<ReturnType<companyJobRepositery['getJobCollaborators']>>>();
+		if (jobIds.length === 0) return byJob;
+
+		const rows = await db.select({
+			id: cybJobCollaborators.id,
+			jobId: cybJobCollaborators.jobId,
+			userId: cybJobCollaborators.userId,
+			role: cybJobCollaborators.role,
+			userFname: cybUser.fname,
+			userLname: cybUser.lname,
+			userSlug: cybUser.slug,
+			userIndividualId: cybUser.individualId,
+			userProfile: cybUser.profile,
+			userSocialImage: cybUser.socialImage,
+			designationName: cybDesignation.name,
+		})
+			.from(cybJobCollaborators)
+			.leftJoin(cybUser, sql`CAST(${cybJobCollaborators.userId} AS UNSIGNED) = ${cybUser.id}`)
+			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
+			.where(and(
+				inArray(cybJobCollaborators.jobId, jobIds),
+				eq(cybJobCollaborators.isDeleted, 0),
+			));
+
+		for (const row of rows) {
+			const jobId = row.jobId;
+			if (jobId == null) continue;
+			const list = byJob.get(jobId) ?? [];
+			list.push(row);
+			byJob.set(jobId, list);
+		}
+		return byJob;
 	}
 
 	async getJobGallery(companyId: number) {

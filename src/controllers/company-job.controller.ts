@@ -13,12 +13,9 @@ import {
 
 export async function allJob(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser;
-		const { query } = req.validated as { query: AllJobQuery };
-		const keyword = query.keyword || '';
-		const limit = query.limit || 20;
-		const offset = query.offset || 0;
-		const result = await allJobService(user_id, keyword, limit, offset);
+		const { id: companyId } = req.auth as AuthUser;
+		const { query } = req.validated as AllJobQuery;
+		const result = await allJobService(companyId, query);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);

@@ -29,9 +29,11 @@ export const jobIdParamsSchema = z.object({
 });
 
 export const allJobQuerySchema = z.object({
-	keyword: z.string().optional(),
-	limit: z.coerce.number().int().positive().optional(),
-	offset: z.coerce.number().int().nonnegative().optional(),
+	query: z.object({
+		keyword: z.string().optional().default(''),
+		limit: z.coerce.number().int().positive().optional().default(20),
+		offset: z.coerce.number().int().nonnegative().optional().default(0),
+	}),
 });
 
 export const multiCancelJobSchema = z.object({
