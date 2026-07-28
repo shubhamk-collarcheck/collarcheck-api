@@ -6,6 +6,7 @@ import { get_user_detail, user_verified, get_all_connection } from "./users.serv
 import { profilePercentageService } from "./job-dashboard.service";
 import { createEducationService, updateEducationService } from "./education.service";
 import { addJobService } from "./company-job.service";
+import { addJobBodySchema } from "../types/company-job.types";
 import { sendEmailViaSQS, sendSQSMessage } from "../utils/sqs";
 import { otpSend, maskMobile } from "../utils/msg91";
 import { randomInt, isEmpty, isValidPhoneNumber } from "../utils/helpers";
@@ -1497,7 +1498,7 @@ export async function finalSignupService(
 			// Branch C — first job (only after successful company)
 			if (body.job_title && companyId) {
 				const existingJob = await loginRepositery.findFirstCompanyJob(companyId);
-				const jobResult = await addJobService(companyId, {
+				const parsedJob = addJobBodySchema.safeParse({
 					id: existingJob?.id,
 					job_title: body.job_title,
 					job_description: body.job_description,
@@ -1518,12 +1519,16 @@ export async function finalSignupService(
 					skill: body.skill,
 					slug: body.slug,
 				});
+				if (!parsedJob.success) {
+					return { status: false, messages: "Job not added!" };
+				}
+				const jobResult = await addJobService(companyId, parsedJob.data);
 				if (jobResult.status && jobResult.jobId) {
-					jobId = Number(jobResult.jobId);
+					jobId = jobResult.jobId;
 				} else if (!jobResult.status) {
 					return {
 						status: false,
-						messages: (jobResult as any).messages || (jobResult as any).message || "Job not added!",
+						messages: jobResult.messages || "Job not added!",
 					};
 				}
 			}
