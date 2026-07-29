@@ -47,6 +47,7 @@ src/worker/           → SQS consumers
 | [other/account-migration-management-endpoints.md](./other/account-migration-management-endpoints.md) | company roles/permissions, merge OTP, doctype, revoke-delete — **implemented** |
 | [other/test-routes-endpoints.md](./other/test-routes-endpoints.md) | ops utils + resume/notice/save-epfo (CV popup) — **implemented** |
 | [other/swipe-collaborator-rating-endpoints.md](./other/swipe-collaborator-rating-endpoints.md) | swipe phones, collaborators, clarity, chat FAQ, domains, skill ratings — **implemented** |
+| [restaurant-reward-endpoints.md](./restaurant-reward-endpoints.md) | restaurant partner OTP/profile/visits + employee restaurant-list discounts — **implemented** |
 | [ai-api/ai-proxy-endpoints.md](./ai-api/ai-proxy-endpoints.md) | AI BFF proxy (semantic, chat, domain, rank, scrape) — **X-API-KEY**, **implemented** |
 
 ### Employee (`/wapi/employee`)
@@ -96,6 +97,7 @@ src/worker/           → SQS consumers
 | `/wapi` | `account-migration.route.ts` (roles, permissions, merge OTP, doctype, …) |
 | `/wapi` | `test-routes.route.ts` (resume-template, save-epfo, update-notice, ops tools) |
 | `/wapi` | `swipe-collaborator-rating.route.ts` (swipe-number, collaborators, clarity, skill ratings, …) |
+| `/wapi` | `restaurant.route.ts` (restaurant-list, restaurant/* OTP/profile/visits, testauth) |
 | `/wapi` | `ai.route.ts` (semantic, chat, domain, rec_candidates, scrape — **X-API-KEY**) |
 | `/wapi` | `root.route.ts` (people-list, company-list, multi-*, logout, claim-company, data-deletion, …) |
 | `/wapi/login` | `login.route.ts` (via `root.route.ts`) |

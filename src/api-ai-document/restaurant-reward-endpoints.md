@@ -1,13 +1,22 @@
-
 # Restaurant Reward Endpoints — partner OTP, profile, visits & employee discounts
 
-AI porting guide for the **Reward / restaurants** routes in `app/Config/RestaurantsRoutes.php` (included from `Routes.php`).  
+> **Stack:** Node.js + Express + Drizzle ORM  
+> **Base path:** `/wapi`  
+> **Route file:** `src/routes/restaurant.route.ts`  
+> **Controller:** `src/controllers/restaurant.controller.ts`  
+> **Service:** `src/services/restaurant.service.ts`  
+> **Repositery:** `src/repositery/restaurant.repositery.ts`  
+> **Types:** `src/types/restaurant.types.ts`  
+> **Middleware:** `src/middlewares/RestaurantAuth.ts` (partner JWT) + `Authorization` (platform JWT)  
+> **Upload:** `src/utils/restaurantUpload.ts`  
+> **Source:** Ported from PHP api-docs / `RestaurantsRoutes.php` — contracts preserved  
+> **Status:** **implemented**
+
 These power the **restaurant partner app** (OTP login, profile, customer visits) plus the **employee-facing restaurant list** with level-based discounts.
 
-**Base path:** `/wapi`  
-**Content-Type:** `application/json` or `multipart/form-data` (profile upload); handlers mostly use `getVar` / `getGet`  
+**Content-Type:** `application/json` or `multipart/form-data` (profile upload)  
 **HTTP:** Almost always **200** with `status: true|false` (business errors are not 4xx).  
-**Auth filter failures (`RestaurantAuth` / `Auth`):** **401**.
+**Auth filter failures (`RestaurantAuth` / `Authorization`):** **401**.
 
 > Side effects (MSG91 SMS OTP, S3 image upload) must **not** change the success/error JSON contract below.
 
@@ -15,64 +24,62 @@ These power the **restaurant partner app** (OTP login, profile, customer visits)
 
 ## Routes Summary
 
-| # | Method | Route | Handler | Auth | Purpose |
-|---|--------|-------|---------|------|---------|
-| 1 | GET | `restaurant-list` | `ModuleController::getRestaurantList` | **JWT `Auth`** (employee/company) | List restaurants + user’s level-based discount |
-| 2 | POST | `restaurant/send-otp` | `restaurants\AuthController::sendOtp` | Public | Send OTP to registered restaurant phone |
-| 3 | POST | `restaurant/verify-otp` | `restaurants\AuthController::verifyOtp` | Public | Verify OTP; return restaurant JWT session |
-| 4 | GET | `testauth` | `restaurants\AuthController::testauth` | **`RestaurantAuth`** | Debug: plain-text auth check |
-| 5 | GET | `restaurant/profile-details` | `restaurants\AuthController::profileDetails` | **`RestaurantAuth`** | Current restaurant profile |
-| 6 | POST | `restaurant/update-profile` | `restaurants\AuthController::updateProfile` | **`RestaurantAuth`** | Update name/description/address/images |
-| 7 | POST | `restaurant/add-customer-visits` | `restaurants\CustomerVisitController::addCustomerVisit` | **`RestaurantAuth`** | Log a customer visit + upsert customer summary |
-| 8 | GET | `restaurant/customer-visits` | `restaurants\CustomerVisitController::getCustomerVisits` | **`RestaurantAuth`** | List visits for this restaurant |
-| 9 | GET | `restaurant/customer-search` | `restaurants\CustomerVisitController::customerSearch` | **`RestaurantAuth`** | Search employees by `individual_id` |
-| 10 | GET | `restaurant/customer-discount/(:num)` | `restaurants\CustomerVisitController::customerDiscount/$1` | **`RestaurantAuth`** | Discount % for a user by reward level |
+| # | Method | Full path | Node handler | Auth | Purpose |
+|---|--------|-----------|--------------|------|---------|
+| 1 | GET | `/wapi/restaurant-list` | `getRestaurantList` | **JWT `Authorization`** (employee/company) | List restaurants + user’s level-based discount |
+| 2 | POST | `/wapi/restaurant/send-otp` | `restaurantSendOtp` | Public | Send OTP to registered restaurant phone |
+| 3 | POST | `/wapi/restaurant/verify-otp` | `restaurantVerifyOtp` | Public | Verify OTP; return restaurant JWT session |
+| 4 | GET | `/wapi/testauth` | `restaurantTestAuth` | **`RestaurantAuth`** | Debug: plain-text auth check |
+| 5 | GET | `/wapi/restaurant/profile-details` | `restaurantProfileDetails` | **`RestaurantAuth`** | Current restaurant profile |
+| 6 | POST | `/wapi/restaurant/update-profile` | `restaurantUpdateProfile` | **`RestaurantAuth`** | Update name/description/address/images |
+| 7 | POST | `/wapi/restaurant/add-customer-visits` | `restaurantAddCustomerVisit` | **`RestaurantAuth`** | Log a customer visit + upsert customer summary |
+| 8 | GET | `/wapi/restaurant/customer-visits` | `restaurantGetCustomerVisits` | **`RestaurantAuth`** | List visits for this restaurant |
+| 9 | GET | `/wapi/restaurant/customer-search` | `restaurantCustomerSearch` | **`RestaurantAuth`** | Search employees by `individual_id` |
+| 10 | GET | `/wapi/restaurant/customer-discount/:id` | `restaurantCustomerDiscount` | **`RestaurantAuth`** | Discount % for a user by reward level |
 
 **Count:** 10 routes.
 
-**Source map**
+### File structure
 
-| Piece | Location |
-|-------|----------|
-| Routes | `app/Config/RestaurantsRoutes.php` |
-| Restaurant auth filter | `app/Filters/RestaurantsAuth.php` (`RestaurantAuth`) |
-| OTP + profile | `app/Controllers/restaurants/AuthController.php` |
-| Visits / search / discount | `app/Controllers/restaurants/CustomerVisitController.php` |
-| Employee restaurant list | `app/Controllers/ModuleController.php` → `getRestaurantList` |
-| Visit / search queries | `app/Models/restaurants/CustomerVisitModel.php` |
-| Restaurant list query | `app/Models/ModuleModel.php` → `get_restaurants_list` |
-| Restaurant JWT helper | `app/Helpers/general_helper.php` → `generate_jwt` |
-| Reward level | `getUserHighestLevel`, `getHighestLevelWithEmployment` |
-| SMS OTP | `otpSend` — see `msg91-sms.md` |
+```
+src/routes/restaurant.route.ts
+src/controllers/restaurant.controller.ts
+src/services/restaurant.service.ts
+src/repositery/restaurant.repositery.ts
+src/types/restaurant.types.ts
+src/middlewares/RestaurantAuth.ts
+src/utils/restaurantUpload.ts
+src/app.ts                          # mounts restaurantRouter under /wapi
+```
 
 ---
 
 ## Auth models (two different JWTs)
 
-### A. Platform user JWT — filter `Auth`
+### A. Platform user JWT — `Authorization`
 
 Used only by **#1 `restaurant-list`**.
 
 | Item | Value |
 |------|--------|
 | Header | `Authorization: Bearer <loginauth/jwt>` |
-| Identity | `$this->request->id` = platform `user.id` (employee/company) |
-| Override | `X-Company` may swap company context (same as other Auth routes) |
+| Identity | `req.auth.id` = platform user id (honours `X-Company`) |
+| Middleware | `src/middlewares/Authorization.ts` |
 
-### B. Restaurant partner JWT — filter `RestaurantAuth`
+### B. Restaurant partner JWT — `RestaurantAuth`
 
 Used by **#4–#10**.
 
 | Item | Value |
 |------|--------|
 | Header | `Authorization: Bearer <restaurant_token>` |
-| Token create | `generate_jwt(restaurant.id)` after OTP verify |
-| Payload | `{ iat, exp, uid }` where `uid` = `restaurants.id` |
+| Token create | `jwt.sign({ uid: restaurant.id }, JWT_SECRET, { expiresIn: "30d" })` after OTP verify |
+| Payload | `{ iat, exp, uid }` where `uid` = `cyb_restaurants.id` |
 | Secret | `JWT_SECRET` env, algorithm **HS256** |
-| Expiry | **30 days** (`time() + 30 * 24 * 60 * 60`) |
-| Persist | Token also written to `restaurants.token` on login |
-| Filter checks | Decode JWT → load `restaurants` where `id = uid`, `status = 1`, `is_deleted = 0` |
-| Identity | `$this->request->id` = restaurant id; `$this->request->token` = raw token |
+| Expiry | **30 days** |
+| Persist | Token also written to `cyb_restaurants.token` on login |
+| Filter checks | Decode JWT → load `cyb_restaurants` where `id = uid`, `status = 1`, `is_deleted = 0` |
+| Identity | `req.restaurant.id` = restaurant id; `req.restaurant.token` = raw token |
 
 #### `RestaurantAuth` 401 bodies (HTTP 401)
 
@@ -92,31 +99,53 @@ Used by **#4–#10**.
 { "status": false, "message": "Token Expired!" }
 ```
 
-Do **not** mix restaurant tokens with platform `Auth` tokens (and vice versa).
+Do **not** mix restaurant tokens with platform `Authorization` tokens (and vice versa).
+
+---
+
+## Middleware order
+
+```
+Authorization | RestaurantAuth  →  upload?  →  validateData(schema)  →  controller
+```
+
+| Route | Middleware chain |
+|-------|------------------|
+| `restaurant-list` | `Authorization` → handler |
+| `restaurant/send-otp` | `multer().none()` → `validateData` → handler (IP throttle in controller) |
+| `restaurant/verify-otp` | `multer().none()` → `validateData` → handler |
+| `testauth` | `RestaurantAuth` → handler |
+| `restaurant/profile-details` | `RestaurantAuth` → handler |
+| `restaurant/update-profile` | `RestaurantAuth` → `restaurantUpload.fields([profile,banner])` → `validateData` → handler |
+| `restaurant/add-customer-visits` | `RestaurantAuth` → `multer().none()` → `validateData` → handler |
+| `restaurant/customer-visits` | `RestaurantAuth` → handler |
+| `restaurant/customer-search` | `RestaurantAuth` → `validateData` → handler |
+| `restaurant/customer-discount/:id` | `RestaurantAuth` → `validateData` → handler |
 
 ---
 
 ## Reward / discount model (shared)
 
-Restaurant has a max discount field `restaurants.discount` (percent, float).  
-Employee reward level is `0–4` from `getUserHighestLevel(userId)`:
+Restaurant max discount: `cyb_restaurants.discount` (percent).  
+Employee reward level is `0–4` from `getUserHighestLevel(userId)` in `restaurant.service.ts`:
 
-| Level | Name (product) | Rough unlock (from helper comments) |
-|------:|----------------|-------------------------------------|
+| Level | Name (product) | Unlock |
+|------:|----------------|--------|
 | 0 | None | Not signed up / not account-verified |
-| 1 | Bronze | Signup + account verified |
+| 1 | Bronze | Signup + account verified (`user_verified`) |
 | 2 | Silver | L1 employment verify + account verified |
 | 3 | Gold | L3 or L4 employment verify + account verified |
 | 4 | Platinum | Gold conditions + at least one approved experience review |
 
-**Discount formula (both list + customer-discount):**
+**Discount formula (list + customer-discount):**
 
 ```
 perLevelDiscount = restaurant.discount / 4
 finalDiscount    = perLevelDiscount * userMaxLevel
 ```
 
-Examples: max 20% → per level 5%; level 2 → **10%**. Level 0 → **0**.
+- **restaurant-list:** does **not** round  
+- **customer-discount / add-visit:** `round(..., 2)`
 
 `user_next_level` on restaurant-list:
 
@@ -130,18 +159,32 @@ Examples: max 20% → per level 5%; level 2 → **10%**. Level 0 → **0**.
 
 ---
 
-## Tables (logical)
+## Zod schemas (`src/types/restaurant.types.ts`)
 
-| Table | Role |
-|-------|------|
-| `restaurants` | Partner accounts (phone login, profile, `discount`, `token`, images) |
-| `restaurant_category` | Category join for list (`rc.name as category_name`) |
-| `otp` | Phone OTP rows (`phone`, `otp`, `expiry`, `status`, `create_date`) |
-| `customer_visits` | Per-visit log (`restaurant_id`, `customer_id` = **individual_id string**, bill fields) |
-| `cyb_restaurant_customers` | Per restaurant+customer aggregate (`first_visit_date`, `last_visit_date`, `total_visits`) |
-| `user` | Platform employees searched / joined for visit display |
+| Schema | Used by |
+|--------|---------|
+| `restaurantSendOtpSchema` | body: `phone` (10–15), optional `g-recaptcha-response` |
+| `restaurantVerifyOtpSchema` | body: `phone` (10–13), `otp` (6 digits) |
+| `restaurantUpdateProfileSchema` | body: `name`, `shortDescription` required; `google_map`, `address` optional |
+| `restaurantAddVisitSchema` | body: `customer_id`, `group_size`, `bill_before_amount`, `discount` (0–100), `bill_after_amount`, optional `visit_date` |
+| `restaurantCustomerSearchSchema` | query: `keyword`, `limit` (default 30), `offset` (page number, default 0) |
+| `restaurantCustomerDiscountSchema` | params: `id` (platform `user.id`) |
 
-> Model file `CustomerModel` declares table `restaurant_customers`, but **runtime writes use** `cyb_restaurant_customers` via `AdminModel`. Port the **string table names used in controllers**.
+---
+
+## Tables (Drizzle / MySQL)
+
+| Table | Schema symbol | Role |
+|-------|---------------|------|
+| `cyb_restaurants` | `cybRestaurants` | Partner accounts |
+| `cyb_restaurant_category` | `cybRestaurantCategory` | Category join for list |
+| `cyb_otp` | `cybOtp` | Phone OTP rows |
+| `cyb_customer_visits` | `cybCustomerVisits` | Per-visit log (`customer_id` = **individual_id string**) |
+| `cyb_restaurant_customers` | `cybRestaurantCustomers` | Aggregate visits |
+| `cyb_user` | `cybUser` | Platform employees |
+| `cyb_user_experience` | `cybUserExperience` | Level calculation |
+| `cyb_user_experience_rating` | `cybUserExperienceRating` | Platinum review check |
+| `cyb_user_domains` | `cybUserDomains` | L1/L2 domain verify |
 
 ---
 
@@ -149,42 +192,32 @@ Examples: max 20% → per level 5%; level 2 → **10%**. Level 0 → **0**.
 
 | Key / shape | Where |
 |-------------|--------|
-| `message` (singular) | send-otp success/fail (mixed), verify-otp, captcha fail, many CustomerVisit errors/success |
+| `message` (singular) | send-otp success/fail (mixed), verify-otp, captcha fail, many visit errors/success |
 | `messages` (plural) | send-otp validation/throttle/unregistered; update-profile success/fail; profile-details payload (**array in `messages`**, not `data`) |
 | `data` | verify-otp session; restaurant-list; customer-visits; customer-search |
 | Top-level extra keys | `customer-discount`: `user_max_level`, `discount` (not under `data`) |
 | Plain text body | `testauth` → `hello auth{id}` (not JSON) |
-| Rate limit | send-otp: **3 requests / minute / IP** via CI throttler |
-
-Many handlers use `return json_encode(...)` rather than `$this->response->setJSON(...)`. Port either way; clients expect JSON strings with the keys above.
+| Rate limit | send-otp: **3 requests / minute / IP** via `isThrottled` |
 
 ---
 
 # 1. GET `/wapi/restaurant-list`
 
 ### Auth
-JWT **`Auth`** (platform user). Acting user = `$this->request->id`.
+JWT **`Authorization`**. Acting user = `req.auth.id`.
 
 ### Handler
-`ModuleController::getRestaurantList`  
-Model: `ModuleModel::get_restaurants_list`
+`getRestaurantList` → `restaurantListService`
 
 ### Request
 None.
 
 ### Logic
-1. Load restaurants:  
-   `restaurants rs` LEFT JOIN `restaurant_category rc` ON `rs.category = rc.id`  
-   WHERE `rs.is_deleted = 0` AND `rc.is_deleted = 0`.  
-   Select: id, name, email, phone, password, token, profile, address, banner, shortDescription, category_name, create_date, discount, google_map.
+1. Load restaurants: `cyb_restaurants` LEFT JOIN `cyb_restaurant_category` WHERE both `is_deleted = 0`.
 2. `userMaxLevel = getUserHighestLevel(actingUser)`.
-3. For each restaurant:
-   - `max_discount` = raw `discount`
-   - `discount` = `(float)discount / 4 * userMaxLevel` (not rounded here)
-   - Prefix `profile` / `banner` with `S3_PREFIX` when non-empty.
-4. `userLevelData = getHighestLevelWithEmployment(actingUser)` → `employment_id`.
-5. `current_employment` = `get_higest_level_experience_details(employment_id)` → **array of 0 or 1** employment objects (or `[]` if no employment).
-6. Set `user_max_level`, `user_next_level` (table above).
+3. Per restaurant: `max_discount` = raw discount; `discount = (float)discount / 4 * userMaxLevel`; prefix profile/banner with `S3_PREFIX`.
+4. `getHighestLevelWithEmployment` → employment details array (0 or 1 element).
+5. `user_max_level`, `user_next_level`.
 
 ### Success
 ```json
@@ -235,21 +268,10 @@ None.
 }
 ```
 
-Notes:
-- `current_employment` is **always an array** (empty or one element wrapper from helper).
-- Empty restaurant list still returns `status: true` with `restaurants: []` as long as `$finalResult` is non-empty (it always has keys). The `"No details found"` branch is effectively dead for normal paths.
-
 ### Errors
 ```json
 { "status": false, "message": "<exception message>" }
 ```
-```json
-{ "status": false, "message": "No details found" }
-```
-
-### Porting notes
-- This is the **employee app** entry for “which restaurants + how much discount do I get?”
-- Do not require `RestaurantAuth` here.
 
 ---
 
@@ -259,23 +281,20 @@ Notes:
 Public.
 
 ### Handler
-`restaurants\AuthController::sendOtp`
+`restaurantSendOtp` → `restaurantSendOtpService`
 
-### Request body / form
-| Field | Rules | Notes |
-|-------|--------|------|
-| `phone` | required, min 10, max 15 | Trimmed |
-| `g-recaptcha-response` | required (soft) | Google reCAPTCHA; secret = env `RESTAURANT_CAPTCHA_SECRET_KEY` |
+### Request body
+| Field | Rules |
+|-------|--------|
+| `phone` | required, min 10, max 15 |
+| `g-recaptcha-response` | verified against Google siteverify; secret = `RESTAURANT_CAPTCHA_SECRET_KEY` |
 
 ### Logic
-1. **Throttle:** `throttler->check(md5(ip), 3, MINUTE)` — fail → `"limit is reach please retry after some time !"`.
-2. Validate `phone`.
-3. Verify reCAPTCHA via Google `siteverify`; fail → `{ status: false, message: "Captcha verification failed" }` (**`message` singular**).
-4. Load `restaurants` where `phone = ?` AND `is_deleted = 0`. Empty → `"Phone not registered with us!"`.
-5. `send_otp_event(phone)`:
-   - Generate 6-digit OTP: `substr(rand(1000000, 9999999), 0, 6)`
-   - Upsert `otp` row: `otp`, `status=1`, `expiry = now + 10 minutes`, `create_date`
-   - SMS via `otpSend($phone, $otp)` (MSG91 — see `msg91-sms.md`)
+1. **Throttle:** 3 / minute / IP → `"limit is reach please retry after some time !"`
+2. Validate phone (Zod).
+3. reCAPTCHA fail → `{ status: false, message: "Captcha verification failed" }`
+4. Load restaurant by phone + `is_deleted = 0` → else `"Phone not registered with us!"`
+5. 6-digit OTP, 10-minute expiry, upsert `cyb_otp`, SMS via `otpSend` (MSG91)
 
 ### Success
 ```json
@@ -290,9 +309,6 @@ Public.
 { "status": false, "messages": "limit is reach please retry after some time !" }
 ```
 ```json
-{ "status": false, "messages": "Phone number is required,..." }
-```
-```json
 { "status": false, "message": "Captcha verification failed" }
 ```
 ```json
@@ -302,11 +318,6 @@ Public.
 { "status": false, "message": "Something went wrong, try again." }
 ```
 
-### Porting notes
-- Only **pre-registered** restaurant phones can log in (admin creates restaurants).
-- Preserve exact throttle message spelling (`limit is reach`).
-- Env: `RESTAURANT_CAPTCHA_SECRET_KEY`, plus MSG91 keys from `msg91-sms.md`.
-
 ---
 
 # 3. POST `/wapi/restaurant/verify-otp`
@@ -314,24 +325,11 @@ Public.
 ### Auth
 Public.
 
-### Handler
-`restaurants\AuthController::verifyOtp`
-
-### Request body / form
+### Request body
 | Field | Rules |
 |-------|--------|
-| `phone` | required, min 10, max **13** (note: tighter than send-otp) |
-| `otp` | required, exact_length 6, numeric |
-
-### Logic
-1. Validate phone + otp.
-2. Load `otp` by phone. Missing → `"invalid phone no."`.
-3. If `expiry < now` → `"Otp Expired !"`.
-4. If `otp` mismatch → `"Invalid OTP!"`.
-5. Load `restaurants` where `phone` + `is_deleted = 0`. Missing → `"User not found"`.
-6. `token = generate_jwt(restaurant.id)`; update `restaurants.token = token`.
-7. Delete OTP row for phone.
-8. Return session `data` (images prefixed with `S3_PREFIX`; `level` JSON-decoded array or `[]`).
+| `phone` | required, min 10, max **13** |
+| `otp` | required, exact 6 digits |
 
 ### Success
 ```json
@@ -355,12 +353,9 @@ Public.
 }
 ```
 
-Client stores `data.token` and sends it as `Authorization: Bearer <token>` for RestaurantAuth routes.
+Client stores `data.token` for `RestaurantAuth` routes.
 
 ### Errors
-```json
-{ "status": false, "message": "Phone number is required, ..." }
-```
 ```json
 { "status": false, "messages": "invalid phone no." }
 ```
@@ -381,37 +376,19 @@ Client stores `data.token` and sends it as `Authorization: Bearer <token>` for R
 ### Auth
 `RestaurantAuth`.
 
-### Handler
-`restaurants\AuthController::testauth`
-
 ### Response
-**Plain text** (not JSON):
-
-```
-hello auth{restaurant_id}
-```
-
-Example: `hello auth12`
-
-### Porting notes
-Debug-only. Safe to omit in production ports or keep as a health probe behind the same filter.
+**Plain text:** `hello auth{restaurant_id}` (e.g. `hello auth12`)
 
 ---
 
 # 5. GET `/wapi/restaurant/profile-details`
 
 ### Auth
-`RestaurantAuth`. Restaurant id = `$this->request->id`.
-
-### Handler
-`restaurants\AuthController::profileDetails`
-
-### Logic
-1. If restaurant id empty → `"Restaurant id required!"`.
-2. `all_fetch('restaurants', { id, is_deleted: 0 })` — builds one object (last row wins if multiple).
-3. Success wraps profile object in **array** under **`messages`** (not `data`).
+`RestaurantAuth`. Restaurant id = `req.restaurant.id`.
 
 ### Success
+Payload is under **`messages`** (array), not `data`:
+
 ```json
 {
   "status": true,
@@ -436,15 +413,7 @@ Debug-only. Safe to omit in production ports or keep as a health probe behind th
 }
 ```
 
-If no row found, still `status: true` with `messages: [ {} ]` (empty object in array) — legacy behavior.
-
-### Errors
-```json
-{ "status": false, "message": "Restaurant id required!" }
-```
-```json
-{ "status": false, "messages": "Access denied" }
-```
+If no row: `status: true` with `messages: [ {} ]`.
 
 ---
 
@@ -453,25 +422,15 @@ If no row found, still `status: true` with `messages: [ {} ]` (empty object in a
 ### Auth
 `RestaurantAuth`.
 
-### Handler
-`restaurants\AuthController::updateProfile`  
-Uploads: `Awss3` trait → `s3fileUploads($file, 'uploads/restaurant/')`.
-
 ### Request (`multipart/form-data` when files present)
-| Field | Rules | Notes |
-|-------|--------|------|
-| `name` | required | Sanitized with `escxss` |
-| `shortDescription` | required | Sanitized with `escxss` |
-| `google_map` | optional | Sanitized with `escxss` |
-| `address` | optional | **Not** run through `escxss` |
-| `profile` | optional file | S3 path stored on `restaurants.profile` |
-| `banner` | optional file | S3 path stored on `restaurants.banner` |
-
-### Logic
-1. Restaurant id from JWT; empty → fail.
-2. Validate name + shortDescription.
-3. Optional file uploads when `$_FILES[...]['name']` non-empty.
-4. `updateData('restaurants', $save, { id })`.
+| Field | Rules |
+|-------|--------|
+| `name` | required |
+| `shortDescription` | required |
+| `google_map` | optional |
+| `address` | optional |
+| `profile` | optional file → S3 `uploads/restaurant/` |
+| `banner` | optional file → S3 `uploads/restaurant/` |
 
 ### Success
 ```json
@@ -481,9 +440,6 @@ Uploads: `Awss3` trait → `s3fileUploads($file, 'uploads/restaurant/')`.
 ### Errors
 ```json
 { "status": false, "message": "Restaurant id required!" }
-```
-```json
-{ "status": false, "message": "The Name field is required, ..." }
 ```
 ```json
 { "status": false, "messages": "Something Went Wrong!" }
@@ -497,40 +453,27 @@ Uploads: `Awss3` trait → `s3fileUploads($file, 'uploads/restaurant/')`.
 # 7. POST `/wapi/restaurant/add-customer-visits`
 
 ### Auth
-`RestaurantAuth`. `restaurant_id` = `$this->request->id`.
+`RestaurantAuth`. `restaurant_id` = `req.restaurant.id`.
 
-### Handler
-`restaurants\CustomerVisitController::addCustomerVisit`
-
-### Request body / form
+### Request body
 | Field | Rules | Notes |
 |-------|--------|------|
-| `customer_id` | required | **Platform `user.individual_id`** (e.g. `U101`), not internal `user.id` |
-| `group_size` | required, integer, `> 0` | |
+| `customer_id` | required | Platform **`user.individual_id`** (e.g. `U101`) |
+| `group_size` | required, integer `> 0` | |
 | `bill_before_amount` | required | |
-| `discount` | required, `0–100` | Validated, but **stored value is recomputed** (see logic) |
+| `discount` | required, `0–100` | Validated then **overwritten** by server |
 | `bill_after_amount` | required | |
 | `visit_date` | optional | Default `Y-m-d` today |
 
 ### Logic
-1. Validate fields.
-2. Resolve customer: `user` where `individual_id = customer_id` → internal `user.id` (may be empty string if not found).
-3. Recompute discount via internal call to `customerDiscount(user.id)` logic:
-   - `user_max_level = getUserHighestLevel(user.id)`
-   - `discount = round((restaurant.discount / 4) * level, 2)`
-   - **Request body `discount` is ignored for storage.**
-4. Insert into `customer_visits`:
-   - `restaurant_id`, `customer_id` (**individual_id string** as submitted), `visit_date`, `group_size`, amounts, computed `discount`, `create_date`.
-5. Upsert `cyb_restaurant_customers` on `(restaurant_id, customer_id, is_deleted=0)`:
-   - **Insert:** `first_visit_date`, `last_visit_date`, `total_visits=1`
-   - **Update:** `last_visit_date`, `total_visits + 1`, `modify_date`
+1. Resolve customer via `individual_id` → internal `user.id`.
+2. Recompute discount via `restaurantCustomerDiscountService` (rounded to 2 decimals).
+3. Insert `cyb_customer_visits` with `customer_id` = **individual_id string**.
+4. Upsert `cyb_restaurant_customers` on `(restaurant_id, customer_id, is_deleted=0)`.
 
 ### Success
 ```json
-{
-  "status": true,
-  "message": "Customer visit added successfully"
-}
+{ "status": true, "message": "Customer visit added successfully" }
 ```
 
 ### Errors
@@ -538,25 +481,8 @@ Uploads: `Awss3` trait → `s3fileUploads($file, 'uploads/restaurant/')`.
 { "status": false, "message": "Restaurant ID is required" }
 ```
 ```json
-{
-  "status": false,
-  "message": "Validation errors",
-  "errors": {
-    "customer_id": "The Customer Id field is required."
-  }
-}
-```
-```json
 { "status": false, "message": "Failed to add visit" }
 ```
-```json
-{ "status": false, "message": "<exception message>" }
-```
-
-### Porting notes / known quirks
-- `customer_id` in visits table is the **public individual_id**, matching the join in `get_customer_visits_list` (`cv.customer_id = ur.individual_id`).
-- Discount validation still requires a body `discount` even though the server overwrites it — clients should send a placeholder (e.g. `0`).
-- Internal call uses `json_decode($this->customerDiscount($customerId))`; if restaurant missing, early `setJSON` return can break decode — keep restaurant active (`status=1`).
 
 ---
 
@@ -565,22 +491,13 @@ Uploads: `Awss3` trait → `s3fileUploads($file, 'uploads/restaurant/')`.
 ### Auth
 `RestaurantAuth`.
 
-### Handler
-`restaurants\CustomerVisitController::getCustomerVisits`  
-Model: `CustomerVisitModel::get_customer_visits_list`
-
-### Request
-None (restaurant from JWT).
-
-### Query logic
+### Query
 ```
-customer_visits cv
-LEFT JOIN user ur ON cv.customer_id = ur.individual_id
+cyb_customer_visits cv
+LEFT JOIN cyb_user ur ON cv.customer_id = ur.individual_id
 WHERE cv.restaurant_id = ? AND cv.is_deleted = 0 AND ur.is_deleted = 0
 ORDER BY cv.id DESC
 ```
-
-Profile: `profile ? S3_PREFIX + profile : social_image`.
 
 ### Success
 ```json
@@ -602,18 +519,7 @@ Profile: `profile ? S3_PREFIX + profile : social_image`.
 }
 ```
 
-### Errors
-```json
-{ "status": false, "message": "Restaurant ID is required" }
-```
-```json
-{ "status": false, "message": "No customer visits found" }
-```
-```json
-{ "status": false, "message": "<exception message>" }
-```
-
-Empty list → **`status: false`** (not empty `data` array). Port the same.
+Empty list → **`status: false`** + `"No customer visits found"`.
 
 ---
 
@@ -622,34 +528,12 @@ Empty list → **`status: false`** (not empty `data` array). Port the same.
 ### Auth
 `RestaurantAuth`.
 
-### Handler
-`restaurants\CustomerVisitController::customerSearch`  
-Model: `CustomerVisitModel::get_customer_search`
-
 ### Query params
 | Param | Default | Meaning |
 |-------|---------|---------|
-| `keyword` | `''` | Search string (trimmed) |
+| `keyword` | `''` | LIKE on `individual_id` only |
 | `limit` | `30` | Page size |
 | `offset` | `0` | **Page number**, not SQL offset: `page <= 1 → 0`, else `page * limit - limit` |
-
-### Query logic
-- Base: `user` where `user_type = 1`, `is_deleted = 0`, `status = 1`
-- Joins (for designation/company names): cities, state, industries, current company user, designation
-- If `keyword` non-empty: `LIKE` on `individual_id` (full keyword + each space-split word) — **name is not searched** in current SQL
-- Limit/offset applied
-
-Each hit:
-
-| Field | Source |
-|-------|--------|
-| `id` | `user.id` |
-| `name` | `full_name` |
-| `profile` | S3 profile or `social_image` |
-| `individual_id` | public id |
-| `designation_name` | current designation |
-| `company_name` | current company `fname` |
-| `is_verified` | `UserModel::user_verified(user.id)` |
 
 ### Success
 ```json
@@ -671,30 +555,17 @@ Each hit:
 
 No matches → still `status: true`, `data: []`.
 
-### Porting notes
-- Intended UX is “scan / type CollarCheck ID”; SQL only matches `individual_id` (despite joins loading names).
-- Pass `individual_id` into **add-customer-visits** as `customer_id`.
-- Pass **`user.id`** (numeric) into **customer-discount**.
-
 ---
 
-# 10. GET `/wapi/restaurant/customer-discount/{id}`
+# 10. GET `/wapi/restaurant/customer-discount/:id`
 
 ### Auth
 `RestaurantAuth`.
-
-### Handler
-`restaurants\CustomerVisitController::customerDiscount/$1`
 
 ### Path param
 | Param | Meaning |
 |-------|---------|
 | `id` | Platform **`user.id`** (numeric), **not** `individual_id` |
-
-### Logic
-1. Restaurant id from JWT; load restaurant `id` + `is_deleted=0` + `status=1` for max discount.
-2. `user_max_level = getUserHighestLevel(id)`.
-3. `discount = round((restaurant.discount / 4) * user_max_level, 2)` (missing restaurant → discount base 0).
 
 ### Success
 ```json
@@ -707,14 +578,21 @@ No matches → still `status: true`, `data: []`.
 
 (`discount` / `user_max_level` are **top-level**, not nested under `data`.)
 
-### Errors
-```json
-{ "status": false, "message": "Restaurant ID is required" }
-```
+---
 
-### Porting notes
-- Use after customer-search (`data[].id`) before confirming a bill.
-- Same formula as employee `restaurant-list` per-restaurant `discount`, but **rounded to 2 decimals** here (list does not round).
+## Service / repositery map
+
+| Endpoint | Service | Key repositery methods |
+|----------|---------|------------------------|
+| restaurant-list | `restaurantListService` | `getRestaurantsList`, level helpers, `getExperienceDetail` |
+| send-otp | `restaurantSendOtpService` | `findByPhone`, `upsertOtp` |
+| verify-otp | `restaurantVerifyOtpService` | `findOtpByPhone`, `updateToken`, `deleteOtpsByPhone` |
+| profile-details | `restaurantProfileDetailsService` | `findByIdNotDeleted` |
+| update-profile | `restaurantUpdateProfileService` | `updateProfile` |
+| add-customer-visits | `restaurantAddCustomerVisitService` | `insertCustomerVisit`, customer upsert |
+| customer-visits | `restaurantGetCustomerVisitsService` | `getCustomerVisitsList` |
+| customer-search | `restaurantCustomerSearchService` | `getCustomerSearch` |
+| customer-discount | `restaurantCustomerDiscountService` | `findActiveById`, `getUserHighestLevel` |
 
 ---
 
@@ -748,21 +626,22 @@ GET  /wapi/restaurant/customer-visits
 
 | Key | Used by |
 |-----|---------|
-| `JWT_SECRET` | `generate_jwt` + `JwtHelper::decode` in RestaurantAuth |
+| `JWT_SECRET` | restaurant JWT sign/verify |
 | `RESTAURANT_CAPTCHA_SECRET_KEY` | send-otp reCAPTCHA |
-| `S3_PREFIX` (+ AWS upload config) | Profile/banner URLs and uploads |
-| `AUTH_KEY_MSG` / `TEMPLATE_ID` | MSG91 OTP — see `msg91-sms.md` |
+| `S3_PREFIX` + AWS keys | Profile/banner URLs and uploads |
+| `AUTH_KEY_MSG` / `MSG91_TEMPLATE_ID` | MSG91 OTP — see `msg91-sms.md` |
 
 ---
 
-## Implementation checklist for a new stack
+## Implementation checklist
 
-- [ ] Two auth middlewares: platform `Auth` vs restaurant `RestaurantAuth` (`uid` → `restaurants.id`)
-- [ ] OTP: 6 digits, 10-minute expiry, local verify only, delete on success
-- [ ] reCAPTCHA + 3/min IP throttle on send-otp
-- [ ] Discount = `round(maxDiscount/4 * level, 2)` for partner discount endpoint; list may omit round
-- [ ] `customer_visits.customer_id` stores **individual_id**; discount path uses **user.id**
-- [ ] Preserve plural/singular message keys and profile-details putting payload in `messages`
-- [ ] Empty customer-visits → `status: false` + `"No customer visits found"`
-- [ ] SMS via same MSG91 contract as login OTP
+- [x] Two auth middlewares: platform `Authorization` vs restaurant `RestaurantAuth`
+- [x] OTP: 6 digits, 10-minute expiry, local verify only, soft-delete on success
+- [x] reCAPTCHA + 3/min IP throttle on send-otp
+- [x] Discount = `round(maxDiscount/4 * level, 2)` for partner discount; list omits round
+- [x] `customer_visits.customer_id` stores **individual_id**; discount path uses **user.id**
+- [x] Preserve plural/singular message keys and profile-details putting payload in `messages`
+- [x] Empty customer-visits → `status: false` + `"No customer visits found"`
+- [x] SMS via same MSG91 contract as login OTP
+- [x] Node api-docs rewritten; README index updated
 )
