@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const editCompanySchema = z.object({
+/** validateData always parses { params, query, body }. Nest fields under the right key. */
+
+export const editCompanyBodySchema = z.object({
 	type: z.coerce.number().int().min(1).max(3),
 	company_name: z.string().optional(),
 	contact_person: z.string().optional(),
@@ -23,16 +25,21 @@ export const editCompanySchema = z.object({
 	facebook: z.string().optional(),
 	twitter: z.string().optional(),
 });
+export const editCompanySchema = z.object({ body: editCompanyBodySchema });
 
 export const allConnectionQuerySchema = z.object({
-	keyword: z.string().optional(),
-	sort_by: z.coerce.number().int().optional(),
-	limit: z.coerce.number().int().positive().optional(),
-	offset: z.coerce.number().int().nonnegative().optional(),
+	query: z.object({
+		keyword: z.string().optional(),
+		sort_by: z.coerce.number().int().optional(),
+		limit: z.coerce.number().int().positive().optional(),
+		offset: z.coerce.number().int().nonnegative().optional(),
+	}),
 });
 
 export const updateEmploymentParamsSchema = z.object({
-	id: z.coerce.number().int().positive(),
+	params: z.object({
+		id: z.coerce.number().int().positive(),
+	}),
 });
 
 export const addConnectionSchema = z.object({
@@ -67,9 +74,9 @@ export const addCompanyDocumentSchema = z.object({
 	}),
 });
 
-export type EditCompanyBody = z.infer<typeof editCompanySchema>;
-export type AllConnectionQuery = z.infer<typeof allConnectionQuerySchema>;
-export type UpdateEmploymentParams = z.infer<typeof updateEmploymentParamsSchema>;
+export type EditCompanyBody = z.infer<typeof editCompanyBodySchema>;
+export type AllConnectionQuery = z.infer<typeof allConnectionQuerySchema>["query"];
+export type UpdateEmploymentParams = z.infer<typeof updateEmploymentParamsSchema>["params"];
 export type AddConnectionBody = z.infer<typeof addConnectionSchema>["body"];
 export type AddWishlistBody = z.infer<typeof addWishlistSchema>["body"];
 export type DeleteWishlistParams = z.infer<typeof deleteWishlistParamsSchema>["params"];

@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-export const addEmployeeSchema = z.object({
+/** validateData always parses { params, query, body }. Nest fields under the right key. */
+
+export const addEmployeeBodySchema = z.object({
 	email: z.string().email().optional(),
 	phone: z.string().optional(),
 	joining_date: z.string().min(1, "Joining date is required"),
@@ -10,31 +12,41 @@ export const addEmployeeSchema = z.object({
 	employment_type: z.string().optional(),
 	skill: z.string().optional(),
 	description: z.string().optional(),
-}).refine(data => data.email || data.phone, {
+}).refine((data) => data.email || data.phone, {
 	message: "Email or phone is required",
 });
+export const addEmployeeSchema = z.object({ body: addEmployeeBodySchema });
 
-export const employeeDetailParamsSchema = z.object({
+export const employeeDetailIdSchema = z.object({
 	id: z.coerce.number().int().positive("Invalid experience ID"),
 });
+export const employeeDetailParamsSchema = z.object({
+	params: employeeDetailIdSchema,
+});
 
-export const rejectEmploymentParamsSchema = z.object({
+export const rejectEmploymentParamsInnerSchema = z.object({
 	id: z.coerce.number().int().positive("Invalid experience ID"),
+});
+export const rejectEmploymentParamsSchema = z.object({
+	params: rejectEmploymentParamsInnerSchema,
 });
 
 export const rejectEmploymentBodySchema = z.object({
 	reason: z.string().optional(),
 });
 
-export const rejectPromotionParamsSchema = z.object({
+export const rejectPromotionParamsInnerSchema = z.object({
 	id: z.coerce.number().int().positive("Invalid experience ID"),
+});
+export const rejectPromotionParamsSchema = z.object({
+	params: rejectPromotionParamsInnerSchema,
 });
 
 export const rejectPromotionBodySchema = z.object({
 	type: z.coerce.number().int().min(1).max(3, "Type must be 1, 2, or 3"),
 });
 
-export const leaveExperienceSchema = z.object({
+export const leaveExperienceBodySchema = z.object({
 	id: z.coerce.number().int().positive("Experience ID is required"),
 	type: z.coerce.number().int().min(1).max(3, "Type must be 1, 2, or 3"),
 	worked_till_date: z.string().optional(),
@@ -45,21 +57,27 @@ export const leaveExperienceSchema = z.object({
 	salary_inhand: z.string().optional(),
 	salary_mode: z.string().optional(),
 });
+export const leaveExperienceSchema = z.object({ body: leaveExperienceBodySchema });
 
 export const reviewUniqueUserQuerySchema = z.object({
-	keyword: z.string().optional(),
+	query: z.object({
+		keyword: z.string().optional(),
+	}),
 });
 
 export const validToReviewParamsSchema = z.object({
-	id: z.coerce.number().int().positive("Invalid user ID"),
+	params: z.object({
+		id: z.coerce.number().int().positive("Invalid user ID"),
+	}),
 });
 
 export const followRequestListQuerySchema = z.object({
-	limit: z.coerce.number().int().positive().optional().default(6),
-	offset: z.coerce.number().int().optional().default(0),
+	query: z.object({
+		limit: z.coerce.number().int().positive().optional().default(6),
+		offset: z.coerce.number().int().optional().default(0),
+	}),
 });
 
-// validateData wraps { params, query, body } — nest under query
 export const companyDashboardQuerySchema = z.object({
 	query: z.object({
 		limit: z.coerce.number().int().positive().optional().default(10),
@@ -68,8 +86,10 @@ export const companyDashboardQuerySchema = z.object({
 });
 
 export const companyListQuerySchema = z.object({
-	limit: z.coerce.number().int().positive().optional().default(16),
-	offset: z.coerce.number().int().optional().default(0),
+	query: z.object({
+		limit: z.coerce.number().int().positive().optional().default(16),
+		offset: z.coerce.number().int().optional().default(0),
+	}),
 });
 
 const formString = z
@@ -92,81 +112,94 @@ export const inviteCompanyBodySchema = z.object({
 export const inviteCompanySchema = z.object({ body: inviteCompanyBodySchema });
 
 export const employmentRequestQuerySchema = z.object({
-	limit: z.coerce.number().int().positive().optional().default(10),
-	offset: z.coerce.number().int().optional().default(0),
+	query: z.object({
+		limit: z.coerce.number().int().positive().optional().default(10),
+		offset: z.coerce.number().int().optional().default(0),
+	}),
 });
 
 export const allMessageListQuerySchema = z.object({
-	slug: z.string().optional(),
-	limit: z.coerce.number().int().positive().optional().default(50),
-	offset: z.coerce.number().int().optional().default(0),
+	query: z.object({
+		slug: z.string().optional(),
+		limit: z.coerce.number().int().positive().optional().default(50),
+		offset: z.coerce.number().int().optional().default(0),
+	}),
 });
 
 export const addMessageSchema = z.object({
-	send_to: z.coerce.number().int().positive("Receiver ID is required"),
-	message: z.string().min(1, "Message is required"),
+	body: z.object({
+		send_to: z.coerce.number().int().positive("Receiver ID is required"),
+		message: z.string().min(1, "Message is required"),
+	}),
 });
 
 export const chatMessageReadParamsSchema = z.object({
-	id: z.coerce.number().int().positive("Invalid message ID"),
+	params: z.object({
+		id: z.coerce.number().int().positive("Invalid message ID"),
+	}),
 });
 
 export const followDataListQuerySchema = z.object({
-	limit: z.coerce.number().int().positive().optional().default(50),
-	offset: z.coerce.number().int().optional().default(0),
+	query: z.object({
+		limit: z.coerce.number().int().positive().optional().default(50),
+		offset: z.coerce.number().int().optional().default(0),
+	}),
 });
 
-export const claimCompanySchema = z.object({
+export const claimCompanyBodySchema = z.object({
 	email: z.string().email().optional(),
 	phone: z.string().optional(),
 	contact_person: z.string().optional(),
 	website: z.string().optional(),
 	company: z.string().optional(),
 	message: z.string().optional(),
-}).refine(data => data.email || data.phone, {
+}).refine((data) => data.email || data.phone, {
 	message: "Email or phone is required",
 });
+export const claimCompanySchema = z.object({ body: claimCompanyBodySchema });
 
 export const revokeDeleteAccountSchema = z.object({
-	company_id: z.coerce.number().int().optional(),
+	body: z.object({
+		company_id: z.coerce.number().int().optional(),
+	}),
 });
 
 // Combined schemas for routes that need both params and body
 export const rejectEmploymentCombinedSchema = z.object({
-	params: rejectEmploymentParamsSchema,
+	params: rejectEmploymentParamsInnerSchema,
 	body: rejectEmploymentBodySchema,
 });
 
 export const rejectPromotionCombinedSchema = z.object({
-	params: rejectPromotionParamsSchema,
+	params: rejectPromotionParamsInnerSchema,
 	body: rejectPromotionBodySchema,
 });
 
 export const addEmployeeUpdateCombinedSchema = z.object({
-	params: employeeDetailParamsSchema,
-	body: addEmployeeSchema,
+	params: employeeDetailIdSchema,
+	body: addEmployeeBodySchema,
 });
 
-export type AddEmployeeBody = z.infer<typeof addEmployeeSchema>;
-export type EmployeeDetailParams = z.infer<typeof employeeDetailParamsSchema>;
-export type RejectEmploymentParams = z.infer<typeof rejectEmploymentParamsSchema>;
+export type AddEmployeeBody = z.infer<typeof addEmployeeBodySchema>;
+export type EmployeeDetailParams = z.infer<typeof employeeDetailIdSchema>;
+export type RejectEmploymentParams = z.infer<typeof rejectEmploymentParamsInnerSchema>;
 export type RejectEmploymentBody = z.infer<typeof rejectEmploymentBodySchema>;
-export type RejectPromotionParams = z.infer<typeof rejectPromotionParamsSchema>;
+export type RejectPromotionParams = z.infer<typeof rejectPromotionParamsInnerSchema>;
 export type RejectPromotionBody = z.infer<typeof rejectPromotionBodySchema>;
-export type LeaveExperienceBody = z.infer<typeof leaveExperienceSchema>;
-export type ReviewUniqueUserQuery = z.infer<typeof reviewUniqueUserQuerySchema>;
-export type ValidToReviewParams = z.infer<typeof validToReviewParamsSchema>;
-export type FollowRequestListQuery = z.infer<typeof followRequestListQuerySchema>;
+export type LeaveExperienceBody = z.infer<typeof leaveExperienceBodySchema>;
+export type ReviewUniqueUserQuery = z.infer<typeof reviewUniqueUserQuerySchema>["query"];
+export type ValidToReviewParams = z.infer<typeof validToReviewParamsSchema>["params"];
+export type FollowRequestListQuery = z.infer<typeof followRequestListQuerySchema>["query"];
 export type CompanyDashboardQuery = z.infer<typeof companyDashboardQuerySchema>;
-export type CompanyListQuery = z.infer<typeof companyListQuerySchema>;
+export type CompanyListQuery = z.infer<typeof companyListQuerySchema>["query"];
 export type InviteCompanyBody = z.infer<typeof inviteCompanyBodySchema>;
-export type EmploymentRequestQuery = z.infer<typeof employmentRequestQuerySchema>;
-export type AllMessageListQuery = z.infer<typeof allMessageListQuerySchema>;
-export type AddMessageBody = z.infer<typeof addMessageSchema>;
-export type ChatMessageReadParams = z.infer<typeof chatMessageReadParamsSchema>;
-export type FollowDataListQuery = z.infer<typeof followDataListQuerySchema>;
-export type ClaimCompanyBody = z.infer<typeof claimCompanySchema>;
-export type RevokeDeleteAccountBody = z.infer<typeof revokeDeleteAccountSchema>;
+export type EmploymentRequestQuery = z.infer<typeof employmentRequestQuerySchema>["query"];
+export type AllMessageListQuery = z.infer<typeof allMessageListQuerySchema>["query"];
+export type AddMessageBody = z.infer<typeof addMessageSchema>["body"];
+export type ChatMessageReadParams = z.infer<typeof chatMessageReadParamsSchema>["params"];
+export type FollowDataListQuery = z.infer<typeof followDataListQuerySchema>["query"];
+export type ClaimCompanyBody = z.infer<typeof claimCompanyBodySchema>;
+export type RevokeDeleteAccountBody = z.infer<typeof revokeDeleteAccountSchema>["body"];
 export type RejectEmploymentCombined = z.infer<typeof rejectEmploymentCombinedSchema>;
 export type RejectPromotionCombined = z.infer<typeof rejectPromotionCombinedSchema>;
 export type AddEmployeeUpdateCombined = z.infer<typeof addEmployeeUpdateCombinedSchema>;

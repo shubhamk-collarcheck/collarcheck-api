@@ -1,17 +1,25 @@
 import { z } from "zod";
 
+/** validateData always parses { params, query, body }. Nest fields under the right key. */
+
 export const sendUserProfileViewRequestSchema = z.object({
-	userid: z.coerce.number().int().positive("User Id is required"),
+	body: z.object({
+		userid: z.coerce.number().int().positive("User Id is required"),
+	}),
 });
 
 export const authUserProfileParamsSchema = z.object({
-	slug: z.string().min(1),
+	params: z.object({
+		slug: z.string().min(1),
+	}),
 });
 
 export const peopleListQuerySchema = z.object({
-	user_id: z.coerce.number().int().positive().optional(),
+	query: z.object({
+		user_id: z.coerce.number().int().positive().optional(),
+	}),
 });
 
-export type SendUserProfileViewRequestBody = z.infer<typeof sendUserProfileViewRequestSchema>;
-export type AuthUserProfileParams = z.infer<typeof authUserProfileParamsSchema>;
-export type PeopleListQuery = z.infer<typeof peopleListQuerySchema>;
+export type SendUserProfileViewRequestBody = z.infer<typeof sendUserProfileViewRequestSchema>["body"];
+export type AuthUserProfileParams = z.infer<typeof authUserProfileParamsSchema>["params"];
+export type PeopleListQuery = z.infer<typeof peopleListQuerySchema>["query"];
