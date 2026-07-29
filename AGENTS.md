@@ -1,26 +1,192 @@
 # CollarCheck API — Agent Instructions
 
-You implement API endpoints from **api-docs files**. The user will point you at a doc under `src/api-ai-document/**` (or paste equivalent). Your job is to implement that endpoint end-to-end using this project's existing patterns — not invent a new architecture.
+You **port APIs from another project (PHP)** into this **Node.js** codebase.
 
-Read this file before writing or changing code. These rules override convenience shortcuts.
+The user will give you **API docs written for the PHP project** (file path, paste, or attachment). You must:
+
+1. Understand **this** Node project (structure, auth, Zod, layering — below + existing Node docs).
+2. **Implement** the endpoints here end-to-end (route → controller → service → repositery).
+3. **Write or rewrite Node api-docs** under `src/api-ai-document/**` so they describe the **Node** implementation — not a copy of the PHP doc.
+
+Do not invent a new architecture. Match existing patterns in this repo. Read this file before writing code.
 
 ---
 
-## Your job when given an api-docs file
+## Primary workflow: PHP docs → Node code + Node docs
 
-1. **Read the doc fully** — method, path, auth, request body/query/params, response shape, tables, PHP spelling quirks, locked message strings.
-2. **Map layers** — find or create the matching files for that domain (see [Project structure](#project-structure)).
-3. **Implement in order:**
+```
+User provides PHP api-docs (other project)
+        │
+        ▼
+Read this AGENTS.md + src/api-ai-document/README.md
+(how Node is structured, what already exists)
+        │
+        ▼
+Read the PHP doc fully (contracts to preserve)
+        │
+        ▼
+Implement in Node (types → repositery → service → controller → route)
+        │
+        ▼
+Create/update src/api-ai-document/** as NODE docs
+(paths, Zod, Authorization, file map, responses as shipped)
+        │
+        ▼
+npx tsc --noEmit
+```
+
+| Input | Output |
+|-------|--------|
+| PHP api-docs from the other project (paths, body, responses, DB notes, PHP controller names) | Working Node endpoints in `src/**` |
+| | **New/updated** Node-oriented markdown under `src/api-ai-document/**` |
+| | `README.md` index row / mounts / **implemented** status when relevant |
+
+The PHP doc is the **contract source** (URLs, payloads, messages, business rules).  
+The Node doc is the **implementation map** for this repo (real files, Zod, middleware, handlers).
+
+---
+
+## Understand this Node project first
+
+Before porting, orient yourself in **this** repo so you wire PHP contracts into the right layers.
+
+### 1. This file (`AGENTS.md`)
+
+Layering, auth, Zod/`validateData`, controller style, repositery rules, examples.
+
+### 2. Existing Node api-docs — `src/api-ai-document/`
+
+Living map of what is **already ported**. Use it to avoid duplicates and to match doc style.
+
+| Read | For |
+|------|-----|
+| `src/api-ai-document/README.md` | Index of modules, route mounts under `/wapi`, PHP path quirks, response conventions, implemented vs not-ported |
+| Domain `*.md` already here | Same-area endpoints, file naming, how Node docs are written |
+| `src/debug/*.md` | Locked response shapes when they conflict with looser notes |
+
+### Doc tree
+
+```
+src/api-ai-document/
+├── README.md                 # START — index + mounts + conventions
+├── common-auth-endpoints.md
+├── login-registration-endpoints.md
+├── verify.md
+├── employee-*.md             # employee domain
+├── company/                  # company domain
+├── general/                  # general + dashboard
+├── ai-api/
+└── other/
+```
+
+### 3. Code mirrors of the same domain
+
+If the PHP path is under employee/company/general/…, open existing:
+
+- `src/routes/<domain>.route.ts`
+- `src/controllers/*`, `src/services/*`, `src/repositery/*`, `src/types/*`
+
+Reuse mounts, naming, and helpers. Prefer extending existing modules over new top-level routers.
+
+---
+
+## Your job when the user provides PHP api-docs
+
+1. **Orient (Node)** — skim `src/api-ai-document/README.md` + this file; find which mount/route file owns the path.
+2. **Read the PHP doc fully** — method, path, auth, request body/query/params/files, success/error responses, message strings (keep typos), tables, business rules.
+3. **Check overlap** — search `src/api-ai-document/**` and `src/routes/**` for the same path. Extend or skip if already implemented.
+4. **Map PHP → Node layers** (see [Project structure](#project-structure) and [Request flow](#request-flow-mandatory)):
+
+   | PHP idea | Node place |
+   |----------|------------|
+   | Route / URL | `src/routes/*.route.ts` + mount in `app.ts` if needed |
+   | Auth middleware | `Authorization` → `req.auth` (already built) |
+   | Request validation | Zod in `src/types/*.types.ts` + `validateData` |
+   | Controller | Thin handler in `src/controllers/*.controller.ts` |
+   | Model / DB / SQL | `src/repositery/*.repositery.ts` only (Drizzle) |
+   | Business logic | `src/services/*.service.ts` (no `db.`) |
+
+5. **Implement in order:**
    1. Zod schema + `z.infer` types in `src/types/*.types.ts`
-   2. Repositery methods in `src/repositery/*.repositery.ts` (all DB)
-   3. Service functions in `src/services/*.service.ts` (business rules + response mapping)
-   4. Controller handlers in `src/controllers/*.controller.ts` (thin `req`/`res`)
-   5. Route registration in `src/routes/*.route.ts` (middleware chain)
-   6. Mount already exists in `src/app.ts` for most prefixes — only add a mount if a new router is required
-4. **Match contracts** — preserve path spellings (including legacy typos), status codes, and response keys/messages from the doc.
-5. **Verify** — `npx tsc --noEmit` must pass.
+   2. Repositery methods in `src/repositery/*.repositery.ts`
+   3. Service in `src/services/*.service.ts`
+   4. Controller in `src/controllers/*.controller.ts`
+   5. Route in `src/routes/*.route.ts` (`Authorization` → upload? → `validateData` → handler)
+   6. `app.ts` mount only if a new router is required
+6. **Preserve client contracts** from the PHP doc:
+   - Path spellings (including typos like `add-employement`)
+   - Response keys and message strings
+   - Status codes when the doc specifies them  
+   Prefer `src/debug/*.md` if it locks a stricter response shape.
+7. **Write Node api-docs** — create or rewrite the matching file under `src/api-ai-document/**` for **this** stack (see next section). Do **not** leave only the raw PHP doc as the project doc.
+8. **Verify** — `npx tsc --noEmit` must pass.
 
-Prefer existing modules over new files. Prefer `src/debug/*.md` over older summary docs when response contracts conflict.
+---
+
+## Rewrite PHP docs as Node docs (`src/api-ai-document/**`)
+
+The user-supplied material is **PHP**. What you store under `src/api-ai-document/` must be **Node-facing**: same product contracts, this codebase’s files and middleware.
+
+### Translate PHP → Node in the written doc
+
+| PHP doc often says | Node doc must say |
+|--------------------|-------------------|
+| PHP controller / method names | Real exports: `addExperience`, `src/controllers/….ts` |
+| `authenticate` / `$this->user_id` / `req.userId` | `Authorization` → `req.auth` (`user_id` / `id`) |
+| Form / manual validation | Zod schema + `validateData(schema)` → `req.validated` |
+| Model / raw SQL / CI query builder | `src/repositery/*.repositery.ts` + Drizzle / `src/db/schema.ts` tables |
+| PHP file paths | `src/routes`, `controllers`, `services`, `repositery`, `types` |
+| “Not implemented” in Node yet | After you ship: mark **implemented** |
+
+Keep from PHP (client-facing):
+
+- Full paths under `/wapi/...` (and legacy typos)
+- Request fields, enums, upload field names
+- Response JSON keys and **exact** message strings
+- Business rules that affect behavior
+
+### Where to put the new Node doc
+
+- Same domain as existing files when possible (`employee-*.md`, `company/…`, `general/…`, `other/…`).
+- New file name: `<domain>-<feature>-endpoints.md` (match existing naming).
+- Always add/update a row in `src/api-ai-document/README.md` doc index.
+- Update README **Route mounts** if you changed `src/app.ts`.
+
+### Required shape of a Node module doc
+
+Header:
+
+```md
+> **Stack:** Node.js + Express + Drizzle ORM
+> **Base path:** `/wapi`
+> **Route file:** `src/routes/<domain>.route.ts`
+> **Controller:** `src/controllers/<name>.controller.ts`
+> **Service:** `src/services/<name>.service.ts`
+> **Repositery:** `src/repositery/<name>.repositery.ts`
+> **Types:** `src/types/<name>.types.ts`
+> **Source:** Ported from PHP api-docs (user-provided) — contracts preserved
+```
+
+Body (minimum):
+
+1. **Overview** — what the endpoints do; auth requirement.
+2. **Routes table** — method, full path, **Node** controller export, description.
+3. **File structure** — actual files in this repo.
+4. **Zod schemas** — as in `src/types/**` (`params` / `query` / `body`; `z.coerce` / preprocess for form-data).
+5. **Middleware** — `Authorization`, `validateData`, upload helpers + field names (not PHP middleware names).
+6. **Request / response examples** — match what Node controllers return (keep PHP message typos if clients depend on them).
+7. **DB tables** — `cyb_*` / schema symbols used.
+8. **Status** — **implemented** (or partial list of remaining routes).
+
+Optional but useful: service function names, repositery methods, notes on `X-Company` / SQS / S3.
+
+### Doc accuracy rules
+
+- Write for **Node** readers; PHP is background contract only.
+- Never document PHP controllers as if they live in this repo.
+- Do not invent paths not registered in `src/routes/**` + `src/app.ts`.
+- Preserve legacy path typos in code **and** Node docs.
+- If implementation must diverge from PHP (e.g. different status code already used by clients of this Node API), document the divergence explicitly in the Node doc.
 
 ---
 
@@ -36,7 +202,9 @@ Prefer existing modules over new files. Prefer `src/debug/*.md` over older summa
 | Request validation | Zod + `validateData` → fills `req.validated` |
 | Schema | `src/db/schema.ts` |
 | Errors | `HttpError` / `BadRequestError` / etc. in `src/middlewares/errorHandler.ts` |
-| API docs for porting | `src/api-ai-document/**` |
+| Input | User-provided **PHP** api-docs (other project) |
+| Node endpoint docs (output) | `src/api-ai-document/**` — rewrite for this repo; start orientation at `README.md` |
+| Locked response notes | `src/debug/**` when contracts conflict |
 | OpenAPI UI | `/api-docs` |
 
 **Do not re-implement authentication or validation middleware.** Wire them into routes.
@@ -556,17 +724,19 @@ When implementing from api-docs / porting PHP:
 
 ## Scope discipline
 
-- Only change files needed for the task.
+- Only change files needed for the PHP → Node port (code **and** the new/updated Node api-docs).
 - Do not refactor unrelated modules “while here” unless asked.
 - Match existing naming and file placement.
 - Reuse existing repositery methods when they already cover the query.
-- After implementing an endpoint from `src/api-ai-document/**`, update that doc’s status table if the project tracks “implemented” there.
+- Deliverable is always: **Node code + Node-oriented docs** under `src/api-ai-document/**` (not dumping the raw PHP doc unchanged).
 
 ---
 
 ## Implementation checklist
 
-When finishing an endpoint from an api-docs file:
+When finishing a port from **user-provided PHP api-docs**:
+
+**Code (Node)**
 
 - [ ] Schema + `z.infer` types in `src/types/**`
 - [ ] Route middleware order correct: `Authorization` (if needed) → upload (if needed) → `validateData(schema)` → controller
@@ -575,5 +745,15 @@ When finishing an endpoint from an api-docs file:
 - [ ] Service has **no** `db.` / drizzle / schema queries
 - [ ] New queries live under `src/repositery/**`
 - [ ] Static repositery imports at top of service files
-- [ ] Response keys/messages/paths match the api-doc (including typos)
+- [ ] Paths / response keys / messages match the **PHP** contract (including typos)
 - [ ] `npx tsc --noEmit` passes
+
+**Node api-docs (`src/api-ai-document/**`) — rewritten from PHP**
+
+- [ ] New or updated module `.md` written for **Node** (not a paste of the PHP doc)
+- [ ] Header lists real route / controller / service / repositery / types paths
+- [ ] Routes table uses Node handler names and registered `/wapi` paths
+- [ ] Zod + middleware sections use `Authorization`, `validateData`, `req.auth`, `req.validated`
+- [ ] Response examples match what the Node controller returns
+- [ ] Marked **implemented** (or partial) in the module doc
+- [ ] `README.md` index updated; mounts table updated if `app.ts` changed
