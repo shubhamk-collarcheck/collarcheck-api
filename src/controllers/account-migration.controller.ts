@@ -10,157 +10,245 @@ import type {
 } from "../types/account-migration.types";
 import * as svc from "../services/account-migration.service";
 
-function handle(fn: (req: Request) => Promise<unknown>) {
-	return async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const result = await fn(req);
-			// checkip may return a raw string
-			if (typeof result === "string") {
-				return res.status(200).send(result);
-			}
-			return res.status(200).json(result);
-		} catch (e) {
-			next(e);
+export const createUserGroup = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId, user_id: loginUserId, user_type: userType } = req.auth as AuthUser;
+		const { body } = req.validated as { body: CreateUserGroupBody };
+		const id = req.params.id ? Number(req.params.id) : undefined;
+		const result = await svc.createUserGroupService(companyId, loginUserId, userType, body, id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const assignUserPermission = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId, user_id: loginUserId, user_type: userType } = req.auth as AuthUser;
+		const { body } = req.validated as { body: AssignPermissionBody };
+		const id = req.params.id ? Number(req.params.id) : undefined;
+		const result = await svc.assignUserPermissionService(companyId, loginUserId, userType, body, id);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const menuEventList = async (_req: Request, res: Response, next: NextFunction) => {
+	try {
+		const result = await svc.menuEventListService();
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const userGroupList = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const result = await svc.userGroupListService(companyId);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const groupUserList = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const limit = Number(req.query.limit) || 50;
+		const offset = Number(req.query.offset) || 0;
+		const result = await svc.groupUserListService(companyId, limit, offset);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const userPermissionList = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const company = req.query.company != null ? Number(req.query.company) : undefined;
+		const result = await svc.userPermissionListService(companyId, company);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const editUserPermission = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const result = await svc.editUserPermissionService(Number(req.params.id));
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const removePermission = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId, user_id: loginUserId } = req.auth as AuthUser;
+		const body = (req.validated as { body?: { permission_id?: number[] } } | undefined)?.body || req.body;
+		const ids = body.permission_id || [];
+		const result = await svc.removePermissionService(companyId, loginUserId, ids);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const allRoleGroup = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const limit = Number(req.query.limit) || 10;
+		const offset = Number(req.query.offset) || 0;
+		const result = await svc.allRoleGroupService(companyId, limit, offset);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const editGroupRole = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const result = await svc.editGroupRoleService(Number(req.params.id));
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const removeGroupRole = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId } = req.auth as AuthUser;
+		const body = (req.validated as { body?: { user_group_id?: number[] } } | undefined)?.body || req.body;
+		const result = await svc.removeGroupRoleService(companyId, body.user_group_id || []);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
+
+export const checkip = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const ip =
+			(req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
+			req.socket.remoteAddress ||
+			"";
+		const result = await svc.checkIpService(ip);
+		if (typeof result === "string") {
+			return res.status(200).send(result);
 		}
-	};
-}
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-function companyId(req: Request) {
-	return (req.auth as AuthUser).id;
-}
-function loginUserId(req: Request) {
-	return (req.auth as AuthUser).user_id;
-}
-function userType(req: Request) {
-	return (req.auth as AuthUser).user_type;
-}
+export const doctypeList = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_type: userType } = req.auth as AuthUser;
+		const result = await svc.doctypeListService(userType);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const createUserGroup = handle((req) => {
-	const { body } = req.validated as { body: CreateUserGroupBody };
-	const id = Number(req.params.id) || undefined;
-	return svc.createUserGroupService(
-		companyId(req),
-		loginUserId(req),
-		userType(req),
-		body,
-		id
-	);
-});
+export const sendOtpAccountMerge = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId, user_type: userType } = req.auth as AuthUser;
+		const { body } = req.validated as { body: SendOtpMergeBody };
+		const result = await svc.sendOtpAccountMergeService(companyId, userType, body);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const assignUserPermission = handle((req) => {
-	const { body } = req.validated as { body: AssignPermissionBody };
-	const id = Number(req.params.id) || undefined;
-	return svc.assignUserPermissionService(
-		companyId(req),
-		loginUserId(req),
-		userType(req),
-		body,
-		id
-	);
-});
+export const otpVerifyAccountMerge = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId, user_type: userType, token } = req.auth as AuthUser;
+		const { body } = req.validated as { body: VerifyOtpMergeBody };
+		const result = await svc.otpVerifyAccountMergeService(companyId, userType, body, token);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const menuEventList = handle(() => svc.menuEventListService());
+export const mergeUserRegister = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id: companyId, user_type: userType, token } = req.auth as AuthUser;
+		const { body } = req.validated as { body: MergeUserRegisterBody };
+		const result = await svc.mergeUserRegisterService(companyId, userType, body, token);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const userGroupList = handle((req) =>
-	svc.userGroupListService(companyId(req))
-);
+export const aiGenerateRow = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const body =
+			(req.validated as { body: AiGenerateRowBody } | undefined)?.body ||
+			(req.body as AiGenerateRowBody);
+		const result = await svc.aiGenerateRowService(body);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const groupUserList = handle((req) => {
-	const limit = Number(req.query.limit) || 50;
-	const offset = Number(req.query.offset) || 0;
-	return svc.groupUserListService(companyId(req), limit, offset);
-});
+export const revokeDeleteAccount = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { user_id: loginUserId } = req.auth as AuthUser;
+		const result = await svc.revokeDeleteAccountService(loginUserId);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const userPermissionList = handle((req) => {
-	const company = Number(req.query.company) || undefined;
-	return svc.userPermissionListService(companyId(req), company);
-});
+export const digilocker = async (_req: Request, res: Response, next: NextFunction) => {
+	try {
+		const result = await svc.digilockerService();
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const editUserPermission = handle((req) =>
-	svc.editUserPermissionService(Number(req.params.id))
-);
+export const nonclaimCompany = async (_req: Request, res: Response, next: NextFunction) => {
+	try {
+		const result = await svc.nonclaimCompanyService();
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const removePermission = handle((req) => {
-	const body = (req.validated as any)?.body || req.body;
-	const ids = body.permission_id || [];
-	return svc.removePermissionService(companyId(req), loginUserId(req), ids);
-});
+export const defaultUserList = async (_req: Request, res: Response, next: NextFunction) => {
+	try {
+		const result = await svc.defaultUserListService();
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const allRoleGroup = handle((req) => {
-	const limit = Number(req.query.limit) || 10;
-	const offset = Number(req.query.offset) || 0;
-	return svc.allRoleGroupService(companyId(req), limit, offset);
-});
+export const switchAccount = async (_req: Request, res: Response, next: NextFunction) => {
+	try {
+		return res.status(200).json({ status: false, messages: "Not implemented" });
+	} catch (error) {
+		next(error);
+	}
+};
 
-export const editGroupRole = handle((req) =>
-	svc.editGroupRoleService(Number(req.params.id))
-);
-
-export const removeGroupRole = handle((req) => {
-	const body = (req.validated as any)?.body || req.body;
-	return svc.removeGroupRoleService(companyId(req), body.user_group_id || []);
-});
-
-export const checkip = handle((req) => {
-	const ip =
-		(req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ||
-		req.socket.remoteAddress ||
-		"";
-	return svc.checkIpService(ip);
-});
-
-export const doctypeList = handle((req) =>
-	svc.doctypeListService(userType(req))
-);
-
-export const sendOtpAccountMerge = handle((req) => {
-	const { body } = req.validated as { body: SendOtpMergeBody };
-	return svc.sendOtpAccountMergeService(companyId(req), userType(req), body);
-});
-
-export const otpVerifyAccountMerge = handle((req) => {
-	const { body } = req.validated as { body: VerifyOtpMergeBody };
-	const token = (req.auth as AuthUser).token;
-	return svc.otpVerifyAccountMergeService(
-		companyId(req),
-		userType(req),
-		body,
-		token
-	);
-});
-
-export const mergeUserRegister = handle((req) => {
-	const { body } = req.validated as { body: MergeUserRegisterBody };
-	const token = (req.auth as AuthUser).token;
-	return svc.mergeUserRegisterService(
-		companyId(req),
-		userType(req),
-		body,
-		token
-	);
-});
-
-export const aiGenerateRow = handle((req) => {
-	const body = (req.validated as { body: AiGenerateRowBody } | undefined)?.body ||
-		(req.body as AiGenerateRowBody);
-	return svc.aiGenerateRowService(body);
-});
-
-export const revokeDeleteAccount = handle((req) =>
-	svc.revokeDeleteAccountService(loginUserId(req))
-);
-
-export const digilocker = handle(() => svc.digilockerService());
-
-export const nonclaimCompany = handle(() => svc.nonclaimCompanyService());
-
-export const defaultUserList = handle(() => svc.defaultUserListService());
-
-/** Missing PHP methods — explicit 404 JSON for clarity */
-export const switchAccount = handle(async () => {
-	return { status: false, messages: "Not implemented" };
-});
-
-export const reminderVerificationPending = handle(async () => {
-	return { status: false, messages: "Not implemented" };
-});
+export const reminderVerificationPending = async (_req: Request, res: Response, next: NextFunction) => {
+	try {
+		return res.status(200).json({ status: false, messages: "Not implemented" });
+	} catch (error) {
+		next(error);
+	}
+};

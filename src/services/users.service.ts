@@ -4,9 +4,9 @@ import db from '../db';
 import UsersRepository from "../repositery/users.repositery"
 import {
 	cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod,
-	cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences,
+	cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences,
 	cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation,
-	cybSkill, cybJobMode, cybDepartment, cybEmployementType, cybWorkType, cybUser,
+	cybDepartment, cybEmployementType, cybWorkType, cybUser,
 	cybUserSkill, cybUserExperience, cybCompanyJob, cybApplication, cybGalleries,
 	cybJobCollaborators, cybGender, cybVerifyDocument, cybUserDetails, cybUserDomains,
 	cybCompanyBenefits

@@ -1,4 +1,6 @@
 import companyReviewRepositery from "../repositery/company-review.repositery";
+import employmentRepositery from "../repositery/employee.repositery";
+import { user_verified } from "./users.service";
 import { Request } from "express";
 
 const S3_PREFIX = process.env.S3_PREFIX || '';
@@ -382,61 +384,129 @@ class companyReviewService {
 		return { success: true, message: "Successfully added" };
 	}
 
-	async getAllApplicationService(companyId: number, jobId: number, keyword?: string, limit = 50, offset = 0) {
-		// Check collaborator access
-		const collaborators = await companyReviewRepositery.getCollaboratorCompanyIds(companyId);
-		const isCollaborator = collaborators.length > 0;
+	async getAllApplicationService(
+		actingUserId: number,
+		jobId?: number,
+		keyword?: string,
+		limit = 50,
+		offsetPage = 0,
+	) {
+		const s3Prefix = process.env.S3_PREFIX || '';
+		const pageToSqlOffset = (page: number, pageSize: number) =>
+			page <= 1 ? 0 : page * pageSize - pageSize;
+		const sqlOffset = pageToSqlOffset(offsetPage, limit);
 
-		if (isCollaborator) {
-			const assignedJobIds = collaborators.map(c => c.jobId).filter(Boolean);
-			if (!assignedJobIds.includes(jobId)) {
-				return { success: false, message: "Access denied", data: [], job_title: '', totalCounts: 0 };
+		const collabRows = await companyReviewRepositery.getCollaboratorRows(actingUserId);
+		const companyIds = [...new Set(
+			collabRows.map((c) => c.companyId).filter((id): id is number => id != null)
+		)];
+		const jobIds = [...new Set(
+			collabRows.map((c) => c.jobId).filter((id): id is number => id != null)
+		)];
+
+		const filter: {
+			jobId?: number;
+			companyId?: number;
+			companyIds?: number[];
+			keyword?: string;
+			isVerify: boolean;
+			limit: number;
+			sqlOffset: number;
+		} = {
+			jobId,
+			keyword,
+			isVerify: await user_verified(actingUserId),
+			limit,
+			sqlOffset,
+		};
+
+		if (collabRows.length > 0) {
+			filter.companyIds = companyIds;
+			// When a specific job is requested, collaborator must be assigned to it
+			if (jobId != null && !jobIds.includes(jobId)) {
+				return {
+					status: false as const,
+					messages: "Access denied",
+					job_title: '',
+					data: [] as const,
+					totalCounts: 0,
+				};
 			}
+		} else {
+			filter.companyId = actingUserId;
 		}
 
-		const applications = await companyReviewRepositery.getAllApplication(jobId, companyId, keyword, limit, offset);
-		const totalCounts = await companyReviewRepositery.getApplicationCount(jobId);
-		const jobTitle = await companyReviewRepositery.getJobTitle(jobId);
+		const { jobTitle, jobSlug } = jobId != null
+			? await companyReviewRepositery.getJobTitleAndSlug(jobId)
+			: { jobTitle: '', jobSlug: '' };
 
-		const s3Prefix = process.env.S3_PREFIX || '';
+		const [rows, totalCounts] = await Promise.all([
+			companyReviewRepositery.getAllApplication(filter),
+			companyReviewRepositery.countAllApplication({
+				jobId: filter.jobId,
+				companyId: filter.companyId,
+				companyIds: filter.companyIds,
+				keyword: filter.keyword,
+			}),
+		]);
 
-		const data = applications.map(app => ({
-			id: app.id,
-			job: jobTitle,
-			job_slug: '',
-			user_id: app.userId,
-			individual_id: app.individualId || '',
-			fname: `${app.fname || ''} ${app.lname || ''}`.trim(),
-			email: app.email || '',
-			phone: app.phone || '',
-			city_name: '',
-			state_name: '',
-			country_name: '',
-			profile: app.profile ? `${s3Prefix}${app.profile}` : '',
-			slug: app.slug || '',
-			company_name: '',
-			designation_name: '',
-			present_address: app.presentAddress || '',
-			profile_description: app.profileDescription || '',
-			date: app.createDate || '',
-			resume: app.resume ? `${s3Prefix}${app.resume}` : '',
-			resumeName: app.resumeName || '',
-			expected_salary: app.expectedSalary || '',
-			notice_period: app.noticePeriod || 0,
-			notice_date: app.noticeDate || '',
-			isVerified: false,
-			rating: { noofrecord: 0, avgRating: 0 },
-			userRating: 0,
-			on_explore: app.onExplore || 0,
-			on_immediate: app.onImmediate || 0,
-			on_notice: app.onNotice || 0,
+		const data = await Promise.all(rows.map(async (app) => {
+			const applicantId = app.userId;
+			const [isVerified, rating, userRating] = await Promise.all([
+				applicantId != null ? user_verified(applicantId) : Promise.resolve(false),
+				applicantId != null
+					? companyReviewRepositery.getUserRating(applicantId)
+					: Promise.resolve({ rating: 0, noofrecord: 0 }),
+				applicantId != null
+					? employmentRepositery.getOverallProfileRating(applicantId)
+					: Promise.resolve(0),
+			]);
+
+			// Exploring flags (show_exploring not ported — use raw flags when on_explore)
+			const onExplore = app.onExplore === 1 ? 1 : 0;
+			const onImmediate = onExplore === 1 && app.onImmediate === 1 ? 1 : 0;
+			const onNotice = onExplore === 1 && app.onNotice === 1 ? 1 : 0;
+
+			return {
+				id: app.id,
+				job: app.jobTitle || jobTitle || '',
+				job_slug: app.jobSlug || jobSlug || '',
+				user_id: app.userId,
+				individual_id: app.individualId ?? null,
+				fname: `${app.fname || ''} ${app.lname || ''}`.trim(),
+				email: app.email || '',
+				phone: app.phone || '',
+				city_name: app.cityName ?? null,
+				state_name: app.stateName ?? null,
+				country_name: app.countryName ?? null,
+				profile: app.profile
+					? `${s3Prefix}${app.profile}`
+					: (app.socialImage || ''),
+				slug: app.slug || '',
+				company_name: app.companyName ?? null,
+				designation_name: app.designationName ?? null,
+				present_address: app.presentAddress ?? null,
+				profile_description: app.profileDescription ?? null,
+				date: app.createDate || '',
+				resume: app.resume ? `${s3Prefix}${app.resume}` : '',
+				resumeName: app.resumeName || '',
+				expected_salary: app.expectedSalary ?? null,
+				notice_period: app.noticePeriod ?? null,
+				notice_date: app.noticeDate ?? null,
+				isVerified: !!isVerified,
+				rating,
+				userRating,
+				on_explore: onExplore,
+				on_immediate: onImmediate,
+				on_notice: onNotice,
+			};
 		}));
 
 		return {
-			success: true,
-			message: "Application",
-			data,
+			status: true as const,
+			messages: "Application",
 			job_title: jobTitle,
+			data,
 			totalCounts,
 		};
 	}

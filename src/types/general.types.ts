@@ -229,6 +229,8 @@ export const followDataListGeneralQuerySchema = z.object({
 	}),
 });
 
+export type FollowDataListGeneralQuery = z.infer<typeof followDataListGeneralQuerySchema>;
+
 // ====== Logout (Endpoint #7) ======
 
 export const logoutSchema = z.object({

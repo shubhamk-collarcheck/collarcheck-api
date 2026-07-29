@@ -259,10 +259,7 @@ export async function groupUserListService(
 	return { status: true, data, totalCounts: total };
 }
 
-export async function userPermissionListService(
-	actingId: number,
-	companyIdFromQuery?: number
-) {
+export async function userPermissionListService(actingId: number, companyIdFromQuery?: number) {
 	const companyId = companyIdFromQuery || actingId;
 	const rel = await accountMigrationRepositery.findRelation(actingId, companyId);
 	// If relation exists, resolve that user's permissions; else full catalog (legacy company view)

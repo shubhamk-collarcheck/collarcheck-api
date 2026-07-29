@@ -1,4 +1,12 @@
 import miscRepositery from '../repositery/misc.repositery';
+import companyEmployeeRequestRepositery from '../repositery/company-employee-request.repositery';
+import companyBenefitGalleryRepositery from '../repositery/company-benefit-gallery.repositery';
+import generalRepositery from '../repositery/general.repositery';
+import commonAuthRepositery from '../repositery/common-auth.repositery';
+import designationRepositery from '../repositery/designation.repositery';
+import cityRepositery from '../repositery/city.repositery';
+import { user_verified } from './users.service';
+import { getStatistics } from './login.service';
 import { BadRequestError } from '../middlewares/errorHandler';
 
 const s3Prefix = process.env.S3_PREFIX || '';
@@ -213,7 +221,6 @@ export async function allCompanyService(keyword: string, limit: number, offset: 
 // ====== 9. User Detail ======
 
 export async function userDetailService(userId: number, token: string) {
-	const { getStatistics } = await import("./login.service");
 	const data = await getStatistics(userId, token);
 	if (!data) {
 		return { status: false, messages: "User not found" };
@@ -238,11 +245,6 @@ export async function companyProfileService(
 	if (!company) {
 		return { status: false, messages: "No Company Found!" };
 	}
-
-	const companyEmployeeRequestRepositery = (await import('../repositery/company-employee-request.repositery')).default;
-	const companyBenefitGalleryRepositery = (await import('../repositery/company-benefit-gallery.repositery')).default;
-	const generalRepositery = (await import('../repositery/general.repositery')).default;
-	const { user_verified } = await import('./users.service');
 
 	const [activeJobs, similarCompanies, followerCount, followingCount, galleries, benefits, employmentCount, exploreTalent, isVerified] = await Promise.all([
 		miscRepositery.getCompanyActiveJobs(company.id, 20),
@@ -407,13 +409,6 @@ export async function companyProfileService(
 // ====== All User list ======
 
 export async function allUserService(keyword: string | undefined, limit = 10, page = 0) {
-	const commonAuthRepositery = (await import('../repositery/common-auth.repositery')).default;
-	const { user_verified } = await import('./users.service');
-	const designationRepositery = (await import('../repositery/designation.repositery')).default;
-	const { cybCities } = await import('../db/schema');
-	const db = (await import('../db')).default;
-	const { eq } = await import('drizzle-orm');
-
 	const sqlOffset = page <= 1 ? 0 : page * limit - limit;
 	const { rows, count } = await commonAuthRepositery.listAllUsers(keyword, limit, sqlOffset);
 
@@ -425,10 +420,7 @@ export async function allUserService(keyword: string | undefined, limit = 10, pa
 			designation_name = d?.name ?? null;
 		}
 		if (u.city) {
-			const [city] = await db.select({ name: cybCities.name })
-				.from(cybCities)
-				.where(eq(cybCities.id, u.city))
-				.limit(1);
+			const city = await cityRepositery.findById(u.city);
 			city_name = city?.name ?? null;
 		}
 		const isVerified = await user_verified(u.id);

@@ -37,7 +37,7 @@ import {
 	RemoveNotificationParams, UnfollowParams, RemoveFollowerParams,
 	MultiUnfollowBody, MultiRemoveFollowerBody,
 	FollowBody, AcceptFollowParams, RejectFollowParams, MultiFollowIdsBody,
-	CompanyProfileParams, SkillByCategoryParams,
+	CompanyProfileParams, SkillByCategoryParams, FollowDataListGeneralQuery,
 } from '../types/general.types';
 
 
@@ -77,7 +77,7 @@ export const getAllStates = async (req: Request, res: Response, next: NextFuncti
 export const countryListController = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const data = await getCountriesService();
-		return res.status(200).json({ status: true, message: '', data });
+		return res.status(200).json({ status: true, messages: 'Country List', data });
 	} catch (error) {
 		next(error);
 	}
@@ -186,7 +186,7 @@ export const languageList = async (req: Request, res: Response, next: NextFuncti
 export const courseList = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const data = await getCoursesService();
-		return res.status(200).json({ status: true, message: 'Course List', data });
+		return res.status(200).json({ status: true, messages: 'Course List', data });
 	} catch (error) {
 		next(error);
 	}
@@ -195,7 +195,8 @@ export const courseList = async (req: Request, res: Response, next: NextFunction
 export const courseTypeList = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const data = await getCourseTypesService();
-		return res.status(200).json({ status: true, message: 'course type list', data });
+		// PHP standalone: "Course type List" (lowercase t in type)
+		return res.status(200).json({ status: true, messages: 'Course type List', data });
 	} catch (error) {
 		next(error);
 	}
@@ -205,7 +206,7 @@ export const courseTypeList = async (req: Request, res: Response, next: NextFunc
 export const educationDataList = async (req: Request, res: Response, next: NextFunction) => {
 	try {
 		const data = await getEducationDataService();
-		return res.status(200).json({ status: true, message: 'Data List', data });
+		return res.status(200).json({ status: true, messages: 'Data List', data });
 	} catch (error) {
 		next(error);
 	}
@@ -552,11 +553,8 @@ export const followDataListGeneral = async (req: Request, res: Response, next: N
 	try {
 		// Acting user: JWT user, or company when X-Company is set
 		const { id: actingUserId } = req.auth as AuthUser;
-		const query = (req.validated as { query?: { limit?: number; offset?: number } })?.query
-			?? (req.query as { limit?: string; offset?: string });
-		const limit = query?.limit != null ? Number(query.limit) : 50;
-		const offset = query?.offset != null ? Number(query.offset) : 0;
-		const result = await followDataListGeneralService(actingUserId, limit, offset);
+		const { query } = req.validated as FollowDataListGeneralQuery;
+		const result = await followDataListGeneralService(actingUserId, query.limit, query.offset);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);

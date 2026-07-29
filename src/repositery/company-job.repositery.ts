@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql, like, ne } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import {
@@ -8,43 +8,141 @@ import {
 	cybGalleries, cybNotifications,
 } from '../db/schema';
 
+export type JobWriteData = {
+	company: number;
+	jobTitle?: string | null;
+	jobDescription?: string | null;
+	slug?: string | null;
+	rolesResponsibility?: string | null;
+	department?: number | null;
+	experience?: string | number | null;
+	skill?: string | null;
+	roleType?: number | null;
+	document?: string | null;
+	country?: number | null;
+	state?: number | null;
+	city?: number | null;
+	jobMode?: number | null;
+	industry?: number | null;
+	designation?: number | null;
+	urgent?: number | null;
+	vacancy?: number | null;
+	salary?: number | null;
+	status?: number | null;
+	templateName?: string | null;
+};
+
+function nowSql(): string {
+	return new Date().toISOString().slice(0, 19).replace('T', ' ');
+}
+
+function affectedRows(result: unknown): number {
+	if (Array.isArray(result)) {
+		return Number((result as { affectedRows?: number }[])[0]?.affectedRows ?? 0);
+	}
+	return Number((result as { affectedRows?: number } | undefined)?.affectedRows ?? 0);
+}
+
+/** List buckets for company all-job (draft=0, publish=1, cancel=2). */
+export type JobStatusBuckets = {
+	draftIds: number[];
+	publishIds: number[];
+	cancelIds: number[];
+};
+
+export type JobStatusCounts = {
+	draft: number;
+	publish: number;
+	cancel: number;
+};
+
+const ALL_JOB_STATUSES = [0, 1, 2] as const;
+
 class companyJobRepositery {
 
-	// ====== All Job ======
 
-	async getJobsByStatus(companyId: number, status: number, keyword: string, limit: number, offset: number) {
+	private companyJobsBaseWhere(companyId: number, keyword: string) {
 		const conditions = [
 			eq(cybCompanyJob.company, companyId),
-			eq(cybCompanyJob.status, status),
 			eq(cybCompanyJob.isDeleted, 0),
+			inArray(cybCompanyJob.status, [...ALL_JOB_STATUSES]),
 		];
 		if (keyword) {
-			conditions.push(sql`(${cybCompanyJob.jobTitle} LIKE ${`%${keyword}%`} OR ${cybCompanyJob.jobDescription} LIKE ${`%${keyword}%`})`);
+			conditions.push(
+				sql`(${cybCompanyJob.jobTitle} LIKE ${`%${keyword}%`} OR ${cybCompanyJob.jobDescription} LIKE ${`%${keyword}%`})`,
+			);
 		}
-
-		const rows = await db.select({ id: cybCompanyJob.id })
-			.from(cybCompanyJob)
-			.where(and(...conditions))
-			.orderBy(desc(cybCompanyJob.modifyDate))
-			.limit(limit)
-			.offset(offset);
-		return rows.map(r => r.id);
+		return and(...conditions);
 	}
 
-	async countJobsByStatus(companyId: number, status: number): Promise<number> {
-		const [result] = await db.select({ count: sql<number>`count(*)` })
+	/**
+	 * One query: paginated job ids for draft/publish/cancel via ROW_NUMBER per status.
+	 * Replaces 3× getJobsByStatus(status).
+	 */
+	async getJobIdsBucketedByStatus(companyId: number, keyword: string, limit: number, offset: number,): Promise<JobStatusBuckets> {
+		const ranked = db.select({
+			id: cybCompanyJob.id,
+			status: cybCompanyJob.status,
+			rn: sql<number>`ROW_NUMBER() OVER (PARTITION BY ${cybCompanyJob.status} ORDER BY ${cybCompanyJob.modifyDate} DESC)`.as('rn'),
+		})
+			.from(cybCompanyJob)
+			.where(this.companyJobsBaseWhere(companyId, keyword))
+			.as('ranked_jobs');
+
+		const rows = await db.select({
+			id: ranked.id,
+			status: ranked.status,
+		}).from(ranked).where(and(
+			sql`${ranked.rn} > ${offset}`,
+			sql`${ranked.rn} <= ${offset + limit}`,
+		))
+			.orderBy(asc(ranked.status), asc(ranked.rn));
+
+		const buckets: JobStatusBuckets = {
+			draftIds: [],
+			publishIds: [],
+			cancelIds: [],
+		};
+
+		for (const row of rows) {
+			if (row.status === 0) buckets.draftIds.push(row.id);
+			else if (row.status === 1) buckets.publishIds.push(row.id);
+			else if (row.status === 2) buckets.cancelIds.push(row.id);
+		}
+
+		return buckets;
+	}
+
+	/**
+	 * One query: badge totals per status via GROUP BY.
+	 * Replaces 3× countJobsByStatus(status). Counts ignore keyword (tab totals).
+	 */
+	async countJobsGroupedByStatus(companyId: number): Promise<JobStatusCounts> {
+		const rows = await db
+			.select({
+				status: cybCompanyJob.status,
+				count: sql<number>`count(*)`,
+			})
 			.from(cybCompanyJob)
 			.where(and(
 				eq(cybCompanyJob.company, companyId),
-				eq(cybCompanyJob.status, status),
 				eq(cybCompanyJob.isDeleted, 0),
-			));
-		return result.count;
+				inArray(cybCompanyJob.status, [...ALL_JOB_STATUSES]),
+			))
+			.groupBy(cybCompanyJob.status);
+
+		const counts: JobStatusCounts = { draft: 0, publish: 0, cancel: 0 };
+		for (const row of rows) {
+			const n = Number(row.count);
+			if (row.status === 0) counts.draft = n;
+			else if (row.status === 1) counts.publish = n;
+			else if (row.status === 2) counts.cancel = n;
+		}
+		return counts;
 	}
 
-	async getJobDetail(jobId: number) {
-		const companyUser = alias(cybUser, 'jobCompany');
-		const [row] = await db.select({
+	private jobDetailSelect(companyUser: ReturnType<typeof alias<typeof cybUser, 'jobCompany'>>) {
+		return {
 			id: cybCompanyJob.id,
 			company: cybCompanyJob.company,
 			jobTitle: cybCompanyJob.jobTitle,
@@ -85,7 +183,12 @@ class companyJobRepositery {
 			countryName: cybCountry.name,
 			stateName: cybState.name,
 			cityName: cybCities.name,
-		})
+		};
+	}
+
+	private jobDetailQuery() {
+		const companyUser = alias(cybUser, 'jobCompany');
+		return db.select(this.jobDetailSelect(companyUser))
 			.from(cybCompanyJob)
 			.leftJoin(companyUser, eq(cybCompanyJob.company, companyUser.id))
 			.leftJoin(cybJobExperiences, eq(cybCompanyJob.experience, cybJobExperiences.id))
@@ -97,10 +200,20 @@ class companyJobRepositery {
 			.leftJoin(cybSalary, eq(cybCompanyJob.salary, cybSalary.id))
 			.leftJoin(cybCountry, eq(cybCompanyJob.country, cybCountry.id))
 			.leftJoin(cybState, eq(cybCompanyJob.state, cybState.id))
-			.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id))
+			.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id));
+	}
+
+	async getJobDetail(jobId: number) {
+		const [row] = await this.jobDetailQuery()
 			.where(eq(cybCompanyJob.id, jobId))
 			.limit(1);
 		return row;
+	}
+
+	async getJobDetailsByIds(jobIds: number[]) {
+		if (jobIds.length === 0) return [];
+		return this.jobDetailQuery()
+			.where(inArray(cybCompanyJob.id, jobIds));
 	}
 
 	async countJobApplications(jobId: number): Promise<number> {
@@ -110,12 +223,36 @@ class companyJobRepositery {
 				eq(cybApplication.job, jobId),
 				eq(cybApplication.isDeleted, 0),
 			));
-		return result.count;
+		return Number(result.count);
+	}
+
+	async countApplicationsByJobIds(jobIds: number[]): Promise<Map<number, number>> {
+		const counts = new Map<number, number>();
+		if (jobIds.length === 0) return counts;
+
+		const rows = await db.select({
+			jobId: cybApplication.job,
+			count: sql<number>`count(*)`,
+		})
+			.from(cybApplication)
+			.where(and(
+				inArray(cybApplication.job, jobIds),
+				eq(cybApplication.isDeleted, 0),
+			))
+			.groupBy(cybApplication.job);
+
+		for (const row of rows) {
+			if (row.jobId != null) {
+				counts.set(row.jobId, Number(row.count));
+			}
+		}
+		return counts;
 	}
 
 	async getJobCollaborators(jobId: number) {
 		const rows = await db.select({
 			id: cybJobCollaborators.id,
+			jobId: cybJobCollaborators.jobId,
 			userId: cybJobCollaborators.userId,
 			role: cybJobCollaborators.role,
 			userFname: cybUser.fname,
@@ -136,6 +273,41 @@ class companyJobRepositery {
 		return rows;
 	}
 
+	async getCollaboratorsByJobIds(jobIds: number[]) {
+		const byJob = new Map<number, Awaited<ReturnType<companyJobRepositery['getJobCollaborators']>>>();
+		if (jobIds.length === 0) return byJob;
+
+		const rows = await db.select({
+			id: cybJobCollaborators.id,
+			jobId: cybJobCollaborators.jobId,
+			userId: cybJobCollaborators.userId,
+			role: cybJobCollaborators.role,
+			userFname: cybUser.fname,
+			userLname: cybUser.lname,
+			userSlug: cybUser.slug,
+			userIndividualId: cybUser.individualId,
+			userProfile: cybUser.profile,
+			userSocialImage: cybUser.socialImage,
+			designationName: cybDesignation.name,
+		})
+			.from(cybJobCollaborators)
+			.leftJoin(cybUser, sql`CAST(${cybJobCollaborators.userId} AS UNSIGNED) = ${cybUser.id}`)
+			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
+			.where(and(
+				inArray(cybJobCollaborators.jobId, jobIds),
+				eq(cybJobCollaborators.isDeleted, 0),
+			));
+
+		for (const row of rows) {
+			const jobId = row.jobId;
+			if (jobId == null) continue;
+			const list = byJob.get(jobId) ?? [];
+			list.push(row);
+			byJob.set(jobId, list);
+		}
+		return byJob;
+	}
+
 	async getJobGallery(companyId: number) {
 		const rows = await db.select({ image: cybGalleries.image })
 			.from(cybGalleries)
@@ -143,63 +315,88 @@ class companyJobRepositery {
 				eq(cybGalleries.companyId, companyId),
 				eq(cybGalleries.isDeleted, 0),
 			));
-		return rows.map(r => r.image);
+		return rows.map((r) => r.image);
 	}
 
 	// ====== Add / Update Job ======
 
 	async findCompanyById(companyId: number) {
-		const [row] = await db.select()
+		const [row] = await db.select({
+			id: cybUser.id,
+			fname: cybUser.fname,
+			userType: cybUser.userType,
+			status: cybUser.status,
+		})
 			.from(cybUser)
-			.where(and(eq(cybUser.id, companyId), eq(cybUser.status, 1), eq(cybUser.userType, 2)));
+			.where(and(eq(cybUser.id, companyId), eq(cybUser.status, 1), eq(cybUser.userType, 2)))
+			.limit(1);
 		return row;
 	}
 
-	async createJob(data: Record<string, any>) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+	async createJob(data: JobWriteData) {
+		const now = nowSql();
 		const [{ id }] = await db.insert(cybCompanyJob).values({
 			...data,
+			experience: data.experience != null ? String(data.experience) : null,
 			createDate: now,
 			modifyDate: now,
 		}).$returningId();
 		return id;
 	}
 
-	async updateJob(jobId: number, data: Record<string, any>) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-		data.modifyDate = now;
-		await db.update(cybCompanyJob)
-			.set(data)
-			.where(eq(cybCompanyJob.id, jobId));
+	async updateJob(jobId: number, companyId: number, data: JobWriteData) {
+		const now = nowSql();
+		const result = await db.update(cybCompanyJob)
+			.set({
+				...data,
+				experience: data.experience != null ? String(data.experience) : data.experience,
+				modifyDate: now,
+			})
+			.where(and(
+				eq(cybCompanyJob.id, jobId),
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.isDeleted, 0),
+			));
+		return affectedRows(result);
 	}
 
-	async createTemplate(data: Record<string, any>) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+	async createTemplate(data: JobWriteData) {
+		const now = nowSql();
 		const [{ id }] = await db.insert(cybJobTemplate).values({
 			...data,
+			experience: data.experience != null ? String(data.experience) : null,
 			createDate: now,
 			modifyDate: now,
 		}).$returningId();
 		return id;
 	}
 
-	async updateTemplate(templateId: number, data: Record<string, any>) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-		data.modifyDate = now;
-		await db.update(cybJobTemplate)
-			.set(data)
-			.where(eq(cybJobTemplate.id, templateId));
+	async updateTemplate(templateId: number, companyId: number, data: JobWriteData) {
+		const now = nowSql();
+		const result = await db.update(cybJobTemplate)
+			.set({
+				...data,
+				experience: data.experience != null ? String(data.experience) : data.experience,
+				modifyDate: now,
+			})
+			.where(and(
+				eq(cybJobTemplate.id, templateId),
+				eq(cybJobTemplate.company, companyId),
+				eq(cybJobTemplate.isDeleted, 0),
+			));
+		return affectedRows(result);
 	}
 
 	async findDesignationByName(name: string) {
-		const [row] = await db.select()
+		const [row] = await db.select({ id: cybDesignation.id, name: cybDesignation.name })
 			.from(cybDesignation)
-			.where(and(eq(cybDesignation.name, name), eq(cybDesignation.status, 1)));
+			.where(and(eq(cybDesignation.name, name), eq(cybDesignation.status, 1)))
+			.limit(1);
 		return row;
 	}
 
 	async createDesignation(name: string) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const now = nowSql();
 		const [{ id }] = await db.insert(cybDesignation).values({
 			name,
 			status: 1,
@@ -211,14 +408,15 @@ class companyJobRepositery {
 	}
 
 	async findDepartmentByName(name: string) {
-		const [row] = await db.select()
+		const [row] = await db.select({ id: cybDepartment.id, name: cybDepartment.name })
 			.from(cybDepartment)
-			.where(and(eq(cybDepartment.name, name), eq(cybDepartment.status, 1)));
+			.where(and(eq(cybDepartment.name, name), eq(cybDepartment.status, 1)))
+			.limit(1);
 		return row;
 	}
 
 	async createDepartment(name: string) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const now = nowSql();
 		const [{ id }] = await db.insert(cybDepartment).values({
 			name,
 			status: 1,
@@ -230,14 +428,15 @@ class companyJobRepositery {
 	}
 
 	async findIndustryByName(name: string) {
-		const [row] = await db.select()
+		const [row] = await db.select({ id: cybIndustries.id, name: cybIndustries.name })
 			.from(cybIndustries)
-			.where(and(eq(cybIndustries.name, name), eq(cybIndustries.isDeleted, 0)));
+			.where(and(eq(cybIndustries.name, name), eq(cybIndustries.isDeleted, 0)))
+			.limit(1);
 		return row;
 	}
 
 	async createIndustry(name: string) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const now = nowSql();
 		const [{ id }] = await db.insert(cybIndustries).values({
 			name,
 			status: 1,
@@ -249,14 +448,15 @@ class companyJobRepositery {
 	}
 
 	async findCityByName(name: string) {
-		const [row] = await db.select()
+		const [row] = await db.select({ id: cybCities.id, name: cybCities.name })
 			.from(cybCities)
-			.where(eq(cybCities.name, name));
+			.where(eq(cybCities.name, name))
+			.limit(1);
 		return row;
 	}
 
 	async createCity(name: string, stateId: number) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const now = nowSql();
 		const [{ id }] = await db.insert(cybCities).values({
 			name,
 			state: stateId,
@@ -268,28 +468,63 @@ class companyJobRepositery {
 		return id;
 	}
 
+	async getStateName(stateId: number) {
+		const [row] = await db.select({ name: cybState.name })
+			.from(cybState)
+			.where(eq(cybState.id, stateId))
+			.limit(1);
+		return row?.name ?? null;
+	}
+
+	async getDesignationName(designationId: number) {
+		const [row] = await db.select({ name: cybDesignation.name })
+			.from(cybDesignation)
+			.where(eq(cybDesignation.id, designationId))
+			.limit(1);
+		return row?.name ?? null;
+	}
+
+	async getExperienceName(experienceId: number) {
+		const [row] = await db.select({ name: cybJobExperiences.name })
+			.from(cybJobExperiences)
+			.where(eq(cybJobExperiences.id, experienceId))
+			.limit(1);
+		return row?.name ?? null;
+	}
+
 	// ====== Job Status Change ======
 
 	async findJobByIdAndCompany(jobId: number, companyId: number) {
-		const [row] = await db.select()
+		const [row] = await db.select({
+			id: cybCompanyJob.id,
+			company: cybCompanyJob.company,
+			status: cybCompanyJob.status,
+			jobTitle: cybCompanyJob.jobTitle,
+		})
 			.from(cybCompanyJob)
 			.where(and(
 				eq(cybCompanyJob.id, jobId),
 				eq(cybCompanyJob.company, companyId),
 				eq(cybCompanyJob.isDeleted, 0),
-			));
+			))
+			.limit(1);
 		return row;
 	}
 
-	async updateJobStatus(jobId: number, status: number) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-		const setFields: Record<string, any> = { status };
+	async updateJobStatus(jobId: number, companyId: number, status: number) {
+		const now = nowSql();
+		const setFields: { status: number; createDate?: string } = { status };
 		if (status === 1) {
 			setFields.createDate = now;
 		}
-		await db.update(cybCompanyJob)
+		const result = await db.update(cybCompanyJob)
 			.set(setFields)
-			.where(eq(cybCompanyJob.id, jobId));
+			.where(and(
+				eq(cybCompanyJob.id, jobId),
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.isDeleted, 0),
+			));
+		return affectedRows(result);
 	}
 
 	// ====== Delete Job ======
@@ -300,8 +535,9 @@ class companyJobRepositery {
 			.where(and(
 				eq(cybCompanyJob.id, jobId),
 				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.isDeleted, 0),
 			));
-		return result;
+		return affectedRows(result);
 	}
 
 	// ====== Cancel Job ======
@@ -312,8 +548,9 @@ class companyJobRepositery {
 			.where(and(
 				eq(cybCompanyJob.id, jobId),
 				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.isDeleted, 0),
 			));
-		return result;
+		return affectedRows(result);
 	}
 
 	async getJobApplicants(jobId: number) {
@@ -329,22 +566,8 @@ class companyJobRepositery {
 		return rows;
 	}
 
-	async getUserDetail(userId: number) {
-		const [row] = await db.select({
-			id: cybUser.id,
-			fname: cybUser.fname,
-			lname: cybUser.lname,
-			email: cybUser.email,
-			slug: cybUser.slug,
-		})
-			.from(cybUser)
-			.where(eq(cybUser.id, userId))
-			.limit(1);
-		return row;
-	}
-
 	async createNotification(sender: number, receiver: number, message: string, link: string, redirect: string) {
-		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const now = nowSql();
 		await db.insert(cybNotifications).values({
 			sender,
 			receiver,
@@ -354,6 +577,20 @@ class companyJobRepositery {
 			createDate: now,
 			modifyDate: now,
 		});
+	}
+
+	async createNotifications(
+		items: { sender: number; receiver: number; message: string; link: string; redirect: string }[],
+	) {
+		if (items.length === 0) return;
+		const now = nowSql();
+		await db.insert(cybNotifications).values(
+			items.map((item) => ({
+				...item,
+				createDate: now,
+				modifyDate: now,
+			})),
+		);
 	}
 
 	// ====== Job Template ======
@@ -438,31 +675,31 @@ class companyJobRepositery {
 	// ====== Multi Operations ======
 
 	async multiCancelJobs(ids: number[], companyId: number) {
-		for (const id of ids) {
-			await db.update(cybCompanyJob)
-				.set({ status: 2 })
-				.where(and(
-					eq(cybCompanyJob.id, id),
-					eq(cybCompanyJob.company, companyId),
-				));
-		}
+		if (ids.length === 0) return 0;
+		const result = await db.update(cybCompanyJob)
+			.set({ status: 2 })
+			.where(and(
+				inArray(cybCompanyJob.id, ids),
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.isDeleted, 0),
+			));
+		return affectedRows(result);
 	}
 
 	async multiUpdateJobStatus(ids: number[], status: number, companyId: number) {
-		for (const id of ids) {
-			const [job] = await db.select({ id: cybCompanyJob.id })
-				.from(cybCompanyJob)
-				.where(and(
-					eq(cybCompanyJob.id, id),
-					eq(cybCompanyJob.company, companyId),
-				));
-
-			if (job) {
-				await db.update(cybCompanyJob)
-					.set({ status })
-					.where(eq(cybCompanyJob.id, id));
-			}
+		if (ids.length === 0) return 0;
+		const setFields: { status: number; createDate?: string } = { status };
+		if (status === 1) {
+			setFields.createDate = nowSql();
 		}
+		const result = await db.update(cybCompanyJob)
+			.set(setFields)
+			.where(and(
+				inArray(cybCompanyJob.id, ids),
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.isDeleted, 0),
+			));
+		return affectedRows(result);
 	}
 }
 

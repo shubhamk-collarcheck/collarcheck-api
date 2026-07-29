@@ -1,12 +1,14 @@
-import db from "../db";
-import { cybSkill } from "../db/schema";
 import skillRepositery from "../repositery/skill.repositery";
 import userSkillRepositery from "../repositery/user-skill.repositery";
 import { BadRequestError } from "../middlewares/errorHandler";
 import type { SkillBody } from "../types/skill.types";
-import type { InferInsertModel } from "drizzle-orm";
 
-type NewSkill = InferInsertModel<typeof cybSkill>
+type NewSkill = {
+	name: string;
+	userDefined: number;
+	userId: number;
+	status: number;
+}
 
 type ResolveResult<T> = {
 	id: number | null

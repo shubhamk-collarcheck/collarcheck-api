@@ -18,12 +18,18 @@ import {
 	multiCancelJob, multiJobStatusChange,
 } from "../controllers/company-job.controller";
 import { educationUpload } from "../utils/educationUpload";
-import { allReviewQuerySchema, addReviewSchema, reviewIdParamsSchema, viewReviewParamsSchema, addHelpSchema, allApplicationQuerySchema, updateBasicExperienceParamsSchema } from "../types/company-review.types";
+import {
+	allReviewQuerySchema, addReviewSchema, addReviewUpdateSchema, reviewIdParamsSchema,
+	viewReviewParamsSchema, addHelpSchema, allApplicationQuerySchema, updateBasicExperienceParamsSchema,
+} from "../types/company-review.types";
 import {
 	allReview, addReview, addReviewUpdate, rejectReview, viewReviewDetail,
 	addHelp, allApplication, updateBasicExperience,
 } from "../controllers/company-review.controller";
-import { addBenefitSchema, benefitIdParamsSchema, addGallerySchema, galleryIdParamsSchema } from "../types/company-benefit-gallery.types";
+import {
+	addBenefitSchema, addBenefitUpdateSchema, benefitIdParamsSchema,
+	addGallerySchema, addGalleryUpdateSchema, galleryIdParamsSchema,
+} from "../types/company-benefit-gallery.types";
 import {
 	getBenefit, addBenefit, addBenefitUpdate, deleteBenefit,
 	getGallery, addGallery, addGalleryUpdate, deleteGallery,
@@ -81,7 +87,7 @@ companyRouter.post("/multi-jobStatusChange", Authorization, validateData(multiJo
 
 companyRouter.get("/all-review", Authorization, validateData(allReviewQuerySchema), allReview);
 companyRouter.post("/add-review", Authorization, educationUpload.array("document"), validateData(addReviewSchema), addReview);
-companyRouter.post("/add-review/:id", Authorization, educationUpload.array("document"), validateData(addReviewSchema), addReviewUpdate);
+companyRouter.post("/add-review/:id", Authorization, educationUpload.array("document"), validateData(addReviewUpdateSchema), addReviewUpdate);
 companyRouter.put("/rejectReview/:id", Authorization, validateData(reviewIdParamsSchema), rejectReview);
 companyRouter.get("/view-review/:id", Authorization, validateData(viewReviewParamsSchema), viewReviewDetail);
 companyRouter.post("/add-help", Authorization, validateData(addHelpSchema), addHelp);
@@ -90,12 +96,12 @@ companyRouter.put("/updateBasicExperience/:id", Authorization, validateData(upda
 
 companyRouter.get("/benefit", Authorization, getBenefit);
 companyRouter.post("/addBenafit", Authorization, validateData(addBenefitSchema), addBenefit);
-companyRouter.post("/addBenafit/:id", Authorization, validateData(addBenefitSchema), addBenefitUpdate);
+companyRouter.post("/addBenafit/:id", Authorization, validateData(addBenefitUpdateSchema), addBenefitUpdate);
 companyRouter.delete("/deleteBenafit/:id", Authorization, validateData(benefitIdParamsSchema), deleteBenefit);
 
 companyRouter.get("/gallery", Authorization, getGallery);
-companyRouter.post("/addGallery", Authorization, uploadToS3.array("file"), addGallery);
-companyRouter.post("/addGallery/:id", Authorization, uploadToS3.array("file"), addGalleryUpdate);
+companyRouter.post("/addGallery", Authorization, uploadToS3.array("file"), validateData(addGallerySchema), addGallery);
+companyRouter.post("/addGallery/:id", Authorization, uploadToS3.array("file"), validateData(addGalleryUpdateSchema), addGalleryUpdate);
 companyRouter.delete("/deleteGallery/:id", Authorization, validateData(galleryIdParamsSchema), deleteGallery);
 
 companyRouter.post("/addEmployee", Authorization, validateData(addEmployeeSchema), addEmployee);

@@ -1,168 +1,154 @@
 import { ConflictError, NotFoundError, BadRequestError } from '../middlewares/errorHandler';
 import generalRepositery from '../repositery/general.repositery';
-import { and, asc, desc, eq, inArray, sql, ne } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/mysql-core';
-import db from '../db';
-import {
-	cybCities, cybState, cybCountry, cybTurnover, cybCompanySize, cybNoticePeriod,
-	cybLanguages, cybIndustries, cybSalary, cybBenefits, cybRoleTypes, cybJobExperiences,
-	cybAccomodation, cybCourses, cybCourseType, cybTag, cybInstitutions, cybDesignation,
-	cybSkill, cybJobMode, cybDepartment, cybEmployementType, cybWorkType, cybUser,
-	cybUserSkill, cybUserExperience, cybCompanyJob, cybJobMeta, cybCompanyBenefits,
-	cybUserExperienceRating, cybCompanyInvite, cybSuggestion, cybUserLoginHistory,
-} from '../db/schema';
+import institutionRepositery from '../repositery/institution.repositery';
+import courseRepositery from '../repositery/course.repositery';
+import departmentRepositery from '../repositery/department.repositery';
+import designationRepositery from '../repositery/designation.repositery';
+import skillRepositery from '../repositery/skill.repositery';
+import employmentRepositery from '../repositery/employee.repositery';
 import { get_empoyee_designation_service, get_industry_list_service, get_state_by_employees_service, get_state_by_id_service, get_employee_department_service, get_skill_list_service, get_course_list_service, get_user_skill_service, get_user_experience_skill_service } from './job.service';
 import { allEmploymentType } from '../controllers/general.controller';
+import { user_verified } from './users.service';
 
 const s3Prefix = process.env.S3_PREFIX || '';
 
 export const getCitiesService = async (state?: number) => {
-	const conditions = [eq(cybCities.status, 1)];
-	if (state) {
-		conditions.push(eq(cybCities.state, state));
-	}
-	return db.select().from(cybCities).where(and(...conditions)).orderBy(asc(cybCities.name));
+	return generalRepositery.getCities(state);
 };
 
 export const getCitiesByIdService = async (stateId?: number) => {
-	const conditions = [eq(cybCities.status, 1)];
-	if (stateId) {
-		conditions.push(eq(cybCities.state, stateId));
-	}
-	return db.select({ id: cybCities.id, name: cybCities.name }).from(cybCities).where(and(...conditions)).orderBy(asc(cybCities.name));
+	return generalRepositery.getCitiesIdName(stateId);
 };
 
 export const getStatesService = async (country?: number) => {
-	const conditions = [eq(cybState.status, 1)];
-	if (country) {
-		conditions.push(eq(cybState.country, country));
-	}
-	return db.select().from(cybState).where(and(...conditions)).orderBy(asc(cybState.name));
+	return generalRepositery.getStates(country);
 };
 
+function withImageUrl(image: string | null | undefined) {
+	return image ? `${s3Prefix}${image}` : '';
+}
+
+function withProfileUrl(profile: string | null | undefined, socialImage: string | null | undefined) {
+	return profile ? `${s3Prefix}${profile}` : (socialImage || '');
+}
+
 export const getCountriesService = async () => {
-	const countryData = await db.select({ id: cybCountry.id, name: cybCountry.name }).from(cybCountry).where(eq(cybCountry.status, 1));
+	const countryData = await generalRepositery.getActiveCountries();
+	// PHP: force India (id=101) first
 	return [...countryData.filter(c => c.id === 101), ...countryData.filter(c => c.id !== 101)];
 };
 
 export const getTurnoverService = async () => {
-	return db.select({ id: cybTurnover.id, name: cybTurnover.name }).from(cybTurnover).where(eq(cybTurnover.status, 1));
+	return generalRepositery.getActiveTurnovers();
 };
 
 export const getNoticePeriodService = async (type?: string) => {
-	const conditions = [eq(cybNoticePeriod.status, 1)];
-	if (type) {
-		conditions.push(eq(cybNoticePeriod.type, type));
-	}
-	return db.select().from(cybNoticePeriod).where(and(...conditions));
+	return generalRepositery.getActiveNoticePeriods(type);
 };
 
 export const getCompanySizeService = async () => {
-	return db.select({ id: cybCompanySize.id, name: cybCompanySize.name }).from(cybCompanySize).where(eq(cybCompanySize.status, 1));
+	return generalRepositery.getActiveCompanySizes();
 };
 
 export const getIndustriesService = async () => {
-	return db.select({ id: cybIndustries.id, name: cybIndustries.name }).from(cybIndustries).where(eq(cybIndustries.status, 1)).orderBy(asc(cybIndustries.name)).limit(30);
+	return generalRepositery.getActiveIndustries(30);
 };
 
 export const getSalaryService = async () => {
-	return db.select({ id: cybSalary.id, name: cybSalary.name }).from(cybSalary).where(eq(cybSalary.status, 1));
+	return generalRepositery.getActiveSalaries();
 };
 
 export const getBenefitsService = async () => {
-	const rows = await db.select({ id: cybBenefits.id, name: cybBenefits.name, image: cybBenefits.image }).from(cybBenefits).where(eq(cybBenefits.status, 1));
+	const rows = await generalRepositery.getActiveBenefits();
 	return rows.map(r => ({
 		id: r.id,
 		name: r.name,
-		image: r.image ? `${s3Prefix}${r.image}` : '',
+		image: withImageUrl(r.image),
 	}));
 };
 
 export const getRoleTypesService = async () => {
-	return db.select({ id: cybRoleTypes.id, name: cybRoleTypes.name }).from(cybRoleTypes).where(eq(cybRoleTypes.status, 1));
+	return generalRepositery.getActiveRoleTypes();
 };
 
 export const getJobExperienceService = async () => {
-	return db.select({ id: cybJobExperiences.id, name: cybJobExperiences.name }).from(cybJobExperiences).where(eq(cybJobExperiences.status, 1));
+	return generalRepositery.getActiveJobExperiences();
 };
 
 export const getAccomodationService = async () => {
-	return db.select({ id: cybAccomodation.id, name: cybAccomodation.name }).from(cybAccomodation).where(eq(cybAccomodation.status, 1));
+	return generalRepositery.getActiveAccomodations();
 };
 
 export const getTagsService = async () => {
-	return db.select({ id: cybTag.id, name: cybTag.name }).from(cybTag).where(eq(cybTag.status, 1));
+	return generalRepositery.getActiveTags();
 };
 
 export const getLanguagesService = async () => {
-	return db.select({ id: cybLanguages.id, name: cybLanguages.name }).from(cybLanguages).where(eq(cybLanguages.status, 1));
+	return generalRepositery.getActiveLanguages();
 };
 
 export const getCoursesService = async () => {
-	const rows = await db.select({ id: cybCourses.id, name: cybCourses.name, image: cybCourses.image }).from(cybCourses).where(eq(cybCourses.status, 1)).orderBy(asc(cybCourses.name)).limit(30);
+	const rows = await courseRepositery.getActiveList(30);
 	return rows.map(row => ({
 		id: row.id,
 		name: row.name,
-		image: row.image ? `${s3Prefix}${row.image}` : '',
+		image: withImageUrl(row.image),
 	}));
 };
 
 export const getCourseTypesService = async () => {
-	return db.select({ id: cybCourseType.id, name: cybCourseType.name }).from(cybCourseType).where(eq(cybCourseType.status, 1)).orderBy(asc(cybCourseType.name)).limit(30);
+	return courseRepositery.getActiveCourseTypes();
 };
 
 export const getInstitutionsService = async () => {
-	const rows = await db.select({ id: cybInstitutions.id, name: cybInstitutions.name, image: cybInstitutions.image }).from(cybInstitutions).where(eq(cybInstitutions.status, 1)).orderBy(asc(cybInstitutions.name)).limit(30);
+	const rows = await institutionRepositery.getActiveList(30);
 	return rows.map(row => ({
 		id: row.id,
 		name: row.name,
-		image: row.image ? `${s3Prefix}${row.image}` : '',
+		image: withImageUrl(row.image),
 	}));
 };
 
 export const getEducationDataService = async () => {
-	const [courseList, courseTypeList, institutionList] = await Promise.all([
+	const [institutionList, courseList, courseTypeList, countryList] = await Promise.all([
+		getInstitutionsService(),
 		getCoursesService(),
 		getCourseTypesService(),
-		getInstitutionsService(),
+		getCountriesService(),
 	]);
-	return { courseList, courseTypeList, institutionList };
+	return { institutionList, courseList, courseTypeList, countryList };
 };
 
 
 export const getAllDesignationService = async () => {
-	return await db.select({ id: cybDesignation.id, name: cybDesignation.name }).from(cybDesignation).where(eq(cybDesignation.status, 1)).orderBy(cybDesignation.id).limit(30);
+	return designationRepositery.getRandomActive(30);
 };
 
 
 export const allSkillService = async () => {
-	return await db.select({ id: cybSkill.id, name: cybSkill.name }).from(cybSkill).where(eq(cybSkill.status, 1)).orderBy(sql`RAND()`).limit(30);
+	return skillRepositery.getRandomActive(30);
 }
 
 export const jobTypeService = async () => {
-	const conditions = [eq(cybJobMode.status, 1)]
-	return await db.select({ id: cybJobMode.id, name: cybJobMode.name }).from(cybJobMode).where(and(...conditions))
+	return generalRepositery.getActiveJobModes();
 }
 
 
 export const allDepartmentService = async () => {
-	return await db.select({ id: cybDepartment.id, name: cybDepartment.name }).from(cybDepartment).where(eq(cybDepartment.status, 1)).orderBy(sql`RAND()`).limit(30);
+	return departmentRepositery.getRandomActive(30);
 }
 
 export const allCourseTypeService = async () => {
-	const conditions = [eq(cybCourseType.status, 1)]
-	return await db.select({ id: cybCourseType.id, name: cybCourseType.name }).from(cybCourseType).where(and(...conditions))
+	return courseRepositery.getActiveCourseTypes();
 }
 
 export const allEmploymentTypeService = async () => {
-	const conditions = [eq(cybEmployementType.status, 1)]
-	return await db.select({ id: cybEmployementType.id, name: cybEmployementType.name }).from(cybEmployementType).where(and(...conditions))
+	return generalRepositery.getActiveEmploymentTypes();
 }
 
 
 export const allWorkTypeService = async () => {
-	const conditions = [eq(cybWorkType.status, 1)]
-	return await db.select({ id: cybWorkType.id, name: cybWorkType.name }).from(cybWorkType).where(and(...conditions))
+	return generalRepositery.getActiveWorkTypes();
 }
 
 export const employeeFilterDataListService = async () => {
@@ -279,226 +265,146 @@ export const jobDataListService = async () => {
 
 
 
+/** Fisher–Yates shuffle (mutates copy) — pure business helper, not DB */
+function shuffleInPlace<T>(arr: T[]): T[] {
+	for (let i = arr.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[arr[i], arr[j]] = [arr[j], arr[i]];
+	}
+	return arr;
+}
+
+/**
+ * PHP FrontModel tier-shuffle: pool ordered by total_employment DESC,
+ * split into 3 tiers, shuffle each, merge, take first N.
+ */
+function tierShuffleTake<T>(pool: T[], take: number): T[] {
+	if (pool.length === 0) return [];
+	const tierSize = Math.ceil(pool.length / 3);
+	const top = shuffleInPlace(pool.slice(0, tierSize));
+	const mid = shuffleInPlace(pool.slice(tierSize, tierSize * 2));
+	const low = shuffleInPlace(pool.slice(tierSize * 2));
+	return [...top, ...mid, ...low].slice(0, take);
+}
+
 export const employmentListService = async (id?: string) => {
 	const [
 		designationList,
 		departmentList,
 		salaryList,
 		skillList,
-		employementTypeList
-	] = await Promise.all(
-		[
-			getAllDesignationService(),
-			allDepartmentService(),
-			getSalaryService(),
-			allSkillService(),
-			allEmploymentTypeService(),
-		]
-	)
+		employementTypeList,
+		companyPool,
+		userCount,
+	] = await Promise.all([
+		getAllDesignationService(),
+		allDepartmentService(),
+		getSalaryService(),
+		allSkillService(),
+		allEmploymentTypeService(),
+		generalRepositery.getDefaultCompanyPool(30),
+		generalRepositery.countActiveEmployees(),
+	]);
 
-	const companyUser = alias(cybUser, 'company')
+	const companyRows = tierShuffleTake(companyPool, 10);
+	const userOffset = userCount > 10 ? Math.floor(Math.random() * (userCount - 10 + 1)) : 0;
+	const userRows = await generalRepositery.getDefaultUserList(10, userOffset);
 
-	const [companyRows, userRows] = await Promise.all([
-		db.select({
-			id: cybUser.id,
-			individualId: cybUser.individualId,
-			profile: cybUser.profile,
-			socialImage: cybUser.socialImage,
-			fname: cybUser.fname,
-			contactPerson: cybUser.contactPerson,
-			cityName: cybCities.name,
-			stateName: cybState.name,
-			industryName: cybIndustries.name,
-			totalEmployment: cybUser.noOfEmployee,
-			emailVerified: cybUser.emailVerified,
-			phoneVerified: cybUser.phoneVerified,
-		})
-			.from(cybUser)
-			.leftJoin(cybCities, eq(cybUser.city, cybCities.id))
-			.leftJoin(cybState, eq(cybUser.state, cybState.id))
-			.leftJoin(cybIndustries, eq(cybUser.industry, cybIndustries.id))
-			.where(and(eq(cybUser.userType, 2), eq(cybUser.status, 1), eq(cybUser.isDeleted, 0)))
-			.orderBy(asc(cybUser.id))
-			.limit(10),
-		db.select({
-			id: cybUser.id,
-			individualId: cybUser.individualId,
-			profile: cybUser.profile,
-			socialImage: cybUser.socialImage,
-			fullName: cybUser.fullName,
-			slug: cybUser.slug,
-			designationName: cybDesignation.name,
-			companyName: companyUser.fname,
-			percentage: cybUser.percentage,
-			emailVerified: cybUser.emailVerified,
-			phoneVerified: cybUser.phoneVerified,
-		})
-			.from(cybUser)
-			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
-			.leftJoin(companyUser, eq(cybUser.currentCompany, companyUser.id))
-			.where(and(eq(cybUser.userType, 1), eq(cybUser.status, 1), eq(cybUser.isDeleted, 0)))
-			.orderBy(asc(cybUser.id))
-			.limit(10),
-	])
+	const companyIds = companyRows.map((c) => c.id);
+	const activeJobIds = await generalRepositery.getActiveJobCompanyIds(companyIds);
+	const activeJobCompanySet = new Set(activeJobIds);
 
-	const companyIds = companyRows.map(c => c.id)
-	let activeJobCompanySet = new Set<number>()
-	if (companyIds.length > 0) {
-		const activeJobRows = await db.selectDistinct({ companyId: cybCompanyJob.company })
-			.from(cybCompanyJob)
-			.where(and(
-				inArray(cybCompanyJob.company, companyIds),
-				eq(cybCompanyJob.status, 1),
-				eq(cybCompanyJob.isDeleted, 0)
-			))
-		activeJobCompanySet = new Set(activeJobRows.map(j => j.companyId).filter((id): id is number => id !== null))
+	const companyList: Array<Record<string, unknown>> = [];
+	for (const c of companyRows) {
+		companyList.push({
+			id: c.id,
+			individual_id: c.individualId,
+			company_logo: withProfileUrl(c.profile, c.socialImage),
+			company: c.fname,
+			contact_person: c.contactPerson,
+			city_name: c.cityName ?? null,
+			state_name: c.stateName ?? null,
+			industry_name: c.industryName ?? null,
+			is_verified: await user_verified(c.id),
+			exploreTalent: activeJobCompanySet.has(c.id) ? 1 : 0,
+			total_employment: Number(c.totalEmployment) || 0,
+		});
 	}
 
-	const companyList: {
-		id: number; individual_id: string | null; company_logo: string; company: string | null;
-		contact_person: string | null; city_name: string | null; state_name: string | null;
-		industry_name: string | null; is_verified: number; exploreTalent: number; total_employment: number | null
-	}[] = companyRows.map(c => ({
-		id: c.id,
-		individual_id: c.individualId,
-		company_logo: c.profile ? `${s3Prefix}${c.profile}` : (c.socialImage || ''),
-		company: c.fname,
-		contact_person: c.contactPerson,
-		city_name: c.cityName,
-		state_name: c.stateName,
-		industry_name: c.industryName,
-		is_verified: (c.emailVerified || c.phoneVerified) ? 1 : 0,
-		exploreTalent: activeJobCompanySet.has(c.id) ? 1 : 0,
-		total_employment: c.totalEmployment,
-	}))
+	const userList: Array<Record<string, unknown>> = [];
+	for (const u of userRows) {
+		userList.push({
+			id: u.id,
+			individual_id: u.individualId,
+			profile: withProfileUrl(u.profile, u.socialImage),
+			name: u.fullName,
+			slug: u.slug,
+			designation_name: u.designationName ?? null,
+			company_name: u.companyName ?? null,
+			userRating: await employmentRepositery.getOverallProfileRating(u.id),
+			is_verified: await user_verified(u.id),
+		});
+	}
 
-	const userList: {
-		id: number; individual_id: string | null; profile: string; name: string | null;
-		slug: string | null; designation_name: string | null; company_name: string | null;
-		userRating: number; is_verified: number
-	}[] = userRows.map(u => ({
-		id: u.id,
-		individual_id: u.individualId,
-		profile: u.profile ? `${s3Prefix}${u.profile}` : (u.socialImage || ''),
-		name: u.fullName,
-		slug: u.slug,
-		designation_name: u.designationName,
-		company_name: u.companyName,
-		userRating: u.percentage || 0,
-		is_verified: (u.emailVerified || u.phoneVerified) ? 1 : 0,
-	}))
-
-	if (id) {
-		const [currUser] = await db.select({
-			id: cybUser.id,
-			individualId: cybUser.individualId,
-			profile: cybUser.profile,
-			socialImage: cybUser.socialImage,
-			fname: cybUser.fname,
-			lname: cybUser.lname,
-			fullName: cybUser.fullName,
-			slug: cybUser.slug,
-			contactPerson: cybUser.contactPerson,
-			userType: cybUser.userType,
-			emailVerified: cybUser.emailVerified,
-			phoneVerified: cybUser.phoneVerified,
-		})
-			.from(cybUser)
-			.where(and(eq(cybUser.id, Number(id)), eq(cybUser.isDeleted, 0)))
-			.limit(1)
-
-		if (currUser) {
-			if (currUser.userType === 1) {
-				userList.push({
-					id: currUser.id,
-					individual_id: currUser.individualId,
-					profile: currUser.profile ? `${s3Prefix}${currUser.profile}` : (currUser.socialImage || ''),
-					name: currUser.fullName || `${currUser.fname} ${currUser.lname}`.trim(),
-					slug: currUser.slug,
-					designation_name: null,
-					company_name: null,
-					userRating: 0,
-					is_verified: (currUser.emailVerified || currUser.phoneVerified) ? 1 : 0,
-				})
-			} else {
-				companyList.push({
-					id: currUser.id,
-					individual_id: currUser.individualId,
-					company_logo: currUser.profile ? `${s3Prefix}${currUser.profile}` : (currUser.socialImage || ''),
-					company: currUser.fname,
-					contact_person: currUser.contactPerson,
-					city_name: null,
-					state_name: null,
-					industry_name: null,
-					is_verified: (currUser.emailVerified || currUser.phoneVerified) ? 1 : 0,
-					exploreTalent: 0,
-					total_employment: null,
-				})
+	// Optional ?id= prepend (partial objects — PHP shape)
+	// Prefer Zod-validated query in the controller; here accept number or numeric string from route.
+	if (id != null && id !== '') {
+		const parsedId = typeof id === 'number' ? id : Number.parseInt(String(id), 10);
+		if (Number.isFinite(parsedId)) {
+			const currUser = await generalRepositery.getUserForEmploymentPrepend(parsedId);
+			if (currUser) {
+				if (currUser.userType === 1) {
+					userList.push({
+						id: currUser.id,
+						individual_id: currUser.individualId,
+						profile: withProfileUrl(currUser.profile, currUser.socialImage),
+						name: `${currUser.fname || ''} ${currUser.lname || ''}`.trim(),
+					});
+				} else {
+					companyList.push({
+						id: currUser.id,
+						individual_id: currUser.individualId,
+						company_logo: withProfileUrl(currUser.profile, currUser.socialImage),
+						company: currUser.fname,
+						contact_person: currUser.contactPerson,
+					});
+				}
 			}
 		}
 	}
 
-	return {
+	const data: Record<string, unknown> = {
 		designationList,
 		departmentList,
 		salaryList,
-		skillList,
-		employementTypeList,
-		companyList,
-		userList,
-	}
+		skillList: skillList || [],
+		employementTypeList, // legacy typo — do not rename
+	};
+
+	if (companyList.length > 0) data.companyList = companyList;
+	if (userList.length > 0) data.userList = userList;
+
+	return data;
 }
 
 
 export const jobFilterDataListService = async (slug?: string, type?: string) => {
-	if (!slug) {
-		return {
-			countryList: [], stateList: [], cityList: [], designationList: [],
-			departmentList: [], skillList: [], industryList: [], salaryList: [],
-			jobExperienceList: [], companyList: [], roleTypeList: [],
-			company_benefit: [], jobModeList: [],
-		};
-	}
+	const empty = {
+		countryList: [], stateList: [], cityList: [], designationList: [],
+		departmentList: [], skillList: [], industryList: [], salaryList: [],
+		jobExperienceList: [], companyList: [], roleTypeList: [],
+		company_benefit: [], jobModeList: [],
+	};
+	if (!slug) return empty;
 
-	const [meta] = await db.select().from(cybJobMeta).where(eq(cybJobMeta.jobSlug, slug)).limit(1);
-
-	if (!meta) {
-		return {
-			countryList: [], stateList: [], cityList: [], designationList: [],
-			departmentList: [], skillList: [], industryList: [], salaryList: [],
-			jobExperienceList: [], companyList: [], roleTypeList: [],
-			company_benefit: [], jobModeList: [],
-		};
-	}
+	const meta = await generalRepositery.getJobMetaBySlug(slug);
+	if (!meta) return empty;
 
 	const countryIds = meta.countryId ? String(meta.countryId).split(',').map(Number).filter(Boolean) : [];
 	const stateIds = meta.stateId ? String(meta.stateId).split(',').map(Number).filter(Boolean) : [];
 	const cityIds = meta.cityId ? String(meta.cityId).split(',').map(Number).filter(Boolean) : [];
-	const designationIds = meta.designationId ? String(meta.designationId).split(',').map(Number).filter(Boolean) : [];
-	const departmentIds = meta.departmentId ? String(meta.departmentId).split(',').map(Number).filter(Boolean) : [];
 
-	const jobConditions = [eq(cybCompanyJob.status, 1), eq(cybCompanyJob.isDeleted, 0), eq(cybUser.isDeleted, 0)];
-
-	if (countryIds.length > 0) jobConditions.push(inArray(cybCompanyJob.country, countryIds));
-	if (stateIds.length > 0) jobConditions.push(inArray(cybCompanyJob.state, stateIds));
-	if (cityIds.length > 0) jobConditions.push(inArray(cybCompanyJob.city, cityIds));
-
-	const jobColumns = {
-		designation: cybCompanyJob.designation,
-		department: cybCompanyJob.department,
-		skill: cybCompanyJob.skill,
-		industry: cybCompanyJob.industry,
-		salary: cybCompanyJob.salary,
-		experience: cybCompanyJob.experience,
-		company: cybCompanyJob.company,
-		roleType: cybCompanyJob.roleType,
-		jobMode: cybCompanyJob.jobMode,
-	};
-
-	const jobRows = await db.select(jobColumns)
-		.from(cybCompanyJob)
-		.leftJoin(cybUser, eq(cybCompanyJob.company, cybUser.id))
-		.where(and(...jobConditions));
+	const jobRows = await generalRepositery.getJobsForFilter(countryIds, stateIds, cityIds);
 
 	const uniqueDesignations = [...new Set(jobRows.map(r => r.designation).filter((v): v is number => v !== null && v !== undefined))];
 	const uniqueDepartments = [...new Set(jobRows.map(r => r.department).filter((v): v is number => v !== null && v !== undefined))];
@@ -517,7 +423,7 @@ export const jobFilterDataListService = async (slug?: string, type?: string) => 
 				if (Array.isArray(decoded)) {
 					for (const id of decoded) { if (id) allSkillIds.add(Number(id)); }
 				}
-			} catch { }
+			} catch { /* ignore bad skill JSON */ }
 		}
 	}
 
@@ -527,46 +433,42 @@ export const jobFilterDataListService = async (slug?: string, type?: string) => 
 		roleTypeList, jobModeList, company_benefit,
 	] = await Promise.all([
 		countryIds.length > 0
-			? db.select({ id: cybCountry.id, name: cybCountry.name }).from(cybCountry).where(and(eq(cybCountry.status, 1), inArray(cybCountry.id, countryIds)))
+			? generalRepositery.getCountriesByIds(countryIds)
 			: getCountriesService(),
 		stateIds.length > 0
 			? get_state_by_id_service(stateIds)
-			: db.select({ id: cybState.id, name: cybState.name }).from(cybState).where(and(eq(cybState.status, 1), inArray(cybState.id, stateIds.length > 0 ? stateIds : [0]))),
+			: generalRepositery.getStatesByIds(stateIds.length > 0 ? stateIds : [0]),
 		cityIds.length > 0
-			? db.select({ id: cybCities.id, name: cybCities.name }).from(cybCities).where(and(eq(cybCities.status, 1), inArray(cybCities.id, cityIds)))
-			: db.select({ id: cybCities.id, name: cybCities.name }).from(cybCities).where(eq(cybCities.status, 1)).limit(100),
+			? generalRepositery.getCitiesByIds(cityIds)
+			: generalRepositery.getCitiesSample(100),
 		uniqueDesignations.length > 0
-			? db.select({ id: cybDesignation.id, name: cybDesignation.name }).from(cybDesignation).where(and(eq(cybDesignation.status, 1), inArray(cybDesignation.id, uniqueDesignations)))
+			? generalRepositery.getDesignationsByIds(uniqueDesignations)
 			: getAllDesignationService(),
 		uniqueDepartments.length > 0
-			? db.select({ id: cybDepartment.id, name: cybDepartment.name }).from(cybDepartment).where(and(eq(cybDepartment.status, 1), inArray(cybDepartment.id, uniqueDepartments)))
+			? generalRepositery.getDepartmentsByIds(uniqueDepartments)
 			: allDepartmentService(),
 		allSkillIds.size > 0
 			? get_skill_list_service([...allSkillIds])
 			: allSkillService(),
 		uniqueIndustries.length > 0
-			? db.select({ id: cybIndustries.id, name: cybIndustries.name }).from(cybIndustries).where(and(eq(cybIndustries.status, 1), inArray(cybIndustries.id, uniqueIndustries)))
+			? generalRepositery.getIndustriesByIds(uniqueIndustries)
 			: getIndustriesService(),
 		uniqueSalaries.length > 0
-			? db.select({ id: cybSalary.id, name: cybSalary.name }).from(cybSalary).where(and(eq(cybSalary.status, 1), inArray(cybSalary.id, uniqueSalaries)))
+			? generalRepositery.getSalariesByIds(uniqueSalaries)
 			: getSalaryService(),
 		uniqueExperiences.length > 0
-			? db.select({ id: cybJobExperiences.id, name: cybJobExperiences.name }).from(cybJobExperiences).where(and(eq(cybJobExperiences.status, 1), inArray(cybJobExperiences.id, uniqueExperiences)))
+			? generalRepositery.getJobExperiencesByIds(uniqueExperiences)
 			: getJobExperienceService(),
 		uniqueCompanies.length > 0
-			? db.select({ id: cybUser.id, name: cybUser.fname }).from(cybUser).where(and(eq(cybUser.status, 1), eq(cybUser.isDeleted, 0), inArray(cybUser.id, uniqueCompanies)))
-			: db.select({ id: cybUser.id, name: cybUser.fname }).from(cybUser).where(and(eq(cybUser.status, 1), eq(cybUser.isDeleted, 0), eq(cybUser.userType, 2))).limit(30),
+			? generalRepositery.getCompanyNamesByIds(uniqueCompanies)
+			: generalRepositery.getCompanyNamesSample(30),
 		uniqueRoleTypes.length > 0
-			? db.select({ id: cybRoleTypes.id, name: cybRoleTypes.name }).from(cybRoleTypes).where(and(eq(cybRoleTypes.status, 1), inArray(cybRoleTypes.id, uniqueRoleTypes)))
+			? generalRepositery.getRoleTypesByIds(uniqueRoleTypes)
 			: getRoleTypesService(),
 		uniqueJobModes.length > 0
-			? db.select({ id: cybJobMode.id, name: cybJobMode.name }).from(cybJobMode).where(and(eq(cybJobMode.status, 1), inArray(cybJobMode.id, uniqueJobModes)))
+			? generalRepositery.getJobModesByIds(uniqueJobModes)
 			: jobTypeService(),
-		db.select({ id: cybBenefits.id, name: cybBenefits.name, image: cybBenefits.image })
-			.from(cybBenefits)
-			.leftJoin(cybCompanyBenefits, eq(cybBenefits.id, cybCompanyBenefits.benefitId))
-			.where(and(eq(cybBenefits.status, 1), eq(cybCompanyBenefits.isDeleted, 0)))
-			.groupBy(cybBenefits.id),
+		generalRepositery.getBenefitsUsedByCompanies(),
 	]);
 
 	return {
@@ -592,67 +494,12 @@ export const jobFilterDataListService = async (slug?: string, type?: string) => 
 
 
 export const ratingFilterService = async (employmentId: number, order?: number) => {
-	const conditions = [
-		eq(cybUserExperienceRating.experience, employmentId),
-		eq(cybUserExperienceRating.status, 1),
-		eq(cybUserExperienceRating.isDeleted, 0),
-	];
-
-	let orderClause;
-	if (order === 2) {
-		orderClause = desc(cybUserExperienceRating.rating);
-	} else if (order === 3) {
-		orderClause = asc(cybUserExperienceRating.rating);
-	} else {
-		orderClause = desc(cybUserExperienceRating.id);
-	}
-
-	const reviews = await db.select({
-		id: cybUserExperienceRating.id,
-		experience: cybUserExperienceRating.experience,
-		company: cybUserExperienceRating.company,
-		rating: cybUserExperienceRating.rating,
-		review: cybUserExperienceRating.review,
-		doc: cybUserExperienceRating.doc,
-		link: cybUserExperienceRating.link,
-		addedBy: cybUserExperienceRating.addedBy,
-		status: cybUserExperienceRating.status,
-		approved: cybUserExperienceRating.approved,
-		createDate: cybUserExperienceRating.createDate,
-		modifyDate: cybUserExperienceRating.modifyDate,
-	})
-		.from(cybUserExperienceRating)
-		.where(and(...conditions))
-		.orderBy(orderClause);
-
-	return reviews;
+	return generalRepositery.getExperienceReviews(employmentId, order);
 }
 
 
 export const starRatingEmployeesService = async (star: number) => {
-	const usersWithRating = await db.select({
-		id: cybUser.id,
-		individualId: cybUser.individualId,
-		fname: cybUser.fname,
-		lname: cybUser.lname,
-		fullName: cybUser.fullName,
-		slug: cybUser.slug,
-		profile: cybUser.profile,
-		socialImage: cybUser.socialImage,
-		percentage: cybUser.percentage,
-		emailVerified: cybUser.emailVerified,
-		phoneVerified: cybUser.phoneVerified,
-		currentPossition: cybUser.currentPossition,
-		currentCompany: cybUser.currentCompany,
-	})
-		.from(cybUser)
-		.where(and(
-			eq(cybUser.userType, 1),
-			eq(cybUser.status, 1),
-			eq(cybUser.isDeleted, 0),
-		))
-		.orderBy(desc(cybUser.percentage))
-		.limit(50);
+	const usersWithRating = await generalRepositery.getEmployeesForStarRating(50);
 
 	const filteredUsers = usersWithRating.filter(u => {
 		const rating = u.percentage || 0;
@@ -674,11 +521,8 @@ export const starRatingEmployeesService = async (star: number) => {
 
 
 export const inviteDetailService = async (token: string) => {
-	const [invite] = await db.select().from(cybCompanyInvite).where(eq(cybCompanyInvite.id, Number(token))).limit(1);
-
-	if (!invite) {
-		return null;
-	}
+	const invite = await generalRepositery.getCompanyInviteById(Number(token));
+	if (!invite) return null;
 
 	return {
 		id: invite.id,
@@ -695,14 +539,13 @@ export const inviteDetailService = async (token: string) => {
 
 export const addSuggestionService = async (name: string, phone: string, description: string) => {
 	const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-	await db.insert(cybSuggestion).values({
+	await generalRepositery.insertSuggestion({
 		name,
 		phone: Number(phone),
 		description,
 		createDate: now,
 		modifyDate: now,
 	});
-
 	return { status: true, messages: 'Successfully added' };
 }
 
@@ -712,7 +555,7 @@ export const globalSearchService = async (
 	type?: string,
 	limit: number = 6,
 	offset: number = 0,
-	filters: Record<string, any> = {},
+	_filters: Record<string, any> = {},
 ) => {
 	const results: Record<string, any> = {
 		companyList: [],
@@ -724,46 +567,8 @@ export const globalSearchService = async (
 	};
 
 	if (!type || type === 'companies') {
-		const companyConditions = [
-			eq(cybUser.userType, 2),
-			eq(cybUser.status, 1),
-			eq(cybUser.isDeleted, 0),
-		];
-		if (keyword) {
-			companyConditions.push(sql`${cybUser.fname} LIKE ${'%' + keyword + '%'}`);
-		}
-
-		const [companyRows, companyCount] = await Promise.all([
-			db.select({
-				id: cybUser.id,
-				fname: cybUser.fname,
-				slug: cybUser.slug,
-				profile: cybUser.profile,
-				socialImage: cybUser.socialImage,
-				industry: cybUser.industry,
-				city: cybUser.city,
-				state: cybUser.state,
-				emailVerified: cybUser.emailVerified,
-				phoneVerified: cybUser.phoneVerified,
-				industryName: cybIndustries.name,
-				cityName: cybCities.name,
-				stateName: cybState.name,
-				companySizeName: cybCompanySize.name,
-			})
-				.from(cybUser)
-				.leftJoin(cybIndustries, eq(cybUser.industry, cybIndustries.id))
-				.leftJoin(cybCities, eq(cybUser.city, cybCities.id))
-				.leftJoin(cybState, eq(cybUser.state, cybState.id))
-				.leftJoin(cybCompanySize, eq(cybUser.companySize, cybCompanySize.id))
-				.where(and(...companyConditions))
-				.limit(limit)
-				.offset(offset),
-			db.select({ count: sql<number>`count(*)` })
-				.from(cybUser)
-				.where(and(...companyConditions)),
-		]);
-
-		results.companyList = companyRows.map(c => ({
+		const { rows, count } = await generalRepositery.searchCompanies(keyword, limit, offset);
+		results.companyList = rows.map(c => ({
 			id: c.id,
 			fname: c.fname,
 			slug: c.slug,
@@ -775,49 +580,12 @@ export const globalSearchService = async (
 			state_name: c.stateName,
 			company_size_name: c.companySizeName,
 		}));
-		results.companyListCount = companyCount[0]?.count || 0;
+		results.companyListCount = count;
 	}
 
 	if (!type || type === 'employees') {
-		const userConditions = [
-			eq(cybUser.userType, 1),
-			eq(cybUser.status, 1),
-			eq(cybUser.isDeleted, 0),
-		];
-		if (keyword) {
-			const kwConds = [
-				sql`${cybUser.fname} LIKE ${'%' + keyword + '%'}`,
-				sql`${cybUser.fullName} LIKE ${'%' + keyword + '%'}`,
-			];
-			userConditions.push(sql`(${kwConds.map(c => `(${c})`).join(' OR ')})`);
-		}
-
-		const companyUser = alias(cybUser, 'empCompany');
-		const [userRows, userCount] = await Promise.all([
-			db.select({
-				id: cybUser.id,
-				fullName: cybUser.fullName,
-				slug: cybUser.slug,
-				profile: cybUser.profile,
-				socialImage: cybUser.socialImage,
-				percentage: cybUser.percentage,
-				emailVerified: cybUser.emailVerified,
-				phoneVerified: cybUser.phoneVerified,
-				designationName: cybDesignation.name,
-				companyName: companyUser.fname,
-			})
-				.from(cybUser)
-				.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
-				.leftJoin(companyUser, eq(cybUser.currentCompany, companyUser.id))
-				.where(and(...userConditions))
-				.limit(limit)
-				.offset(offset),
-			db.select({ count: sql<number>`count(*)` })
-				.from(cybUser)
-				.where(and(...userConditions)),
-		]);
-
-		results.userList = userRows.map(u => ({
+		const { rows, count } = await generalRepositery.searchEmployees(keyword, limit, offset);
+		results.userList = rows.map(u => ({
 			id: u.id,
 			name: u.fullName,
 			slug: u.slug,
@@ -827,60 +595,12 @@ export const globalSearchService = async (
 			designation_name: u.designationName,
 			company_name: u.companyName,
 		}));
-		results.userListCount = userCount[0]?.count || 0;
+		results.userListCount = count;
 	}
 
 	if (!type || type === 'jobs') {
-		const jobConditions = [
-			eq(cybCompanyJob.status, 1),
-			eq(cybCompanyJob.isDeleted, 0),
-			eq(cybUser.isDeleted, 0),
-		];
-		if (keyword) {
-			const kwConds: any[] = [
-				sql`${cybCompanyJob.jobTitle} LIKE ${'%' + keyword + '%'}`,
-				sql`${cybCompanyJob.skill} LIKE ${'%' + keyword + '%'}`,
-			];
-			jobConditions.push(sql`(${kwConds.map(c => `(${c})`).join(' OR ')})`);
-		}
-
-		const [jobRows, jobCount] = await Promise.all([
-			db.select({
-				id: cybCompanyJob.id,
-				jobTitle: cybCompanyJob.jobTitle,
-				slug: cybCompanyJob.slug,
-				company_name: cybUser.fname,
-				company_slug: cybUser.slug,
-				designation_name: cybDesignation.name,
-				department_name: cybDepartment.name,
-				experience_name: cybJobExperiences.name,
-				country_name: cybCountry.name,
-				state_name: cybState.name,
-				city_name: cybCities.name,
-				salary_name: cybSalary.name,
-				vacancy: cybCompanyJob.vacancy,
-				urgent: cybCompanyJob.urgent,
-				create_date: cybCompanyJob.createDate,
-			})
-				.from(cybCompanyJob)
-				.leftJoin(cybUser, eq(cybCompanyJob.company, cybUser.id))
-				.leftJoin(cybDesignation, eq(cybCompanyJob.designation, cybDesignation.id))
-				.leftJoin(cybDepartment, eq(cybCompanyJob.department, cybDepartment.id))
-				.leftJoin(cybJobExperiences, eq(cybCompanyJob.experience, cybJobExperiences.id))
-				.leftJoin(cybCountry, eq(cybCompanyJob.country, cybCountry.id))
-				.leftJoin(cybState, eq(cybCompanyJob.state, cybState.id))
-				.leftJoin(cybCities, eq(cybCompanyJob.city, cybCities.id))
-				.leftJoin(cybSalary, eq(cybCompanyJob.salary, cybSalary.id))
-				.where(and(...jobConditions))
-				.limit(limit)
-				.offset(offset),
-			db.select({ count: sql<number>`count(*)` })
-				.from(cybCompanyJob)
-				.leftJoin(cybUser, eq(cybCompanyJob.company, cybUser.id))
-				.where(and(...jobConditions)),
-		]);
-
-		results.jobList = jobRows.map(j => ({
+		const { rows, count } = await generalRepositery.searchJobs(keyword, limit, offset);
+		results.jobList = rows.map(j => ({
 			id: j.id,
 			job_title: j.jobTitle,
 			slug: j.slug,
@@ -897,7 +617,7 @@ export const globalSearchService = async (
 			urgent: j.urgent,
 			create_date: j.create_date,
 		}));
-		results.jobListCount = jobCount[0]?.count || 0;
+		results.jobListCount = count;
 	}
 
 	return results;
@@ -1022,24 +742,19 @@ export const verificationStatusGeneralService = async (userId: number) => {
 // ====== Follow Data List (Endpoint #6) ======
 // PHP inverted naming: followed_id = initiator, follower_id = target
 
+type FollowListRow = Awaited<ReturnType<typeof generalRepositery.getFollowerList>>[number];
+
 function pageToSqlOffset(page: number, limit: number): number {
 	return page <= 1 ? 0 : page * limit - limit;
 }
 
-async function mapFollowCard(
-	row: any,
-	actingUserId: number,
-	userVerified: (userId: number | null) => Promise<boolean | unknown>
-) {
-	const remoteUserId = Number(row.userId);
-	const userType = Number(row.userType ?? 1);
-	const isVerified = await userVerified(remoteUserId);
+async function mapFollowCard(row: FollowListRow, actingUserId: number) {
+	const remoteUserId = row.userId;
+	const userType = row.userType ?? 1;
+	const isVerified = await user_verified(remoteUserId);
 	const followBack = await generalRepositery.checkFollowBack(actingUserId, remoteUserId);
 
-	const profile = row.profile
-		? `${s3Prefix}${row.profile}`
-		: (row.socialImage || null);
-
+	const profile = row.profile ? `${s3Prefix}${row.profile}` : (row.socialImage || null);
 	const name = userType === 2
 		? (row.fname || '')
 		: `${row.fname || ''} ${row.lname || ''}`.trim();
@@ -1061,14 +776,12 @@ async function mapFollowCard(
 	};
 
 	if (userType === 1) {
-		const onExploreRaw = Number(row.onExplore || 0) === 1 ? 1 : 0;
-		// show_exploring helper not ported; use raw flag (self lists already gated by privacy elsewhere)
-		const onExplore = onExploreRaw;
+		const onExplore = row.onExplore === 1 ? 1 : 0;
 		const today = new Date().toISOString().slice(0, 10);
-		const noticeDate = row.noticeDate ? String(row.noticeDate).slice(0, 10) : null;
+		const noticeDate = row.noticeDate ? row.noticeDate.slice(0, 10) : null;
 		base.designation_name = row.designationName ?? null;
 		base.on_explore = onExplore;
-		base.on_immediate = onExplore === 1 && Number(row.onImmediate || 0) === 1 ? 1 : 0;
+		base.on_immediate = onExplore === 1 && row.onImmediate === 1 ? 1 : 0;
 		base.on_notice = onExplore === 1 && noticeDate && noticeDate > today ? 1 : 0;
 	} else {
 		base.industry_name = row.industryName ?? null;
@@ -1078,26 +791,24 @@ async function mapFollowCard(
 	return base;
 }
 
+/** limit/offset already Zod-coerced numbers from followDataListGeneralQuerySchema */
 export const followDataListGeneralService = async (
 	userId: number,
 	limit = 50,
-	offsetPage = 0
+	offsetPage = 0,
 ) => {
-	const page = Number(offsetPage) || 0;
-	const pageSize = Number(limit) || 50;
-	const sqlOffset = pageToSqlOffset(page, pageSize);
-	const { user_verified } = await import('./users.service');
+	const sqlOffset = pageToSqlOffset(offsetPage, limit);
 
 	const [followers, following, followerCount, followingCount] = await Promise.all([
-		generalRepositery.getFollowerList(userId, pageSize, sqlOffset),
-		generalRepositery.getFollowingList(userId, pageSize, sqlOffset),
+		generalRepositery.getFollowerList(userId, limit, sqlOffset),
+		generalRepositery.getFollowingList(userId, limit, sqlOffset),
 		generalRepositery.countFollowerList(userId),
 		generalRepositery.countFollowingList(userId),
 	]);
 
 	const [followerList, followingList] = await Promise.all([
-		Promise.all(followers.map((f) => mapFollowCard(f, userId, user_verified))),
-		Promise.all(following.map((f) => mapFollowCard(f, userId, user_verified))),
+		Promise.all(followers.map((f) => mapFollowCard(f, userId))),
+		Promise.all(following.map((f) => mapFollowCard(f, userId))),
 	]);
 
 	return {
@@ -1207,11 +918,8 @@ export const logoutService = async (
 	meta?: { ip?: string; userAgent?: string }
 ) => {
 	const now = new Date().toISOString().slice(0, 19).replace("T", " ");
-	await db.update(cybUser)
-		.set({ token: null, modifyDate: now })
-		.where(eq(cybUser.id, userId));
-
-	await db.insert(cybUserLoginHistory).values({
+	await generalRepositery.clearUserToken(userId, now);
+	await generalRepositery.insertLoginHistory({
 		userId,
 		ipAddress: meta?.ip || null,
 		userAgent: meta?.userAgent || "",
@@ -1440,7 +1148,6 @@ export const deleteMessageService = async (
 };
 
 export const skillByCategoryService = async (categoryId: number) => {
-	const skillRepositery = (await import('../repositery/skill.repositery')).default;
 	const rows = await skillRepositery.findByCategory(categoryId);
 	return {
 		status: true,

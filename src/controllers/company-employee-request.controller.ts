@@ -198,23 +198,24 @@ export const followRequestList = async (req: Request, res: Response) => {
 
 export const dashboard = async (req: Request, res: Response) => {
 	try {
-		const { user_id: companyId } = req.auth as AuthUser;
-
-		const { query } = req.validated as { query: CompanyDashboardQuery };
-
+		// Acting company (honours X-Company)
+		const { id: companyId } = req.auth as AuthUser;
+		const { query } = req.validated as CompanyDashboardQuery;
 		const result = await companyEmployeeRequestService.dashboardService(
 			companyId,
 			query.limit,
 			query.offset,
 		);
 
-		return res.status(200).json({
-			status: true,
-			data: result.data,
-		});
+		// Success: no messages key. Failure: messages present (PHP contract)
+		if (!result.status) {
+			return res.status(200).json(result);
+		}
+		return res.status(200).json({ status: true, data: result.data });
 	} catch (error) {
 		console.error("dashboard error:", error);
-		return res.status(500).json({ status: false, messages: "Internal server error" });
+		const msg = error instanceof Error ? error.message : "Access denied";
+		return res.status(200).json({ status: false, messages: msg });
 	}
 };
 

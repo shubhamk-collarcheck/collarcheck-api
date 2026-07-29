@@ -1,5 +1,5 @@
 
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import { cybSkill, cybSkillRating } from '../db/schema';
@@ -46,6 +46,18 @@ class skillRepositery {
 	 */
 	async findByCategory(_categoryId: number): Promise<Array<{ id: number; department: number | null; name: string | null }>> {
 		return [];
+	}
+
+	/** PHP allSkills: status=1 ORDER BY RAND() LIMIT 30 */
+	async getRandomActive(limit = 30) {
+		return db.select({
+			id: cybSkill.id,
+			name: cybSkill.name,
+		})
+			.from(cybSkill)
+			.where(eq(cybSkill.status, 1))
+			.orderBy(sql`RAND()`)
+			.limit(limit);
 	}
 
 	async getSkillNamesByIds(ids: number[]): Promise<Map<number, string>> {

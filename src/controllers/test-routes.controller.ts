@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from "express";
+import { readFile } from "fs/promises";
 import { AuthUser } from "../types/express";
 import type {
 	ResumeDownloadBody,
@@ -6,23 +7,6 @@ import type {
 	SaveEpfoBody,
 } from "../types/test-routes.types";
 import * as svc from "../services/test-routes.service";
-
-function handle(fn: (req: Request) => Promise<unknown>) {
-	return async (req: Request, res: Response, next: NextFunction) => {
-		try {
-			const result = await fn(req);
-			if (typeof result === "string") {
-				return res.status(200).type("text/plain").send(result);
-			}
-			return res.status(200).json(result);
-		} catch (e: any) {
-			if (e?.status === 403) {
-				return res.status(403).json({ status: false, messages: e.message });
-			}
-			next(e);
-		}
-	};
-}
 
 function uploadFiles(req: Request): Express.MulterS3.File[] {
 	const f = req.files as
@@ -37,73 +21,124 @@ function uploadFiles(req: Request): Express.MulterS3.File[] {
 	return Object.values(f).flat();
 }
 
-// 1. CSV import (ops-guarded)
-export const getSlug = handle(async (req) => {
-	svc.assertOpsAllowed(req);
-	const file = req.file as Express.Multer.File | undefined;
-	if (!file?.buffer && !(file as any)?.path) {
-		// multer memory or disk
-		const anyFile = file as any;
-		if (!anyFile) return "";
+export const getSlug = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		svc.assertOpsAllowed(req);
+		const file = req.file as Express.Multer.File | undefined;
+		let text = "";
+		if (file?.buffer) {
+			text = file.buffer.toString("utf8");
+		} else if ((file as { path?: string } | undefined)?.path) {
+			text = await readFile((file as { path: string }).path, "utf8");
+		} else if (typeof req.body?.csv === "string") {
+			text = req.body.csv;
+		}
+		if (!text) {
+			return res.status(200).type("text/plain").send("");
+		}
+		const result = await svc.importMessageHistoryCsvService(text);
+		if (typeof result === "string") {
+			return res.status(200).type("text/plain").send(result);
+		}
+		return res.status(200).json(result);
+	} catch (error: unknown) {
+		const err = error as { status?: number; message?: string };
+		if (err?.status === 403) {
+			return res.status(403).json({ status: false, messages: err.message || "Forbidden" });
+		}
+		next(error);
 	}
-	let text = "";
-	if (file?.buffer) {
-		text = file.buffer.toString("utf8");
-	} else if ((file as any)?.path) {
-		const fs = await import("fs/promises");
-		text = await fs.readFile((file as any).path, "utf8");
-	} else if (typeof req.body?.csv === "string") {
-		text = req.body.csv;
+};
+
+export const mailtest = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		svc.assertOpsAllowed(req);
+		const result = await svc.mailtestService();
+		return res.status(200).json(result);
+	} catch (error: unknown) {
+		const err = error as { status?: number; message?: string };
+		if (err?.status === 403) {
+			return res.status(403).json({ status: false, messages: err.message || "Forbidden" });
+		}
+		next(error);
 	}
-	if (!text) return "";
-	return svc.importMessageHistoryCsvService(text);
-});
+};
 
-// 2. mailtest (ops-guarded)
-export const mailtest = handle(async (req) => {
-	svc.assertOpsAllowed(req);
-	return svc.mailtestService();
-});
+export const updateCcid = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		svc.assertOpsAllowed(req);
+		const result = await svc.updateCcidService();
+		return res.status(200).json(result);
+	} catch (error: unknown) {
+		const err = error as { status?: number; message?: string };
+		if (err?.status === 403) {
+			return res.status(403).json({ status: false, messages: err.message || "Forbidden" });
+		}
+		next(error);
+	}
+};
 
-// 3. update-ccid (ops-guarded)
-export const updateCcid = handle(async (req) => {
-	svc.assertOpsAllowed(req);
-	return svc.updateCcidService();
-});
+export const resumeDownload = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id } = req.auth as AuthUser;
+		const { body } = req.validated as { body: ResumeDownloadBody };
+		const result = await svc.resumeDownloadService(id, body);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-// 4. resume-download
-export const resumeDownload = handle((req) => {
-	const { id } = req.auth as AuthUser;
-	const { body } = req.validated as { body: ResumeDownloadBody };
-	return svc.resumeDownloadService(id, body);
-});
+export const updateNotice = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id } = req.auth as AuthUser;
+		const { body } = req.validated as { body: UpdateNoticeBody };
+		const result = await svc.updateNoticeService(id, body);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-// 5. update-notice
-export const updateNotice = handle((req) => {
-	const { id } = req.auth as AuthUser;
-	const { body } = req.validated as { body: UpdateNoticeBody };
-	return svc.updateNoticeService(id, body);
-});
+export const digilocker = async (_req: Request, res: Response, next: NextFunction) => {
+	try {
+		const result = await svc.digilockerService();
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-// 6. digilocker
-export const digilocker = handle(() => svc.digilockerService());
+export const saveEpfo = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id } = req.auth as AuthUser;
+		const body = (req.body || {}) as SaveEpfoBody;
+		const result = await svc.saveEpfoService(id, body, uploadFiles(req));
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-// 7. save-epfo
-export const saveEpfo = handle((req) => {
-	const { id } = req.auth as AuthUser;
-	const body = (req.body || {}) as SaveEpfoBody;
-	return svc.saveEpfoService(id, body, uploadFiles(req));
-});
+export const resumeTemplate = async (_req: Request, res: Response, next: NextFunction) => {
+	try {
+		const result = await svc.resumeTemplateService();
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};
 
-// 8. resume-template
-export const resumeTemplate = handle(() => svc.resumeTemplateService());
-
-// 9. resume-details
-export const resumeDetails = handle((req) => {
-	const { id } = req.auth as AuthUser;
-	const templateId =
-		Number((req.validated as any)?.query?.id) ||
-		Number(req.query.id) ||
-		undefined;
-	return svc.resumeDetailsService(id, templateId);
-});
+export const resumeDetails = async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const { id } = req.auth as AuthUser;
+		const templateId =
+			Number((req.validated as { query?: { id?: number } } | undefined)?.query?.id) ||
+			Number(req.query.id) ||
+			undefined;
+		const result = await svc.resumeDetailsService(id, templateId);
+		return res.status(200).json(result);
+	} catch (error) {
+		next(error);
+	}
+};

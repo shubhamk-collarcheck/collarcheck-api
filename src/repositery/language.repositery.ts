@@ -7,6 +7,24 @@ type UserLanguage = InferSelectModel<typeof cybUserLanguage>
 type NewUserLanguage = InferInsertModel<typeof cybUserLanguage>
 
 class languageRepositery {
+	async findMasterByName(name: string) {
+		const [row] = await db.select()
+			.from(cybLanguages)
+			.where(and(eq(cybLanguages.name, name), eq(cybLanguages.status, 1)))
+			.limit(1);
+		return row;
+	}
+
+	async createMasterLanguage(data: {
+		name: string;
+		userDefined: number;
+		userId: number;
+		status: number;
+	}) {
+		const [inserted] = await db.insert(cybLanguages).values(data).$returningId();
+		return inserted.id;
+	}
+
 	async getAllByUserId(userId: number) {
 		// PHP: status=1 only, ORDER BY language name ASC (no is_deleted filter in legacy)
 		// Keep is_deleted=0 so Node soft-deletes (if any) stay hidden.

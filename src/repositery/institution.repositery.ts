@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import db from '../db';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 import { cybInstitutions } from '../db/schema';
@@ -20,6 +20,19 @@ class institutionRepositery {
 	async create(data: NewInstitution) {
 		const [result] = await db.insert(cybInstitutions).values(data).$returningId();
 		return result;
+	}
+
+	/** PHP institutionList: status=1 ORDER BY id ASC LIMIT 30 */
+	async getActiveList(limit = 30) {
+		return db.select({
+			id: cybInstitutions.id,
+			name: cybInstitutions.name,
+			image: cybInstitutions.image,
+		})
+			.from(cybInstitutions)
+			.where(eq(cybInstitutions.status, 1))
+			.orderBy(asc(cybInstitutions.id))
+			.limit(limit);
 	}
 }
 
