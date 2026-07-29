@@ -157,6 +157,7 @@ class companyEmployeeRequestService {
 			message: "company detail",
 			data: {
 				id: company.id,
+				individual_id: company.individual_id,
 				company_name: companyName,
 				email: company.email,
 				phone: company.phone,

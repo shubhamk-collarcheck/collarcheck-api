@@ -4383,7 +4383,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -4412,7 +4412,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -5242,7 +5242,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -5825,7 +5825,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -5841,7 +5841,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -5910,7 +5910,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -5949,7 +5949,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -5979,7 +5979,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -8463,7 +8463,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -8507,7 +8507,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -8546,7 +8546,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -8562,7 +8562,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -8815,7 +8815,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -8862,6 +8862,4820 @@
                 "hired",
                 ""
               ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "restaurant (reward partner)",
+      "description": "Restaurant reward APIs \u2014 employee restaurant-list + partner OTP/profile/visits.\n\n**Route:** `src/routes/restaurant.route.ts` mounted at `/wapi`\n**Docs:** `src/api-ai-document/restaurant-reward-endpoints.md`\n\nAuth models:\n- Platform JWT `{{token}}` \u2192 `Authorization` (restaurant-list only)\n- Partner JWT `{{restaurant_token}}` \u2192 `RestaurantAuth` (profile, visits, discount)\n",
+      "item": [
+        {
+          "name": "restaurant-list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant-list",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant-list"
+              ]
+            },
+            "description": "Employee app: list restaurants with personal level-based discount + current employment + next level.\n\n**Auth:** platform JWT (`Authorization`)\n**Node:** `getRestaurantList` \u2192 `restaurantListService`",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "restaurant/send-otp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant/send-otp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant",
+                "send-otp"
+              ]
+            },
+            "description": "Public. Send OTP to a **pre-registered** restaurant phone.\n\n- Throttle: 3/min/IP\n- reCAPTCHA required (`RESTAURANT_CAPTCHA_SECRET_KEY`)\n- MSG91 SMS via `otpSend`\n\n**Node:** `restaurantSendOtp` \u2192 `restaurantSendOtpService`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{restaurant_phone}}\",\n  \"g-recaptcha-response\": \"CAPTCHA_TOKEN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "restaurant/verify-otp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant/verify-otp",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant",
+                "verify-otp"
+              ]
+            },
+            "description": "Public. Verify OTP and return restaurant session (`data.token`).\n\nStore `data.token` in collection variable `restaurant_token` for partner routes.\n\n**Node:** `restaurantVerifyOtp` \u2192 `restaurantVerifyOtpService`",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"{{restaurant_phone}}\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "testauth",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/testauth",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "testauth"
+              ]
+            },
+            "description": "Debug probe for `RestaurantAuth`. Returns plain text: `hello auth{restaurant_id}`.\n\n**Auth:** restaurant JWT (`{{restaurant_token}}`)",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{restaurant_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "restaurant/profile-details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant/profile-details",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant",
+                "profile-details"
+              ]
+            },
+            "description": "Current restaurant profile. Payload is under **`messages`** (array), not `data`.\n\n**Auth:** restaurant JWT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{restaurant_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "restaurant/update-profile",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Update name/shortDescription/address/google_map + optional profile/banner images.\n\nS3 path: `uploads/restaurant/`\n\n**Auth:** restaurant JWT\n**Node:** `restaurantUpdateProfile`",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{restaurant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "name",
+                  "type": "text",
+                  "value": "Cafe Demo"
+                },
+                {
+                  "key": "shortDescription",
+                  "type": "text",
+                  "value": "Coffee & snacks"
+                },
+                {
+                  "key": "google_map",
+                  "type": "text",
+                  "value": "https://maps.google.com/..."
+                },
+                {
+                  "key": "address",
+                  "type": "text",
+                  "value": "MG Road"
+                },
+                {
+                  "key": "profile",
+                  "type": "file",
+                  "src": [],
+                  "description": "Optional profile image"
+                },
+                {
+                  "key": "banner",
+                  "type": "file",
+                  "src": [],
+                  "description": "Optional banner image"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant/update-profile",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant",
+                "update-profile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "restaurant/add-customer-visits",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant/add-customer-visits",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant",
+                "add-customer-visits"
+              ]
+            },
+            "description": "Log a customer visit. `customer_id` is platform **individual_id** (not user.id).\n\nBody `discount` is required (0\u2013100) but **server overwrites** it from reward level.\n`visit_date` optional (defaults to today).\n\n**Auth:** restaurant JWT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{restaurant_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": \"U101\",\n  \"group_size\": 2,\n  \"bill_before_amount\": \"1500.00\",\n  \"discount\": 0,\n  \"bill_after_amount\": \"1350.00\",\n  \"visit_date\": \"2026-03-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "restaurant/customer-visits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant/customer-visits",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant",
+                "customer-visits"
+              ]
+            },
+            "description": "List visits for the authenticated restaurant.\n\nEmpty list \u2192 `{ status: false, message: \"No customer visits found\" }`.\n\n**Auth:** restaurant JWT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{restaurant_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "restaurant/customer-search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant/customer-search?keyword=U101&limit=30&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant",
+                "customer-search"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "U101",
+                  "description": "Search individual_id (LIKE)"
+                },
+                {
+                  "key": "limit",
+                  "value": "30",
+                  "description": "Page size"
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": "Page number (not SQL offset): <=1 \u2192 0, else page*limit-limit"
+                }
+              ]
+            },
+            "description": "Search employees by `individual_id` for visit logging.\n\nUse `data[].individual_id` as `customer_id` on add-customer-visits.\nUse `data[].id` (numeric user.id) on customer-discount.\n\n**Auth:** restaurant JWT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{restaurant_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "restaurant/customer-discount/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/restaurant/customer-discount/{{user_id}}",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "restaurant",
+                "customer-discount",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Discount % for a platform user by reward level.\n\nPath `id` = platform **user.id** (numeric), not individual_id.\nResponse top-level: `user_max_level`, `discount` (rounded to 2 decimals).\n\n**Auth:** restaurant JWT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{restaurant_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "widget (discovery + impressions)",
+      "description": "JWT discovery widgets & impressions. Mounted at `/wapi` via `widget.route.ts`.\nDocs: `src/api-ai-document/other/widget-routes-endpoints.md`",
+      "item": [
+        {
+          "name": "random-widget",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/random-widget",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "random-widget"
+              ]
+            },
+            "description": "Orchestration: random discovery widget feed.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "widget-detail/:slug",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/widget-detail/nearby-company?limit=20&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "widget-detail",
+                "nearby-company"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Widget detail by slug (e.g. nearby-company).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "nearby-company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/nearby-company?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "nearby-company"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "nearby-employee",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/nearby-employee?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "nearby-employee"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "similarcompany",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/similarcompany?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "similarcompany"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "people-similar-university",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/people-similar-university?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "people-similar-university"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "user-past-company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/user-past-company?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user-past-company"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "user-current-company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/user-current-company?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user-current-company"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "similaremployee",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/similaremployee?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "similaremployee"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "featured-employee",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/featured-employee?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "featured-employee"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "people-might-know",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/people-might-know?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "people-might-know"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "similar-job",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/similar-job?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "similar-job"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "immediate-joiner",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/immediate-joiner?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "immediate-joiner"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "notice-period",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/notice-period?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "notice-period"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "similar-companies-current",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/similar-companies-current?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "similar-companies-current"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "recommended-employee-general",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/recommended-employee-general?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "recommended-employee-general"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "people-recentaly-join",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/people-recentaly-join?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "people-recentaly-join"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "currentaly-unemployed",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/currentaly-unemployed?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "currentaly-unemployed"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "freshers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/freshers?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "freshers"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "auth-all-job",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/auth-all-job?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "auth-all-job"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "view-impressions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/view-impressions",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "view-impressions"
+              ]
+            },
+            "description": "Record a view impression.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remote_id\": 101,\n  \"type\": \"profile\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "jobs-impressions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/jobs-impressions?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "jobs-impressions"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "people-viewed-profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/people-viewed-profile?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "people-viewed-profile"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "company-viewed-profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/company-viewed-profile?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "company-viewed-profile"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "details-jobs-impressions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/details-jobs-impressions?job_id={{job_id}}&limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "details-jobs-impressions"
+              ],
+              "query": [
+                {
+                  "key": "job_id",
+                  "value": "{{job_id}}"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "new-routes (misc product)",
+      "description": "Splash, FAQs, hired, resume, delete-account, AI generate, etc.\nMounted at `/wapi` via `new-routes.route.ts`.\nDocs: `src/api-ai-document/other/new-routes-endpoints.md`",
+      "item": [
+        {
+          "name": "splace",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/splace",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "splace"
+              ]
+            },
+            "description": "Public splash / onboarding content.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "all-delete-option",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/all-delete-option",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "all-delete-option"
+              ]
+            },
+            "description": "Public delete-account reason options.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "field-suggestion",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/field-suggestion?keyword=eng&field=designation&limit=30&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "field-suggestion"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "eng"
+                },
+                {
+                  "key": "field",
+                  "value": "designation"
+                },
+                {
+                  "key": "limit",
+                  "value": "30"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "check-ccid",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/check-ccid",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "check-ccid"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ccid\": \"CCE123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "faqs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/faqs",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "faqs"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "report-review",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/report-review",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "report-review"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"review_id\": 1,\n  \"message\": \"Spam review\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "request-delete-account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/request-delete-account",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "request-delete-account"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"option_id\": 1,\n  \"message\": \"Leaving the platform\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ai-generate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/ai-generate",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "ai-generate"
+              ]
+            },
+            "description": "Types: USER_DESCRIPTION, COMPANY_DESCRIPTION, EMPLOYMENT_DESCRIPTION, PORTFOLIO_DESCRIPTION, REVIEW_USER, REVIEW_COMPANY",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Write a short bio for a software engineer\",\n  \"type\": \"USER_DESCRIPTION\",\n  \"position\": \"Engineer\",\n  \"company\": \"Acme\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "message-search",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/message-search?keyword=hello",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "message-search"
+              ],
+              "query": [
+                {
+                  "key": "keyword",
+                  "value": "hello"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "follow-revoke",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/follow-revoke",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "follow-revoke"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 101\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "manual-document-submit",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Manual KYC document submit (multipart).",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "doctype",
+                  "type": "text",
+                  "value": "1"
+                },
+                {
+                  "key": "description",
+                  "type": "text",
+                  "value": "Passport"
+                },
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": [],
+                  "description": "PDF/image"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/manual-document-submit",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "manual-document-submit"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "hired-throw",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/hired-throw",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "hired-throw"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update-hired-status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/update-hired-status",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "update-hired-status"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [1, 2]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "decline-hired-status",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/decline-hired-status",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "decline-hired-status"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [1, 2]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "download-cv",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/download-cv",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "download-cv"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "auto-fetch",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "Parse resume upload into profile fields.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": [],
+                  "description": "PDF/DOC/DOCX resume"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/auto-fetch",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "auto-fetch"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resume-fetch",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/resume-fetch",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "resume-fetch"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resume",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/resume",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "resume"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resume-parse",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/resume-parse",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "resume-parse"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "account-migration (roles + merge)",
+      "description": "Company roles/permissions, merge OTP, doctype, digilocker, switch-account.\nMounted at `/wapi` via `account-migration.route.ts`.\nUse header `X-Company: {{company_id}}` for company context where needed.\nDocs: `src/api-ai-document/other/account-migration-management-endpoints.md`",
+      "item": [
+        {
+          "name": "checkip",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/checkip",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "checkip"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "ai-generate-row",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/ai-generate-row",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "ai-generate-row"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Backend engineer\",\n  \"type\": \"JOB_TITLE\",\n  \"job_title\": \"Engineer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "digilocker",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/digilocker",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "digilocker"
+              ]
+            },
+            "description": "Public digilocker helper (account-migration mount).",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "nonclaim-company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/nonclaim-company",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "nonclaim-company"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "default-user-list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/default-user-list",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "default-user-list"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "switch-account/:token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/switch-account/SWITCH_TOKEN_HERE",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "switch-account",
+                "SWITCH_TOKEN_HERE"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "reminder-veification-pending",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/reminder-veification-pending",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "reminder-veification-pending"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create-user-group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/create-user-group",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "create-user-group"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"group_name\": \"HR Managers\",\n  \"event_permission\": [1, 2, 3]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "create-user-group/:id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/create-user-group/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "create-user-group",
+                "1"
+              ]
+            },
+            "description": "Update existing group by id.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"group_name\": \"HR Managers\",\n  \"event_permission\": [1, 2, 3]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assign-user-permission",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/assign-user-permission",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "assign-user-permission"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 101,\n  \"group_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "assign-user-permission/:id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/assign-user-permission/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "assign-user-permission",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": 101,\n  \"group_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "menus/events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/menus/events",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "menus",
+                "events"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "user-group",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/user-group",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user-group"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "group-user-list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/group-user-list",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "group-user-list"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "user-permission-list",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/user-permission-list",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user-permission-list"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "edit-user-permission/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/edit-user-permission/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "edit-user-permission",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "remove-permission",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/remove-permission",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "remove-permission"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permission_id\": [1, 2]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "all-role-group",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/all-role-group",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "all-role-group"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "edit-group-role/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/edit-group-role/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "edit-group-role",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "remove-group-role",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/remove-group-role",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "remove-group-role"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_group_id\": [1]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "doctype-list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/doctype-list",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "doctype-list"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "company-doctype-list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/company-doctype-list",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "company-doctype-list"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "send-otp-account-merge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/send-otp-account-merge",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "send-otp-account-merge"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"skipAssociate\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "otp-verify-account-merge",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/otp-verify-account-merge",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "otp-verify-account-merge"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"otp\": \"123456\",\n  \"skipAssociate\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "merge-user-register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/merge-user-register",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "merge-user-register"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phone\": \"9876543210\",\n  \"email\": \"merge@example.com\",\n  \"name\": \"John Doe\",\n  \"otp\": \"123456\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "revoke-delete-account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/revoke-delete-account",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "revoke-delete-account"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "swipe-collaborator-rating",
+      "description": "Swipe numbers, collaborators, clarity, skill ratings, domains.\nMounted at `/wapi` via `swipe-collaborator-rating.route.ts`.\nDocs: `src/api-ai-document/other/swipe-collaborator-rating-endpoints.md`",
+      "item": [
+        {
+          "name": "clarity",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/clarity?numOfDays=7",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "clarity"
+              ],
+              "query": [
+                {
+                  "key": "numOfDays",
+                  "value": "7"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "get_question",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/get_question",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "get_question"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "user-highest-level",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/user-highest-level",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "user-highest-level"
+              ]
+            },
+            "description": "Cron-style recompute of user_levels. Returns bare true.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "swipe-number",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/swipe-number",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "swipe-number"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "alternate-empty",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/alternate-empty",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "alternate-empty"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"phone\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "collaborator-request",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/collaborator-request",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "collaborator-request"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"job_id\": 1,\n  \"user_id\": [101, 102]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "accept-colloborator/:id",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/accept-colloborator/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "accept-colloborator",
+                "1"
+              ]
+            },
+            "description": "Legacy path spelling colloborator.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "collaborator-list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/collaborator-list?limit=20&offset=0&job_id={{job_id}}",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "collaborator-list"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "job_id",
+                  "value": "{{job_id}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "job-collaborator-list",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/job-collaborator-list?limit=20&offset=0&job_id={{job_id}}",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "job-collaborator-list"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                },
+                {
+                  "key": "job_id",
+                  "value": "{{job_id}}"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "delete-email-domains/:id",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/delete-email-domains/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "delete-email-domains",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "employee/add-skill-rating",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/employee/add-skill-rating",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "add-skill-rating"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"experience_id\": 55,\n  \"review\": \"Great teammate\",\n  \"skill_id\": [1, 2],\n  \"rating\": [4, 5],\n  \"show_review\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "employee/add-skill-rating/:id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/employee/add-skill-rating/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "employee",
+                "add-skill-rating",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"experience_id\": 55,\n  \"review\": \"Updated review\",\n  \"skill_id\": [1, 2],\n  \"rating\": [5, 5]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "edit-rating-list/:id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/edit-rating-list/55",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "edit-rating-list",
+                "55"
+              ]
+            },
+            "description": "id = experience id",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "show-rating",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/show-rating?experience_id=55&type=",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "show-rating"
+              ],
+              "query": [
+                {
+                  "key": "experience_id",
+                  "value": "55"
+                },
+                {
+                  "key": "type",
+                  "value": ""
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update-show-profile-rating",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/update-show-profile-rating",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "update-show-profile-rating"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"experience_id\": 55,\n  \"review_id\": [1],\n  \"skill_rating_id\": [1, 2]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "company/add-skill-rating",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/company/add-skill-rating",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "company",
+                "add-skill-rating"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"experience_id\": 55,\n  \"review\": \"Strong performer\",\n  \"skill_id\": [1],\n  \"rating\": [5]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "company/add-skill-rating/:id",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-Company",
+                "value": "{{company_id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/company/add-skill-rating/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "company",
+                "add-skill-rating",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"experience_id\": 55,\n  \"review\": \"Updated\",\n  \"skill_id\": [1],\n  \"rating\": [4]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "rating-average",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/rating-average",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "rating-average"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "test-routes (ops + resume utils)",
+      "description": "Ops utilities + resume/notice/save-epfo.\nDangerous ops may require header `X-Ops-Key: {{ops_key}}`.\nMounted at `/wapi` via `test-routes.route.ts`.\nDocs: `src/api-ai-document/other/test-routes-endpoints.md`",
+      "item": [
+        {
+          "name": "get-slug",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "description": "CSV slug generator (ops-guarded).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "csv",
+                  "type": "file",
+                  "src": [],
+                  "description": "CSV file"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/get-slug",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "get-slug"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "mailtest",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/mailtest",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "mailtest"
+              ]
+            },
+            "description": "Ops mail test.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update-ccid",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-Ops-Key",
+                "value": "{{ops_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/update-ccid",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "update-ccid"
+              ]
+            },
+            "description": "Ops CCID recompute.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resume-download",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/resume-download",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "resume-download"
+              ]
+            },
+            "description": "Note legacy typo: templete_id",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"templete_id\": 1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "update-notice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/update-notice",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "update-notice"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"on_notice\": 1,\n  \"notice_date\": \"2026-04-01\",\n  \"notice_employments\": [55]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "save-epfo",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "description": "CV popup / EPFO multi-step form (multipart). form_type 1\u20135.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "form_type",
+                  "type": "text",
+                  "value": "1"
+                },
+                {
+                  "key": "document",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "profile",
+                  "type": "file",
+                  "src": []
+                },
+                {
+                  "key": "resume",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{URL}}/wapi/save-epfo",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "save-epfo"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resume-template",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/resume-template",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "resume-template"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "resume-details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/resume-details?id=1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "resume-details"
+              ],
+              "query": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "ai (X-API-KEY proxy)",
+      "description": "AI BFF proxy \u2014 auth is **X-API-KEY** (not JWT).\nMounted at `/wapi` via `ai.route.ts`.\nDocs: `src/api-ai-document/ai-api/ai-proxy-endpoints.md`",
+      "item": [
+        {
+          "name": "semantic/suggest_skills",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/semantic/suggest_skills",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "semantic",
+                "suggest_skills"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"react node typescript\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "semantic/suggest_designations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/semantic/suggest_designations",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "semantic",
+                "suggest_designations"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"backend engineer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "semantic/suggest_departments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/semantic/suggest_departments",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "semantic",
+                "suggest_departments"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"engineering\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "semantic/suggest_parameters",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/semantic/suggest_parameters",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "semantic",
+                "suggest_parameters"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"senior python developer bangalore\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "semantic/suggest_roles",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/semantic/suggest_roles",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "semantic",
+                "suggest_roles"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"product manager\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "chat/health",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/chat/health",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "chat",
+                "health"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "chat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/chat",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "chat"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Hello\",\n  \"session_id\": \"demo-session\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "chat/conversation",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/chat/conversation",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "chat",
+                "conversation"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message\": \"Tell me about jobs\",\n  \"session_id\": \"demo-session\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "chat/refresh-faqs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/chat/refresh-faqs",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "chat",
+                "refresh-faqs"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "chat/end-session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/chat/end-session",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "chat",
+                "end-session"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"demo-session\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "chat/reset-topic",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/chat/reset-topic",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "chat",
+                "reset-topic"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"demo-session\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "chat/faqs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/chat/faqs",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "chat",
+                "faqs"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "chat/faq/:id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/chat/faq/1",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "chat",
+                "faq",
+                "1"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "domain/register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/domain/register",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "domain",
+                "register"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"domain\": \"acme.com\",\n  \"email\": \"hr@acme.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "domain/verify",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/domain/verify",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "domain",
+                "verify"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"domain\": \"acme.com\",\n  \"token\": \"VERIFY_TOKEN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "domain/reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/domain/reset",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "domain",
+                "reset"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"domain\": \"acme.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "rec_candidates/rank",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/rec_candidates/rank",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "rec_candidates",
+                "rank"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"job_id\": 1,\n  \"candidate_ids\": [101, 102]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "scrape",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "X-API-KEY",
+                "value": "{{api_key}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/scrape",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "scrape"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://example.com/job/123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "frontend public (home/contact/career/sitemap)",
+      "description": "Public/frontend misc endpoints from home, contact, career, general sitemap, root data-deletion.\nDocs: `src/api-ai-document/other/frontend-public-misc-endpoints.md`",
+      "item": [
+        {
+          "name": "home/top-company",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/home/top-company?limit=10&offset=0",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "home",
+                "top-company"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "contact/save-enquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/contact/save-enquiry",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "contact",
+                "save-enquiry"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"phone\": \"9876543210\",\n  \"message\": \"Hello CollarCheck\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "career/save-enquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/career/save-enquiry",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "career",
+                "save-enquiry"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane@example.com\",\n  \"phone\": \"9876543210\",\n  \"message\": \"Interested in careers\",\n  \"position\": \"Engineer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "general/sitemap",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/general/sitemap?type=company",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "general",
+                "sitemap"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "company",
+                  "description": "optional filter"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "data-deletion (GET)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{URL}}/wapi/data-deletion",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "data-deletion"
+              ]
+            },
+            "description": "Meta data-deletion callback stub.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "data-deletion (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{URL}}/wapi/data-deletion",
+              "host": [
+                "{{URL}}"
+              ],
+              "path": [
+                "wapi",
+                "data-deletion"
+              ]
+            },
+            "description": "Meta data-deletion callback stub.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"facebook-user-id\",\n  \"confirmation_code\": \"abc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           },
           "response": []
@@ -8957,7 +13771,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -9015,7 +13829,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -9058,7 +13872,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -9101,7 +13915,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -9144,7 +13958,7 @@
               "bearer": [
                 {
                   "key": "token",
-                  "value": "{{shubham-token}}",
+                  "value": "{{token}}",
                   "type": "string"
                 }
               ]
@@ -9192,6 +14006,31 @@
     },
     {
       "key": "client_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "restaurant_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "restaurant_phone",
+      "value": "9876543210",
+      "type": "string"
+    },
+    {
+      "key": "api_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ops_key",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "x_company",
       "value": "",
       "type": "string"
     }

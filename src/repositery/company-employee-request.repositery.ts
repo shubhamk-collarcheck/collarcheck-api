@@ -15,6 +15,7 @@ class companyEmployeeRequestRepositery {
 	async getCompanyDetail(companyId: number) {
 		const [row] = await db.select({
 			id: cybUser.id,
+			individual_id: cybUser.individualId,
 			fname: cybUser.fname,
 			lname: cybUser.lname,
 			email: cybUser.email,
