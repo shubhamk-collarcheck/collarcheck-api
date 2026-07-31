@@ -6,8 +6,8 @@ import {
 	cybUserUpdateExperience, cybUserUpdateExperienceHistory, cybFollow, cybMessage, cybMessageHistory,
 	cybCompanyJob, cybDesignation, cybDepartment, cybEmployementType, cybIndustries,
 	cybUserRelation, cybAccountDeleteRequests, cybCompanyInvite, cybAccountSetting,
-	cybUserPermission, cybUserGroup, cybSkillRating, cybApplication, cybCities, cybState, cybCountry,
-	cybGalleries, cybCompanyBenefits,
+	cybUserPermission, cybUserGroup, cybUserMainGroup, cybSkillRating, cybApplication, cybCities, cybState, cybCountry,
+	cybGalleries, cybCompanyBenefits, cybCompanySize, cybTurnover, cybVerifyDocument, cybManualDocumentVerify,
 } from '../db/schema';
 
 class companyEmployeeRequestRepositery {
@@ -586,33 +586,188 @@ class companyEmployeeRequestRepositery {
 		return row;
 	}
 
+	/**
+	 * PHP get_company_relation_by_user —
+	 * user_relation: user_id=me, is_deleted=0, GROUP BY company_id, ORDER BY id DESC.
+	 * `status` is **relation** status (not company account status).
+	 */
 	async getCompanyRelations(userId: number) {
-		return db.select({
+		const rows = await db.select({
 			relationId: cybUserRelation.id,
 			companyId: cybUserRelation.companyId,
+			status: cybUserRelation.status,
 			type: cybUserRelation.type,
-			// Company fields
-			fname: cybUser.fname,
-			lname: cybUser.lname,
-			fullName: cybUser.fullName,
-			profile: cybUser.profile,
-			slug: cybUser.slug,
-			individualId: cybUser.individualId,
-			city: cybUser.city,
-			state: cybUser.state,
-			country: cybUser.country,
-			industry: cybUser.industry,
-			companySize: cybUser.companySize,
-			claimStatus: cybUser.claimStatus,
-			onExplore: cybUser.onExplore,
-			status: cybUser.status,
 		})
 			.from(cybUserRelation)
-			.innerJoin(cybUser, eq(cybUserRelation.companyId, cybUser.id))
 			.where(and(
 				eq(cybUserRelation.userId, userId),
 				eq(cybUserRelation.isDeleted, 0),
+			))
+			.orderBy(desc(cybUserRelation.id));
+
+		// Emulate GROUP BY company_id keeping latest relation row
+		const seen = new Set<number>();
+		const unique: typeof rows = [];
+		for (const row of rows) {
+			if (row.companyId == null || seen.has(row.companyId)) continue;
+			seen.add(row.companyId);
+			unique.push(row);
+		}
+		return unique;
+	}
+
+	/** PHP get_user_company_basic_details for a company user id. */
+	async getCompanyBasicDetails(companyId: number) {
+		const [row] = await db.select({
+			id: cybUser.id,
+			individualId: cybUser.individualId,
+			claimStatus: cybUser.claimStatus,
+			fname: cybUser.fname,
+			lname: cybUser.lname,
+			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			slug: cybUser.slug,
+			designationName: cybDesignation.name,
+			cityName: cybCities.name,
+			stateName: cybState.name,
+			countryName: cybCountry.name,
+			companySizeName: cybCompanySize.name,
+			industryName: cybIndustries.name,
+			turnoverName: cybTurnover.name,
+		})
+			.from(cybUser)
+			.leftJoin(cybCities, eq(cybUser.city, cybCities.id))
+			.leftJoin(cybState, eq(cybUser.state, cybState.id))
+			.leftJoin(cybCountry, eq(cybUser.country, cybCountry.id))
+			.leftJoin(cybCompanySize, eq(cybUser.companySize, cybCompanySize.id))
+			.leftJoin(cybIndustries, eq(cybUser.industry, cybIndustries.id))
+			.leftJoin(cybTurnover, eq(cybUser.turnover, cybTurnover.id))
+			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
+			.where(and(eq(cybUser.id, companyId), eq(cybUser.isDeleted, 0)))
+			.limit(1);
+		return row;
+	}
+
+	/** Nested current employees (approved + still_working) — list mode with pagination. */
+	async getCurrentEmployeeUserIds(companyId: number, limit: number, sqlOffset: number) {
+		const rows = await db.selectDistinct({ userId: cybUserExperience.user })
+			.from(cybUserExperience)
+			.innerJoin(cybUser, eq(cybUser.id, cybUserExperience.user))
+			.where(and(
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperience.approved, 1),
+				eq(cybUserExperience.status, 1),
+				eq(cybUserExperience.stillWorking, 1),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUser.status, 1),
+				eq(cybUser.isDeleted, 0),
+			))
+			.limit(limit)
+			.offset(sqlOffset);
+		return rows.map((r) => r.userId!).filter(Boolean);
+	}
+
+	async countCurrentEmployees(companyId: number): Promise<number> {
+		const [row] = await db.select({
+			total: sql<number>`COUNT(DISTINCT ${cybUserExperience.user})`,
+		})
+			.from(cybUserExperience)
+			.innerJoin(cybUser, eq(cybUser.id, cybUserExperience.user))
+			.where(and(
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperience.approved, 1),
+				eq(cybUserExperience.status, 1),
+				eq(cybUserExperience.stillWorking, 1),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUser.status, 1),
+				eq(cybUser.isDeleted, 0),
 			));
+		return Number(row?.total ?? 0);
+	}
+
+	/** Employee card basics for nested user_details. */
+	async getEmployeeBasicCards(userIds: number[]) {
+		if (userIds.length === 0) return [];
+		return db.select({
+			id: cybUser.id,
+			individualId: cybUser.individualId,
+			fname: cybUser.fname,
+			lname: cybUser.lname,
+			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
+			slug: cybUser.slug,
+			designationName: cybDesignation.name,
+			cityName: cybCities.name,
+			stateName: cybState.name,
+			countryName: cybCountry.name,
+		})
+			.from(cybUser)
+			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
+			.leftJoin(cybCities, eq(cybUser.city, cybCities.id))
+			.leftJoin(cybState, eq(cybUser.state, cybState.id))
+			.leftJoin(cybCountry, eq(cybUser.country, cybCountry.id))
+			.where(and(inArray(cybUser.id, userIds), eq(cybUser.isDeleted, 0)));
+	}
+
+	/**
+	 * PHP get_user_group — { group_id, group_name } via permission → user_group → main_group.
+	 */
+	async getUserGroupsForCompany(companyId: number, userId: number) {
+		const rows = await db.select({
+			groupId: cybUserPermission.groupId,
+			groupName: cybUserMainGroup.name,
+		})
+			.from(cybUserPermission)
+			.leftJoin(cybUserGroup, eq(cybUserPermission.groupId, cybUserGroup.id))
+			.leftJoin(cybUserMainGroup, eq(cybUserGroup.groupId, cybUserMainGroup.id))
+			.where(and(
+				eq(cybUserPermission.userId, userId),
+				eq(cybUserPermission.addedBy, companyId),
+				eq(cybUserPermission.isDeleted, 0),
+			));
+		return rows.map((r) => ({
+			group_id: String(r.groupId ?? ''),
+			group_name: r.groupName ?? '',
+		}));
+	}
+
+	/** Super admin when user_permission.group_id points at user_group.id === 1. */
+	async isSuperAdmin(userId: number, companyId: number): Promise<boolean> {
+		const [row] = await db.select({ id: cybUserPermission.id })
+			.from(cybUserPermission)
+			.innerJoin(cybUserGroup, eq(cybUserPermission.groupId, cybUserGroup.id))
+			.where(and(
+				eq(cybUserPermission.userId, userId),
+				eq(cybUserPermission.addedBy, companyId),
+				eq(cybUserPermission.isDeleted, 0),
+				eq(cybUserGroup.isDeleted, 0),
+				eq(cybUserGroup.id, 1),
+			))
+			.limit(1);
+		return !!row;
+	}
+
+	async hasGstVerified(companyId: number): Promise<boolean> {
+		const [row] = await db.select({ id: cybVerifyDocument.id })
+			.from(cybVerifyDocument)
+			.where(and(
+				eq(cybVerifyDocument.userId, companyId),
+				eq(cybVerifyDocument.verify, 1),
+			))
+			.limit(1);
+		return !!row;
+	}
+
+	async hasManualDocumentPending(companyId: number): Promise<boolean> {
+		const [row] = await db.select({ id: cybManualDocumentVerify.id })
+			.from(cybManualDocumentVerify)
+			.where(and(
+				eq(cybManualDocumentVerify.userId, companyId),
+				eq(cybManualDocumentVerify.status, 1),
+				eq(cybManualDocumentVerify.isDeleted, 0),
+			))
+			.limit(1);
+		return !!row;
 	}
 
 	async createMessage(data: {
@@ -851,6 +1006,7 @@ class companyEmployeeRequestRepositery {
 			.from(cybAccountDeleteRequests)
 			.where(and(
 				eq(cybAccountDeleteRequests.userId, userId),
+				eq(cybAccountDeleteRequests.status, 1),
 				eq(cybAccountDeleteRequests.isDeleted, 0),
 			));
 		return row;

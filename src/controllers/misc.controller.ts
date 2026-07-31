@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { AuthUser } from "../types/express";
 import {
-	MarkViewedParams, SaveExploringBody, AllCompanyQuery, EditProfileBody,
+	MarkViewedParams, SaveExploringRequest, AllCompanyQuery, EditProfileBody,
 } from "../types/misc.types";
 import {
 	markViewedService, sidebarCountService, leaveReminderExperienceService,
@@ -52,14 +52,17 @@ export async function hired(req: Request, res: Response, next: NextFunction) {
 	}
 }
 
-export async function saveExploring(req: Request, res: Response, next: NextFunction) {
+export async function saveExploring(req: Request, res: Response, _next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser;
-		const { body } = req.validated as { body: SaveExploringBody };
-		const result = await saveExploringService(user_id, body);
+		// acting id (honours X-Company) — PHP request.id
+		const { id: userId } = req.auth as AuthUser;
+		const { body } = (req.validated as SaveExploringRequest) ?? { body: {} };
+		const result = await saveExploringService(userId, body?.exploring_details);
 		return res.status(200).json(result);
 	} catch (error) {
-		next(error);
+		// PHP catch → HTTP 200 + status false + exception message
+		const messages = error instanceof Error ? error.message : String(error);
+		return res.status(200).json({ status: false, messages });
 	}
 }
 

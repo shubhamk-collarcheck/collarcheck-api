@@ -71,41 +71,43 @@ export async function hiredService(userId: number) {
 	return { status: true, messages: "Success!", already_hired: alreadyHired };
 }
 
-// ====== 5. Save Exploring ======
+// ====== 5. Save Exploring (hide list → user_details.exploring_details only) ======
 
-export async function saveExploringService(userId: number, data: {
-	exploring_option?: string;
-	on_immediate?: number;
-	on_notice?: number;
-	notice_period?: number;
-	notice_date?: string;
-	expected_salary?: string;
-	expected_inhand?: string;
-	expected_mode?: string;
-	notice_employments?: number[];
-}) {
-	const user = await miscRepositery.findUserById(userId);
-	if (!user) {
-		return { status: false, messages: "Access denied" };
+/**
+ * PHP empty()-ish: missing / "" / [] → NULL JSON column.
+ * Truthy array → json_encode (string stored in exploring_details).
+ */
+function encodeExploringDetails(raw: number[] | undefined | null): string | null {
+	if (raw === undefined || raw === null) return null;
+	if (Array.isArray(raw) && raw.length === 0) return null;
+	return JSON.stringify(raw);
+}
+
+/**
+ * POST /wapi/employee/save-exploring
+ * Contract: src/debug/employee-save-exploring-endpoint.md
+ * Locked messages only — no `data` key.
+ */
+export async function saveExploringService(
+	userId: number | null | undefined,
+	exploringDetails?: number[] | null,
+) {
+	// PHP: empty request.id → "User not found!" (not a DB user lookup)
+	if (!userId) {
+		return { status: false, messages: "User not found!" };
 	}
 
-	const noticeEmploymentsJson = data.notice_employments
-		? JSON.stringify(data.notice_employments)
-		: undefined;
-
-	await miscRepositery.saveExploring(userId, {
-		exploringOption: data.exploring_option,
-		onImmediate: data.on_immediate,
-		onNotice: data.on_notice,
-		noticePeriod: data.notice_period,
-		noticeDate: data.notice_date,
-		expectedSalary: data.expected_salary,
-		expectedInhand: data.expected_inhand,
-		expectedMode: data.expected_mode,
-		noticeEmployments: noticeEmploymentsJson,
-	});
-
-	return { status: true, messages: "Success!" };
+	try {
+		const payload = encodeExploringDetails(exploringDetails);
+		const ok = await miscRepositery.upsertExploringDetails(userId, payload);
+		if (ok) {
+			return { status: true, messages: "Record updated successfully!" };
+		}
+		return { status: false, messages: "Record not update!" };
+	} catch (err) {
+		const messages = err instanceof Error ? err.message : String(err);
+		return { status: false, messages };
+	}
 }
 
 // ====== 6. CV Details ======

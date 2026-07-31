@@ -567,57 +567,115 @@ class companyEmployeeRequestService {
 		};
 	}
 
-	async companyListService(userId: number, limit = 16, offset = 0) {
-		const page = offset;
-		const sqlOffset = page <= 1 ? 0 : page * limit - limit;
+	/**
+	 * GET /wapi/company-list
+	 * Contract: src/debug/company-list-and-all-notification-endpoints.md
+	 * limit/offset paginate nested user_details only — not the company list.
+	 * Empty → data: [] (array). Non-empty → data: { myCompany: [...] }.
+	 */
+	async companyListService(userId: number, limit = 16, offsetPage = 0) {
+		const sqlOffset = pageToSqlOffset(offsetPage, limit);
 		const relations = await companyEmployeeRequestRepositery.getCompanyRelations(userId);
 
-		// Simple pagination over relations list
-		const pageSlice = relations.slice(sqlOffset, sqlOffset + limit);
+		const myCompany: Record<string, unknown>[] = [];
 
-		const myCompany = [];
-		for (const rel of pageSlice) {
-			const companyId = rel.companyId || 0;
-			const [followerCount, followingCount, industryName, exploreTalent, companyDetail] = await Promise.all([
-				companyEmployeeRequestRepositery.getCompanyFollowerCount(companyId),
+		for (const rel of relations) {
+			const companyId = rel.companyId;
+			if (companyId == null) continue;
+
+			const details = await companyEmployeeRequestRepositery.getCompanyBasicDetails(companyId);
+			if (!details) continue;
+
+			const [
+				isVerified,
+				followingCount,
+				followerCount,
+				followRow,
+				exploreTalent,
+				userGroup,
+				employeeIds,
+				userCount,
+				accountDeletion,
+				isSuperAdmin,
+				gstOk,
+				manualPending,
+			] = await Promise.all([
+				user_verified(companyId),
 				companyEmployeeRequestRepositery.getCompanyConnectionCount(companyId),
-				rel.industry ? companyEmployeeRequestRepositery.getIndustryName(rel.industry) : Promise.resolve(''),
+				companyEmployeeRequestRepositery.getCompanyFollowerCount(companyId),
+				companyEmployeeRequestRepositery.checkFollowStatus(userId, companyId),
 				companyEmployeeRequestRepositery.hasActiveJobs(companyId),
-				companyEmployeeRequestRepositery.getCompanyDetail(companyId),
+				companyEmployeeRequestRepositery.getUserGroupsForCompany(companyId, userId),
+				companyEmployeeRequestRepositery.getCurrentEmployeeUserIds(companyId, limit, sqlOffset),
+				companyEmployeeRequestRepositery.countCurrentEmployees(companyId),
+				companyEmployeeRequestRepositery.getAccountDeleteRequest(companyId),
+				companyEmployeeRequestRepositery.isSuperAdmin(userId, companyId),
+				companyEmployeeRequestRepositery.hasGstVerified(companyId),
+				companyEmployeeRequestRepositery.hasManualDocumentPending(companyId),
 			]);
 
-			const accountDeletion = await companyEmployeeRequestRepositery.getAccountDeleteRequest(companyId);
+			const empCards = await companyEmployeeRequestRepositery.getEmployeeBasicCards(employeeIds);
+			// Preserve order of employeeIds; de-dupe by id
+			const empById = new Map(empCards.map((e) => [e.id, e]));
+			const seenEmp = new Set<number>();
+			const user_details: Record<string, unknown>[] = [];
+			for (const uid of employeeIds) {
+				if (seenEmp.has(uid)) continue;
+				seenEmp.add(uid);
+				const e = empById.get(uid);
+				if (!e) continue;
+				user_details.push({
+					id: e.id,
+					individual_id: e.individualId,
+					name: `${e.fname ?? ''} ${e.lname ?? ''}`.trim(),
+					profile: profileUrl(e.profile, e.socialImage),
+					slug: e.slug,
+					designation: e.designationName,
+					city: e.cityName,
+					state: e.stateName,
+					country: e.countryName,
+				});
+			}
+
+			// PHP check_company_status
+			let currentStatus = 4;
+			if (isVerified && gstOk) currentStatus = 1;
+			else if (manualPending && !gstOk) currentStatus = 2;
+			else if (gstOk && !isVerified) currentStatus = 3;
 
 			myCompany.push({
-				id: companyId,
-				individual_id: rel.individualId,
-				profile: rel.profile ? `${S3_PREFIX}${rel.profile}` : '',
-				name: rel.fname || companyDetail?.fname || '',
-				city_name: '',
-				state_name: '',
-				country_name: '',
-				claim_status: rel.claimStatus ?? companyDetail?.claimStatus,
-				status: rel.status,
-				slug: rel.slug || companyDetail?.slug,
-				company_size_name: '',
-				industry_name: industryName,
-				is_verified: (rel.claimStatus ?? companyDetail?.claimStatus) === 1,
+				id: details.id,
+				individual_id: details.individualId,
+				profile: profileUrl(details.profile, details.socialImage),
+				name: details.fname ?? '',
+				city_name: details.cityName,
+				state_name: details.stateName,
+				claim_status: details.claimStatus,
+				country_name: details.countryName,
+				status: rel.status, // relation status
+				slug: details.slug,
+				company_size_name: details.companySizeName,
+				industry_name: details.industryName,
+				is_verified: isVerified,
 				followData: { following: followingCount, follower: followerCount },
-				following: { requestSend: false, requestApproved: false },
+				following: followRow
+					? { requestSend: true, requestApproved: followRow.status === 1 }
+					: { requestSend: false, requestApproved: false },
 				exploreTalent,
-				user_group: rel.type === 1 ? [{ id: 1, name: 'Super Admin' }] : [],
-				user_details: [],
-				user_count: 0,
+				user_group: userGroup.length ? userGroup : [],
+				user_details,
+				user_count: String(userCount),
 				account_deletion: !!accountDeletion,
-				currentStatus: (rel.claimStatus ?? companyDetail?.claimStatus) === 1 ? 1 : 4,
-				isSuperAdmin: rel.type === 1,
+				currentStatus,
+				isSuperAdmin,
 			});
 		}
 
 		return {
 			status: true,
-			messages: "Company list",
-			data: { myCompany },
+			messages: 'Company list',
+			// Empty: array []; non-empty: { myCompany }
+			data: myCompany.length > 0 ? { myCompany } : [],
 		};
 	}
 

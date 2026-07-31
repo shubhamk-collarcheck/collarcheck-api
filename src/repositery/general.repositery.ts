@@ -10,6 +10,7 @@ import {
 	cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybTag,
 	cybJobMode, cybWorkType, cybDepartment, cybJobMeta, cybCompanyBenefits,
 	cybUserExperienceRating, cybCompanyInvite, cybSuggestion, cybUserLoginHistory,
+	cybUserRelation, cybUserDetails,
 } from '../db/schema';
 
 class generalRepositery {
@@ -134,8 +135,40 @@ class generalRepositery {
 
 	// ====== Notifications (Endpoints #4, #11, #13, #14, #15) ======
 
-	async getNotifications(userId: number) {
+	/**
+	 * PHP get_all_merge_company_id — company ids from user_relation join non-deleted company.
+	 * No urel.is_deleted / status filter (unlike company-list).
+	 */
+	async getMergeCompanyIds(userId: number): Promise<number[]> {
+		const rows = await db.select({ companyId: cybUserRelation.companyId })
+			.from(cybUserRelation)
+			.innerJoin(cybUser, eq(cybUser.id, cybUserRelation.companyId))
+			.where(and(
+				eq(cybUserRelation.userId, userId),
+				eq(cybUser.isDeleted, 0),
+			));
+		return rows.map((r) => r.companyId!).filter(Boolean);
+	}
+
+	/** Cleared notification ids for user (cyb_clear_notification). */
+	async getClearedNotificationIds(userId: number): Promise<Set<number>> {
 		const rows = await db.select({
+			notificationId: cybClearNotification.notificationId,
+		})
+			.from(cybClearNotification)
+			.where(eq(cybClearNotification.userId, userId));
+		return new Set(rows.map((r) => r.notificationId).filter(Boolean));
+	}
+
+	/**
+	 * PHP get_all_notification — receivers = user + linked companies.
+	 * Clear filter applied in service after fetch (parity with PHP).
+	 */
+	async getNotificationsForReceivers(receiverIds: number[]) {
+		if (receiverIds.length === 0) return [];
+		const sender = alias(cybUser, 'ntSender');
+		const receiver = alias(cybUser, 'ntReceiver');
+		return db.select({
 			id: cybNotifications.id,
 			sender: cybNotifications.sender,
 			receiver: cybNotifications.receiver,
@@ -147,20 +180,61 @@ class generalRepositery {
 			isViewed: cybNotifications.isViewed,
 			slug: cybNotifications.slug,
 			createDate: cybNotifications.createDate,
+			// sender
+			senderFname: sender.fname,
+			senderLname: sender.lname,
+			senderProfile: sender.profile,
+			senderSocialImage: sender.socialImage,
+			senderUserType: sender.userType,
+			senderOnExplore: sender.onExplore,
+			senderOnNotice: sender.onNotice,
+			senderOnImmediate: sender.onImmediate,
+			// receiver
+			receiverSlug: receiver.slug,
+			receiverProfile: receiver.profile,
+			receiverSocialImage: receiver.socialImage,
+			receiverName: receiver.fullName,
+			receiverUserId: receiver.id,
+			receiverUserType: receiver.userType,
 		})
 			.from(cybNotifications)
-			.leftJoin(cybClearNotification, and(
-				eq(cybNotifications.id, cybClearNotification.notificationId),
-				eq(cybClearNotification.userId, userId),
-			))
+			.leftJoin(sender, eq(cybNotifications.sender, sender.id))
+			.leftJoin(receiver, eq(cybNotifications.receiver, receiver.id))
 			.where(and(
-				eq(cybNotifications.receiver, userId),
 				eq(cybNotifications.isDeleted, 0),
-				sql`${cybClearNotification.id} IS NULL`,
+				inArray(cybNotifications.receiver, receiverIds),
 			))
 			.orderBy(desc(cybNotifications.createDate));
+	}
 
-		return rows;
+	/** Exploring option + details for show_exploring gating. */
+	async getUserExploringPrivacy(userId: number) {
+		const [row] = await db.select({
+			exploringOption: cybUserDetails.exploringOption,
+			exploringDetails: cybUserDetails.exploringDetails,
+			onExplore: cybUser.onExplore,
+		})
+			.from(cybUser)
+			.leftJoin(cybUserDetails, eq(cybUserDetails.userId, cybUser.id))
+			.where(eq(cybUser.id, userId))
+			.limit(1);
+		return row;
+	}
+
+	async hasActiveJobsForUser(companyId: number): Promise<number> {
+		const [row] = await db.select({ c: count() })
+			.from(cybCompanyJob)
+			.where(and(
+				eq(cybCompanyJob.company, companyId),
+				eq(cybCompanyJob.status, 1),
+				eq(cybCompanyJob.isDeleted, 0),
+			));
+		return (row?.c ?? 0) > 0 ? 1 : 0;
+	}
+
+	/** @deprecated prefer getNotificationsForReceivers — kept for older callers */
+	async getNotifications(userId: number) {
+		return this.getNotificationsForReceivers([userId]);
 	}
 
 	async getUnreadNotificationCount(userId: number) {
@@ -207,18 +281,11 @@ class generalRepositery {
 	}
 
 	async getAllActiveNotificationIds(userId: number) {
-		const rows = await db.select({ id: cybNotifications.id })
-			.from(cybNotifications)
-			.leftJoin(cybClearNotification, and(
-				eq(cybNotifications.id, cybClearNotification.notificationId),
-				eq(cybClearNotification.userId, userId),
-			))
-			.where(and(
-				eq(cybNotifications.receiver, userId),
-				eq(cybNotifications.isDeleted, 0),
-				sql`${cybClearNotification.id} IS NULL`,
-			));
-		return rows.map(r => r.id);
+		const companyIds = await this.getMergeCompanyIds(userId);
+		const receivers = [userId, ...companyIds];
+		const cleared = await this.getClearedNotificationIds(userId);
+		const rows = await this.getNotificationsForReceivers(receivers);
+		return rows.map((r) => r.id).filter((id) => !cleared.has(id));
 	}
 
 	async clearAllNotifications(userId: number) {

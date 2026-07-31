@@ -260,9 +260,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ### 4. `GET /wapi/general/all-notification`
 
-**Function:** `allNotification`
+> **Contract lock:** `src/debug/company-list-and-all-notification-endpoints.md`
 
-**Description:** Returns all notifications for the authenticated user.
+**Function:** `allNotification` → `allNotificationService`  
+**Auth:** JWT · `req.auth.id` (+ GraphQL token from `req.auth.token` for `messagecount`)
+
+**Description:** Notification feed for **user + all linked companies**, minus `cyb_clear_notification` ids, plus unread badge and GraphQL message count.
 
 **Request:**
 ```
@@ -272,45 +275,85 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 **Success Response (200):**
 ```json
 {
-  "success": true,
+  "status": true,
+  "messages": "Notification List",
   "data": {
-    "notifications": [
+    "notificationcount": 2,
+    "notification": [
       {
-        "id": 5001,
-        "type": "follow",
-        "message": "Jane Smith started following you",
-        "is_read": false,
-        "related_entity_id": 102,
-        "related_entity_type": "user",
-        "created_at": "2025-07-16T09:00:00Z"
+        "id": 1,
+        "profile": "https://s3…/sender.jpg",
+        "receiver_profile": "https://s3…/recv.jpg",
+        "receiver_name": "Acme Corp",
+        "message": "John Doe, Accepted your request!",
+        "date_time": "2025-01-15 10:30:00",
+        "link": "/employee/john-doe",
+        "receiver_user_id": 123,
+        "user_id": 45,
+        "slug": "acme-corp",
+        "receiver_user_type": 2,
+        "is_viewed": 0,
+        "redirect": null,
+        "exploreTalent": 1,
+        "isAccess": true
       },
       {
-        "id": 5002,
-        "type": "document_verified",
-        "message": "Your document 'Business License' has been verified",
-        "is_read": true,
-        "related_entity_id": 42,
-        "related_entity_type": "document",
-        "created_at": "2025-07-15T14:30:00Z"
-      },
-      {
-        "id": 5003,
-        "type": "message",
-        "message": "You have a new message from Bob Johnson",
-        "is_read": false,
-        "related_entity_id": 9001,
-        "related_entity_type": "message",
-        "created_at": "2025-07-15T10:00:00Z"
+        "id": 2,
+        "profile": "https://s3…/p.jpg",
+        "receiver_profile": "…",
+        "receiver_name": "Jane Doe",
+        "message": "Someone viewed your profile",
+        "date_time": "2025-01-14 09:00:00",
+        "link": "/…",
+        "receiver_user_id": 99,
+        "user_id": 88,
+        "slug": null,
+        "receiver_user_type": 1,
+        "is_viewed": 1,
+        "redirect": null,
+        "on_explore": 0,
+        "on_immediate": 0,
+        "on_notice": 0,
+        "isAccess": true
       }
     ],
-    "unread_count": 2
+    "messagecount": 5
   }
 }
 ```
-**Implementation Notes:**
-- Database read from notifications table filtered by authenticated user
-- Ordered by `created_at` descending
-- Filter out notifications that exist in `clear_notification` table
+
+| Key | Notes |
+|-----|--------|
+| `messages` | exact **`"Notification List"`** |
+| `data.notificationcount` | items with `is_viewed != 1` after clear filter |
+| `data.notification` | full list (no pagination); key is **`date_time`** not `create_date` |
+| `data.messagecount` | GraphQL unread count, or **`false`** if GraphQL fails |
+| Company sender | includes `exploreTalent` only |
+| Person sender | includes `on_explore` / `on_immediate` / `on_notice` |
+| `isAccess` | always `true` |
+
+```json
+{
+  "status": true,
+  "messages": "Notification List",
+  "data": {
+    "notificationcount": 0,
+    "notification": [],
+    "messagecount": false
+  }
+}
+```
+
+Exception:
+```json
+{ "status": false, "messages": "Access denied" }
+```
+
+**Implementation notes:**
+- Receivers = acting user + `user_relation` company ids (company user not deleted)
+- Filter out ids present in `cyb_clear_notification` for acting user
+- No pagination; order `create_date` DESC
+- `messagecount` from GraphQL `{GRAPHQL}/api/message/unread-count` (or `false`)
 
 ---
 

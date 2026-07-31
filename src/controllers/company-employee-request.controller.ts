@@ -237,7 +237,8 @@ export const sidebarCount = async (req: Request, res: Response) => {
 
 export const companyList = async (req: Request, res: Response) => {
 	try {
-		const { user_id: userId } = req.auth as AuthUser;
+		// acting id (honours X-Company) — PHP request.id
+		const { id: userId } = req.auth as AuthUser;
 
 		const query = (req.validated as { query?: CompanyListQuery })?.query
 			|| (req.query as unknown as CompanyListQuery)
@@ -251,8 +252,9 @@ export const companyList = async (req: Request, res: Response) => {
 
 		return res.status(200).json(result);
 	} catch (error) {
-		console.error("companyList error:", error);
-		return res.status(200).json({ status: false, messages: (error as Error).message || "Internal server error" });
+		// PHP exception → HTTP 200 + messages: exception text
+		const messages = error instanceof Error ? error.message : String(error);
+		return res.status(200).json({ status: false, messages });
 	}
 };
 

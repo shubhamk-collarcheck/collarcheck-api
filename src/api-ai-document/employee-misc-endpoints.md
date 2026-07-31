@@ -14,7 +14,7 @@
 | GET | `/wapi/employee/sidebar-count` | `employee.route.ts` | `sidebarCount` | Badge counts |
 | POST | `/wapi/employee/leave-reminder-experience` | `employee.route.ts` | `leaveReminderExperience` | Dismiss reminder |
 | POST | `/wapi/hired` | `hired.route.ts` | `hired` | Hired check |
-| POST | `/wapi/employee/save-exploring` | `employee.route.ts` | `saveExploring` | Save exploring prefs |
+| POST | `/wapi/employee/save-exploring` | `employee.route.ts` | `saveExploring` | Save hide list (`exploring_details`) |
 | GET | `/wapi/employee/cv-details` | `employee.route.ts` | `cvDetails` | CV details |
 | POST | `/wapi/employee/edit-profile` | `employee.route.ts` | `editProfile` | Multi-step profile edit |
 | GET | `/wapi/employee/all-company` | `employee.route.ts` | `allCompany` | Company search |
@@ -265,55 +265,53 @@ No body params (user identified from JWT).
 
 ## 6. POST `employee/save-exploring`
 
+> **Contract lock:** `src/debug/employee-save-exploring-endpoint.md`  
+> Older “on_explore / notice / salary” notes were **wrong** — live PHP only upserts `user_details.exploring_details`.
+
 ### Route
 ```
 POST /wapi/employee/save-exploring
 ```
 ### Auth
-JWT required. `req.auth.id` = logged-in user.
+JWT · acting id = `req.auth.id` (honours `X-Company`).
 
-### DB Queries
-```
-1. SELECT * FROM user WHERE id = ? AND is_deleted = 0
-   → Verify user exists
+### Node layers
+| Layer | File |
+|-------|------|
+| Route | `src/routes/employee.route.ts` — `Authorization` → `validateData(saveExploringSchema)` → `saveExploring` |
+| Types | `src/types/misc.types.ts` — body field **`exploring_details`** only |
+| Controller | `src/controllers/misc.controller.ts` — `saveExploring` |
+| Service | `src/services/misc.service.ts` — `saveExploringService` |
+| Repositery | `src/repositery/misc.repositery.ts` — `upsertExploringDetails` |
 
-2. UPDATE user
-   SET on_explore = 1,
-       exploring_option = ?,
-       on_immediate = ?,
-       on_notice = ?,
-       notice_period = ?,
-       notice_date = ?,
-       expected_salary = ?,
-       expected_inhand = ?,
-       expected_mode = ?,
-       notice_type = ?,
-       notice_employments = ?
-   WHERE id = ?
+### What it writes
+| Column | Table | Written? |
+|--------|-------|----------|
+| `exploring_details` | `cyb_user_details` | **Yes** (JSON string of user/company ids, or `NULL`) |
+| `exploring_option` | `cyb_user_details` | No |
+| `on_explore` / notice / salary | `cyb_user` | No |
+| `notice_employments` | `cyb_user_details` | No (`POST /wapi/update-notice`) |
 
-   (notice_employments is json_encode()'d before saving)
-```
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| `exploring_option` | string | Yes | JSON array, e.g. `"[1,2,3]"` |
-| `on_immediate` | int | Conditional | 1 or 0 |
-| `on_notice` | int | Conditional | 1 or 0 |
-| `notice_period` | int | No | Days |
-| `notice_date` | string | No | Date |
-| `expected_salary` | string | No | e.g. `"$80k-$100k"` |
-| `expected_inhand` | string | No | In-hand salary |
-| `expected_mode` | string | No | Salary mode |
-| `notice_type` | string | No | Notice type |
-| `notice_employments` | array | No | Array of employment IDs |
+| `exploring_details` | number[] \| form `exploring_details[]` | No | Empty/missing → store `NULL` |
 
-### Response
 ```json
-{ "status": true, "messages": "Success!" }
+{ "exploring_details": [101, 202, 303] }
+```
+
+### Responses (LOCKED)
+```json
+{ "status": true, "messages": "Record updated successfully!" }
 ```
 ```json
-{ "status": false, "messages": "Access denied" }
+{ "status": false, "messages": "Record not update!" }
 ```
+```json
+{ "status": false, "messages": "User not found!" }
+```
+Success has **no `data`**. HTTP **200** for business success/failure.
 ---
 
 ## 7. GET `employee/cv-details`

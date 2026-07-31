@@ -273,16 +273,21 @@ WHERE id = :id AND company = :companyId;
 
 ## 6. GET `/wapi/company-list`
 
-**Auth:** JWT  
-**Node:** `GET /wapi/company-list` → `companyList` / `companyListService`
+> **Contract lock:** `src/debug/company-list-and-all-notification-endpoints.md`
+
+**Auth:** JWT · `req.auth.id`  
+**Node:** `root.route.ts` → `companyList` → `companyListService`  
+**Path:** `/wapi/company-list` (not `/wapi/company/company-list`)
 
 ### Query
-| Param | Default |
-|-------|---------|
-| `limit` | 16 |
-| `offset` | 0 (page number) |
+| Param | Default | Notes |
+|-------|---------|-------|
+| `limit` | 16 | Nested **`user_details`** page size only |
+| `offset` | 0 | **Page number** for nested employees (not company list) |
 
-### Success response
+Company list itself is **all** `user_relation` rows (unpaginated).
+
+### Success (non-empty)
 ```json
 {
   "status": true,
@@ -303,23 +308,24 @@ WHERE id = :id AND company = :companyId;
         "company_size_name": "51-200",
         "industry_name": "Information Technology",
         "is_verified": true,
-        "followData": {
-          "following": 3,
-          "follower": 120
-        },
-        "following": {
-          "requestSend": true,
-          "requestApproved": true
-        },
+        "followData": { "following": 3, "follower": 120 },
+        "following": { "requestSend": true, "requestApproved": true },
         "exploreTalent": 1,
-        "user_group": [
+        "user_group": [{ "group_id": "1", "group_name": "Super Admin" }],
+        "user_details": [
           {
-            "id": 1,
-            "name": "Super Admin"
+            "id": 55,
+            "individual_id": "CC55",
+            "name": "Jane Doe",
+            "profile": "https://…",
+            "slug": "jane-doe",
+            "designation": "Engineer",
+            "city": "Mumbai",
+            "state": "Maharashtra",
+            "country": "India"
           }
         ],
-        "user_details": [],
-        "user_count": 4,
+        "user_count": "4",
         "account_deletion": false,
         "currentStatus": 1,
         "isSuperAdmin": false
@@ -328,41 +334,30 @@ WHERE id = :id AND company = :companyId;
   }
 }
 ```
+
 ### Field notes
 | Field | Type | Rules |
 |-------|------|--------|
-| `profile` | string\|null | S3 prefix + path, else `social_image` |
-| `status` | number | From company–user **relation** row, not company account status alone |
-| `following` | object | **Only** `{ requestSend, requestApproved }` (boolean). No `id` in this endpoint |
-| `exploreTalent` | 0\|1 | 1 if any `company_job` with status=1, is_deleted=0 |
-| `user_group` | array | Empty array if none |
-| `user_details` | array | Nested users of company (paginated by limit/offset) |
-| `user_count` | number | Total collaborators for company |
-| `account_deletion` | boolean | Active row in `account_delete_requests` |
-| `currentStatus` | 1\|2\|3\|4 | See below |
-| `isSuperAdmin` | boolean | `user_group.id == 1` via permission |
-
-**`currentStatus` meaning:**
-| Value | Meaning |
-|-------|---------|
-| 1 | Fully verified (KYC + GST path) — manage company |
-| 2 | Manual doc pending, no GST |
-| 3 | GST ok, not fully verified |
-| 4 | Pending / show verify |
+| `messages` | string | exact **`"Company list"`** |
+| `profile` | string | S3+profile else social_image |
+| `status` | number | **relation** status (`user_relation.status`) |
+| `following` | object | only `{ requestSend, requestApproved }` booleans |
+| `user_group` | array | **`{ group_id, group_name }`** (not `{ id, name }`) |
+| `user_details` | array | approved still-working employees (paginated) |
+| `user_count` | **string** | total distinct current employees |
+| `is_verified` | bool | `user_verified(company)` |
+| `currentStatus` | 1–4 | GST + manual + verified state machine |
+| `isSuperAdmin` | bool | permission → user_group.id == 1 |
 
 ### Empty success
 ```json
-{
-  "status": true,
-  "messages": "Company list",
-  "data": {
-    "myCompany": []
-  }
-}
+{ "status": true, "messages": "Company list", "data": [] }
 ```
+(`data` is a bare **array** when empty — not `{ myCompany: [] }`.)
+
 ### Error
 ```json
-{ "status": false, "messages": "Exception message text" }
+{ "status": false, "messages": "<exception message>" }
 ```
 ---
 

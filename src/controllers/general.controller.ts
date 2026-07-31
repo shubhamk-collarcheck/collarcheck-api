@@ -525,13 +525,15 @@ export const allMessageListGeneral = async (req: Request, res: Response, next: N
 
 // ====== All Notification (Endpoint #4) ======
 
-export const allNotification = async (req: Request, res: Response, next: NextFunction) => {
+export const allNotification = async (req: Request, res: Response, _next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
-		const data = await allNotificationService(user_id);
-		return res.status(200).json({ status: true, message: '', data });
+		// acting id (honours X-Company); token for GraphQL messagecount
+		const { id: userId, token } = req.auth as AuthUser;
+		const result = await allNotificationService(userId, token);
+		return res.status(200).json(result);
 	} catch (error) {
-		next(error);
+		// PHP catch → HTTP 200 + "Access denied"
+		return res.status(200).json({ status: false, messages: 'Access denied' });
 	}
 };
 

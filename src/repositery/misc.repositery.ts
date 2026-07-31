@@ -81,51 +81,30 @@ class miscRepositery {
 		return result.count;
 	}
 
-	async saveExploring(userId: number, data: {
-		exploringOption?: string;
-		onImmediate?: number;
-		onNotice?: number;
-		noticePeriod?: number;
-		noticeDate?: string;
-		expectedSalary?: string;
-		expectedInhand?: string;
-		expectedMode?: string;
-		noticeEmployments?: string;
-	}) {
-		await db.update(cybUser)
-			.set({
-				onExplore: 1,
-				onImmediate: data.onImmediate,
-				onNotice: data.onNotice,
-				noticePeriod: data.noticePeriod,
-				noticeDate: data.noticeDate,
-				expectedSalary: data.expectedSalary ? Number(data.expectedSalary) : undefined,
-				expectedInhand: data.expectedInhand,
-				expectedMode: data.expectedMode,
-			})
-			.where(eq(cybUser.id, userId));
+	/**
+	 * PHP save_exploring — upsert only user_details.exploring_details.
+	 * Does NOT touch user.on_explore / notice / salary / exploring_option.
+	 * Returns true on successful write (insert id truthy or update ok).
+	 */
+	async upsertExploringDetails(userId: number, exploringDetails: string | null): Promise<boolean> {
+		const existing = await db.select({ id: cybUserDetails.id })
+			.from(cybUserDetails)
+			.where(eq(cybUserDetails.userId, userId))
+			.limit(1);
 
-		if (data.exploringOption || data.noticeEmployments) {
-			const existing = await db.select()
-				.from(cybUserDetails)
-				.where(eq(cybUserDetails.userId, userId))
-				.limit(1);
-
-			if (existing.length > 0) {
-				await db.update(cybUserDetails)
-					.set({
-						exploringOption: data.exploringOption,
-						noticeEmployments: data.noticeEmployments,
-					})
-					.where(eq(cybUserDetails.userId, userId));
-			} else {
-				await db.insert(cybUserDetails).values({
-					userId,
-					exploringOption: data.exploringOption,
-					noticeEmployments: data.noticeEmployments,
-				});
-			}
+		if (existing.length > 0) {
+			await db.update(cybUserDetails)
+				.set({ exploringDetails })
+				.where(eq(cybUserDetails.userId, userId));
+			return true;
 		}
+
+		// Sane port: correct column (PHP insert uses undefined $exploring_detail typo)
+		const [{ id }] = await db.insert(cybUserDetails).values({
+			userId,
+			exploringDetails,
+		}).$returningId();
+		return !!id;
 	}
 
 	async searchAllCompany(keyword: string, limit: number, offset: number) {

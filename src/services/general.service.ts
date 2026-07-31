@@ -686,21 +686,109 @@ export const allMessageListGeneralService = async (userId: number) => {
 
 // ====== All Notification (Endpoint #4) ======
 
-export const allNotificationService = async (userId: number) => {
-	const notifications = await generalRepositery.getNotifications(userId);
-	const unreadCount = await generalRepositery.getUnreadNotificationCount(userId);
+function parseJsonArray(raw: string | null | undefined): number[] {
+	if (!raw) return [];
+	try {
+		const parsed = JSON.parse(raw);
+		if (Array.isArray(parsed)) return parsed.map(Number).filter((n) => !Number.isNaN(n));
+	} catch { /* ignore */ }
+	return [];
+}
+
+/**
+ * PHP ExploringTrait::show_exploring (simplified port for notification cards).
+ * Empty options → true. Options 3/4 hide when viewer id is in exploring_details.
+ */
+async function showExploring(senderId: number, viewerId: number): Promise<boolean> {
+	const privacy = await generalRepositery.getUserExploringPrivacy(senderId);
+	const options = parseJsonArray(privacy?.exploringOption ?? null);
+	if (options.length === 0) return true;
+
+	const hideIds = new Set(parseJsonArray(privacy?.exploringDetails ?? null));
+	const has3 = options.includes(3);
+	const has4 = options.includes(4);
+	if ((has3 || has4) && hideIds.has(viewerId)) return false;
+	return true;
+}
+
+/** PHP message_count — GraphQL unread; failure → false (boolean). */
+async function graphqlUnreadMessageCount(token: string | undefined): Promise<number | false> {
+	const base = process.env.GRAPHQL || process.env.GRAPHQL_URL || process.env.GRAPHQL_BASE_URL;
+	if (!base || !token) return false;
+	try {
+		const url = `${base.replace(/\/$/, '')}/api/message/unread-count`;
+		const res = await fetch(url, {
+			headers: { Authorization: token.startsWith('Bearer ') ? token : token },
+			signal: AbortSignal.timeout(10_000),
+		});
+		const json = await res.json() as { status?: boolean; unreadCount?: number };
+		if (json?.status === true) return Number(json.unreadCount ?? 0);
+		return false;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * GET /wapi/general/all-notification
+ * Contract: src/debug/company-list-and-all-notification-endpoints.md
+ */
+export const allNotificationService = async (userId: number, token?: string) => {
+	const companyIds = await generalRepositery.getMergeCompanyIds(userId);
+	const receivers = [userId, ...companyIds];
+
+	let rows = await generalRepositery.getNotificationsForReceivers(receivers);
+	const cleared = await generalRepositery.getClearedNotificationIds(userId);
+	rows = rows.filter((r) => !cleared.has(r.id));
+
+	const notification: Record<string, unknown>[] = [];
+	let notificationcount = 0;
+
+	for (const val of rows) {
+		const senderType = val.senderUserType ?? 1;
+		const detail: Record<string, unknown> = {
+			id: val.id,
+			profile: withProfileUrl(val.senderProfile, val.senderSocialImage),
+			receiver_profile: withProfileUrl(val.receiverProfile, val.receiverSocialImage),
+			receiver_name: val.receiverName ?? '',
+			message: val.message,
+			date_time: val.createDate,
+			link: val.link,
+			receiver_user_id: val.receiverUserId,
+			user_id: val.sender,
+			slug: val.receiverUserType === 2 ? val.receiverSlug : (val.slug ?? null),
+			receiver_user_type: val.receiverUserType,
+			is_viewed: val.isViewed,
+			redirect: val.redirect,
+			isAccess: true,
+		};
+
+		if (senderType === 2 && val.sender != null) {
+			detail.exploreTalent = await generalRepositery.hasActiveJobsForUser(val.sender);
+		} else {
+			let on_explore = 0;
+			if (val.senderOnExplore && val.sender != null) {
+				on_explore = (await showExploring(val.sender, userId)) ? 1 : 0;
+			}
+			detail.on_explore = on_explore;
+			detail.on_immediate = on_explore === 1 ? (val.senderOnImmediate ? 1 : 0) : 0;
+			detail.on_notice = on_explore === 1 ? (val.senderOnNotice ? 1 : 0) : 0;
+		}
+
+		notification.push(detail);
+		if (val.isViewed !== 1) notificationcount++;
+	}
+
+	const messagecount = await graphqlUnreadMessageCount(token);
 
 	return {
-		notifications: notifications.map(n => ({
-			id: n.id,
-			type: n.type,
-			message: n.message,
-			is_read: n.isViewed === 1,
-			related_entity_id: n.sender,
-			related_entity_type: n.redirect || 'general',
-			created_at: n.createDate,
-		})),
-		unread_count: unreadCount,
+		status: true,
+		messages: 'Notification List',
+		data: {
+			notificationcount,
+			notification,
+			messagecount,
+		},
 	};
 };
 
