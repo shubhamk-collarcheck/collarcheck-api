@@ -137,11 +137,14 @@ export async function checkCurrentCompany(req: Request, res: Response, next: Nex
 
 export async function dashboard(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser;
-		const result = await dashboardService(user_id);
+		// acting id honours X-Company; human JWT user for owner-vs-viewer checks
+		const { id: userId, user_id: currentUserId } = req.auth as AuthUser;
+		const result = await dashboardService(userId, currentUserId);
 		return res.status(200).json(result);
 	} catch (error) {
-		next(error);
+		// PHP IndividualApi::dashboard — HTTP 200 + status false + exception message
+		const messages = error instanceof Error ? error.message : String(error);
+		return res.status(200).json({ status: false, messages });
 	}
 }
 

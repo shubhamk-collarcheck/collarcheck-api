@@ -7,7 +7,7 @@ import {
 	cybJobExperiences, cybRoleTypes, cybJobMode, cybIndustries, cybSalary,
 	cybEmployementType, cybUserExperience, cybUserSkill, cybSkill,
 	cybUserEducation, cybUserCertificate, cybUserLanguage,
-	cybUserExperienceRating, cybMessageHistory, cybCompanyConnection,
+	cybUserExperienceRating, cybMessageHistory, cybUserDomains,
 } from '../db/schema';
 
 class jobDashboardRepositery {
@@ -89,11 +89,24 @@ class jobDashboardRepositery {
 		return rows;
 	}
 
+	/**
+	 * PHP UserModel::get_total_applied_job —
+	 * applications still linked to non-deleted job + company.
+	 * Does NOT require job status=1.
+	 */
 	async countAppliedJobs(userId: number): Promise<number> {
+		const companyUser = alias(cybUser, 'appliedJobCompany');
 		const [result] = await db.select({ count: sql<number>`count(*)` })
 			.from(cybApplication)
-			.where(eq(cybApplication.user, userId));
-		return result.count;
+			.leftJoin(cybCompanyJob, eq(cybApplication.job, cybCompanyJob.id))
+			.leftJoin(companyUser, eq(cybCompanyJob.company, companyUser.id))
+			.where(and(
+				eq(cybApplication.user, userId),
+				eq(cybApplication.isDeleted, 0),
+				eq(cybCompanyJob.isDeleted, 0),
+				eq(companyUser.isDeleted, 0),
+			));
+		return Number(result?.count ?? 0);
 	}
 
 	// Profile Percentage helpers
@@ -102,14 +115,13 @@ class jobDashboardRepositery {
 		const [user] = await db.select({
 			id: cybUser.id,
 			profile: cybUser.profile,
+			socialImage: cybUser.socialImage,
 			email: cybUser.email,
 			emailVerified: cybUser.emailVerified,
 			phone: cybUser.phone,
 			phoneVerified: cybUser.phoneVerified,
 			dob: cybUser.dob,
-			gender: cybUser.gender,
 			city: cybUser.city,
-			state: cybUser.state,
 			accomodation: cybUser.accomodation,
 			workStatus: cybUser.workStatus,
 			country: cybUser.country,
@@ -117,6 +129,14 @@ class jobDashboardRepositery {
 			currentPossition: cybUser.currentPossition,
 			profileDescription: cybUser.profileDescription,
 			expectedSalary: cybUser.expectedSalary,
+			presentAddress: cybUser.presentAddress,
+			permanentAddress: cybUser.permanentAddress,
+			resume: cybUser.resume,
+			linkdin: cybUser.linkdin,
+			youtube: cybUser.youtube,
+			instagram: cybUser.instagram,
+			facebook: cybUser.facebook,
+			twitter: cybUser.twitter,
 			userType: cybUser.userType,
 		}).from(cybUser).where(eq(cybUser.id, userId));
 		return user;
@@ -289,6 +309,7 @@ class jobDashboardRepositery {
 		return rows;
 	}
 
+	/** Pending follow cards only (status = 0) — AllViewRequest.followListCount */
 	async countFollowRequests(userId: number): Promise<number> {
 		const [result] = await db.select({ count: sql<number>`count(*)` })
 			.from(cybFollow)
@@ -297,7 +318,22 @@ class jobDashboardRepositery {
 				eq(cybFollow.status, 0),
 				eq(cybFollow.isDeleted, 0),
 			));
-		return result.count;
+		return Number(result?.count ?? 0);
+	}
+
+	/**
+	 * Dashboard followRequests badge: status != 1 (pending + rejected).
+	 * followList uses status = 0 only — badge can be > list length.
+	 */
+	async countFollowRequestsNotAccepted(userId: number): Promise<number> {
+		const [result] = await db.select({ count: sql<number>`count(*)` })
+			.from(cybFollow)
+			.where(and(
+				eq(cybFollow.followerId, userId),
+				ne(cybFollow.status, 1),
+				eq(cybFollow.isDeleted, 0),
+			));
+		return Number(result?.count ?? 0);
 	}
 
 	async findViewRequestByIdAndUser(id: number, userId: number) {
@@ -361,58 +397,77 @@ class jobDashboardRepositery {
 
 	// Dashboard
 
+	/**
+	 * PHP get_all_connections_count — accepted inbound followers
+	 * (follower_id = me, status = 1). Inverted column naming.
+	 */
 	async countConnections(userId: number): Promise<number> {
 		const [result] = await db.select({ count: sql<number>`count(*)` })
-			.from(cybCompanyConnection)
+			.from(cybFollow)
+			.innerJoin(cybUser, eq(cybUser.id, cybFollow.followedId))
 			.where(and(
-				eq(cybCompanyConnection.user, userId),
-				eq(cybCompanyConnection.status, 1),
+				eq(cybFollow.followerId, userId),
+				eq(cybFollow.status, 1),
+				eq(cybFollow.isDeleted, 0),
 			));
-		return result.count;
+		return Number(result?.count ?? 0);
 	}
 
+	/** PHP: is_viewed != 1 (no is_deleted filter). */
 	async countUnreadMessages(userId: number): Promise<number> {
 		const [result] = await db.select({ count: sql<number>`count(*)` })
 			.from(cybMessageHistory)
-			.where(and(
-				eq(cybMessageHistory.receiver, userId),
-				eq(cybMessageHistory.isViewed, 0),
-				eq(cybMessageHistory.isDeleted, 0),
-			));
-		return result.count;
+			.where(and(eq(cybMessageHistory.receiver, userId), ne(cybMessageHistory.isViewed, 1),));
+		return Number(result?.count ?? 0);
 	}
 
-	async getTopPendingFollowRequests(userId: number, limit: number) {
+	/**
+	 * PHP get_pending_follower_list — no LIMIT (call-site 10 is ignored).
+	 * Initiator is followed_id; company_name from initiator.current_company.
+	 */
+	async getPendingFollowRequests(userId: number) {
+		const initiator = alias(cybUser, 'followInitiator');
+		const companyUser = alias(cybUser, 'followInitiatorCompany');
 		const rows = await db.select({
 			id: cybFollow.id,
 			status: cybFollow.status,
 			createDate: cybFollow.createDate,
-			fname: cybUser.fname,
-			lname: cybUser.lname,
-			profile: cybUser.profile,
-			slug: cybUser.slug,
-			userType: cybUser.userType,
-			individualId: cybUser.individualId,
+			fname: initiator.fname,
+			lname: initiator.lname,
+			profile: initiator.profile,
+			socialImage: initiator.socialImage,
+			slug: initiator.slug,
+			userType: initiator.userType,
+			individualId: initiator.individualId,
 			designationName: cybDesignation.name,
-			companyName: cybUser.fname,
+			companyName: companyUser.fname,
 			stateName: cybState.name,
 			countryName: cybCountry.name,
 		})
 			.from(cybFollow)
-			.leftJoin(cybUser, eq(cybFollow.followedId, cybUser.id))
-			.leftJoin(cybDesignation, eq(cybUser.currentPossition, cybDesignation.id))
-			.leftJoin(cybState, eq(cybUser.state, cybState.id))
-			.leftJoin(cybCountry, eq(cybUser.country, cybCountry.id))
+			.leftJoin(initiator, eq(cybFollow.followedId, initiator.id))
+			.leftJoin(companyUser, eq(initiator.currentCompany, companyUser.id))
+			.leftJoin(cybDesignation, eq(initiator.currentPossition, cybDesignation.id))
+			.leftJoin(cybState, eq(initiator.state, cybState.id))
+			.leftJoin(cybCountry, eq(initiator.country, cybCountry.id))
 			.where(and(
 				eq(cybFollow.followerId, userId),
 				eq(cybFollow.status, 0),
 				eq(cybFollow.isDeleted, 0),
 			))
-			.orderBy(desc(cybFollow.id))
-			.limit(limit);
+			.orderBy(desc(cybFollow.id));
 		return rows;
 	}
 
+	/** @deprecated use getPendingFollowRequests — kept for any residual callers */
+	async getTopPendingFollowRequests(userId: number, _limit?: number) {
+		return this.getPendingFollowRequests(userId);
+	}
+
+	/**
+	 * PHP dashboard skillList — status=1, no is_deleted filter, order rating DESC.
+	 * id is user_skill.id; skill is master name or "".
+	 */
 	async getUserSkillsWithRating(userId: number) {
 		const rows = await db.select({
 			id: cybUserSkill.id,
@@ -424,35 +479,119 @@ class jobDashboardRepositery {
 			.where(and(
 				eq(cybUserSkill.user, userId),
 				eq(cybUserSkill.status, 1),
-				eq(cybUserSkill.isDeleted, 0),
 			))
 			.orderBy(desc(cybUserSkill.rating));
 		return rows;
 	}
 
-	async getCurrentEmployments(userId: number) {
+	/**
+	 * Still-working employments for dashboard currentEmployees, with company join
+	 * non-null. Ordered still_working DESC, joining_date DESC for seed pick per company.
+	 */
+	async getStillWorkingExperiences(userId: number) {
 		const companyUser = alias(cybUser, 'empCompany');
+		const employeeUser = alias(cybUser, 'empEmployee');
 		const rows = await db.select({
 			id: cybUserExperience.id,
+			user: cybUserExperience.user,
 			company: cybUserExperience.company,
-			designation: cybUserExperience.designation,
-			department: cybUserExperience.department,
+			workEmail: cybUserExperience.workEmail,
+			salary: cybUserExperience.salary,
+			salaryInhand: cybUserExperience.salaryInhand,
+			salaryMode: cybUserExperience.salaryMode,
 			joiningDate: cybUserExperience.joiningDate,
+			workedTillDate: cybUserExperience.workedTillDate,
+			stillWorking: cybUserExperience.stillWorking,
+			skill: cybUserExperience.skill,
+			certificate: cybUserExperience.certificate,
+			description: cybUserExperience.description,
+			approved: cybUserExperience.approved,
+			status: cybUserExperience.status,
+			hired: cybUserExperience.hired,
 			companyName: companyUser.fname,
+			companyId: companyUser.id,
+			companyProfile: companyUser.profile,
+			companySocialImage: companyUser.socialImage,
+			claimStatus: companyUser.claimStatus,
 			companySlug: companyUser.slug,
+			individualId: companyUser.individualId,
+			userSlug: employeeUser.slug,
+			employementName: cybEmployementType.name,
 			designationName: cybDesignation.name,
 			departmentName: cybDepartment.name,
 		})
 			.from(cybUserExperience)
-			.leftJoin(companyUser, eq(cybUserExperience.company, companyUser.id))
+			.innerJoin(companyUser, eq(cybUserExperience.company, companyUser.id))
+			.leftJoin(employeeUser, eq(cybUserExperience.user, employeeUser.id))
+			.leftJoin(cybEmployementType, eq(cybUserExperience.employmentType, cybEmployementType.id))
 			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
 			.leftJoin(cybDepartment, eq(cybUserExperience.department, cybDepartment.id))
 			.where(and(
 				eq(cybUserExperience.user, userId),
 				eq(cybUserExperience.stillWorking, 1),
 				eq(cybUserExperience.isDeleted, 0),
-			));
+			))
+			.orderBy(desc(cybUserExperience.stillWorking), desc(cybUserExperience.joiningDate));
 		return rows;
+	}
+
+	/** True if any experience for (user, company) has hired truthy. */
+	async hasHiredAtCompany(userId: number, companyId: number): Promise<boolean> {
+		const [row] = await db.select({ id: cybUserExperience.id })
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUserExperience.hired, 1),
+			))
+			.limit(1);
+		return !!row;
+	}
+
+	/**
+	 * sendReminder companies: pending approval (approved=0) at claimed companies.
+	 */
+	async getPendingApproveCompanyIds(userId: number): Promise<Set<number>> {
+		const companyUser = alias(cybUser, 'pendingApproveCompany');
+		const rows = await db.select({ company: cybUserExperience.company })
+			.from(cybUserExperience)
+			.innerJoin(companyUser, eq(cybUserExperience.company, companyUser.id))
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.approved, 0),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(companyUser.claimStatus, 1),
+			));
+		return new Set(rows.map((r) => r.company!).filter(Boolean));
+	}
+
+	async getCompanyVerifiedDomains(companyId: number) {
+		return db
+			.select({
+				domain: cybUserDomains.domain,
+				email: cybUserDomains.email,
+				isVerified: cybUserDomains.isVerified,
+			})
+			.from(cybUserDomains)
+			.where(and(
+				eq(cybUserDomains.userId, companyId),
+				eq(cybUserDomains.isVerified, 1),
+				eq(cybUserDomains.isDeleted, 0),
+			));
+	}
+
+	async countCompanyVerifiedDomainOrEmail(companyId: number): Promise<number> {
+		const [row] = await db
+			.select({ count: sql<number>`count(*)` })
+			.from(cybUserDomains)
+			.where(and(
+				eq(cybUserDomains.userId, companyId),
+				eq(cybUserDomains.isVerified, 1),
+				eq(cybUserDomains.isDeleted, 0),
+				sql`((${cybUserDomains.domain} IS NOT NULL AND ${cybUserDomains.domain} != '') OR (${cybUserDomains.email} IS NOT NULL AND ${cybUserDomains.email} != ''))`,
+			));
+		return Number(row?.count ?? 0);
 	}
 
 	// Resume

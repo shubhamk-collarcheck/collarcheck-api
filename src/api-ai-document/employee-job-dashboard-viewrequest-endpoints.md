@@ -224,39 +224,46 @@ WHERE cj.status = 1
 
 ## Endpoint 4: GET Profile Percentage
 
-**Path:** `GET /wapi/employee/ProfilePercentage`
+**Path:** `GET /wapi/employee/ProfilePercentage`  
+**Handler:** `profilePercentage` → `profilePercentageService`  
+**Auth:** JWT · `req.auth.user_id`
 
-Returns the profile completion percentage with breakdown. Logic differs for `user_type = 1` (individual) vs `user_type = 2` (company).
+Employee branch of PHP `GeneralApi::ProfilePercentage` (`user_type == 1`).  
+Same object is embedded under `data.percentage` on `GET /wapi/employee/dashboard`.
 
-### Profile Fields Checked (Individual — `user_type = 1`)
+### Profile fields (employee) — locked labels
 
-| Field                | Points | Weight |
-|----------------------|--------|--------|
-| `profile` (image)    | 2      | 2%     |
-| `email`              | 2      | 2%     |
-| `email_verified`     | 3      | 3%     |
-| `phone`              | 2      | 2%     |
-| `phone_verified`     | 3      | 3%     |
-| `dob`                | 3      | 3%     |
-| `gender`             | 2      | 2%     |
-| `city`               | 2      | 2%     |
-| `state`              | 2      | 2%     |
-| `accomodation`       | 2      | 2%     |
-| `work_status`        | 2      | 2%     |
-| `country`            | 2      | 2%     |
-| `current_company`    | 2      | 2%     |
-| `current_possition`  | 2      | 2%     |
-| `profile_description`| 5      | 5%     |
-| `expected_salary`    | 2      | 2%     |
-| `user_experience`    | 5      | 5%     |
-| `user_experience_approved` | 10 (ind) / 15 (intl) | 10-15% |
-| `user_education`     | 10     | 10%    |
-| `user_skill`         | 2      | 2%     |
-| `user_certificate`   | 2      | 2%     |
-| `user_language`      | 2      | 2%     |
-| `review`             | 10-15  | 10-15% |
+| Check | Points | `uncomplete` / `incomplete.key` label |
+|-------|--------|----------------------------------------|
+| profile or social_image | 2 | Profile Image |
+| email | 2 | Email |
+| email_verified | 3 | Email Verification |
+| phone | 2 | Phone No. |
+| phone_verified | 3 | Phone verification |
+| any user_experience | 5 | Experience |
+| approved experience | 10 domestic / **15** international | Experience Approved |
+| user_education | 10 | Education |
+| user_skill | 2 | Skill |
+| user_language | 2 | Language |
+| review (only if experience approved already complete) | 10 / **15** intl | Review |
+| present_address | 10 | Present Address |
+| permanent_address | 2 | Permanent Address |
+| resume | 2 | Resume |
+| dob | 2 | Date of Birth |
+| accomodation | 2 | Accomodation |
+| work_status | 2 | Work Status |
+| country | 2 | Country |
+| city | 2 | City |
+| any social link | 2 | Social Media |
+| user_verified (domestic only; country == 101) | 10 | Verify Pending |
+| profile_description | 5 | **Profile Descripton** (typo) |
+| current_company | 2 | Current company |
+| current_possition | 2 | Current Position |
+| user_certificate | 2 | Certificate |
+| expected_salary | 2 | Expected salary |
 
-> International users (country != 101/India) get higher weights for experience_approved and review.
+> International: `country != 101` → higher Experience Approved / Review weights; **skip** Verify Pending.  
+> `complete` values are **numbers** (not strings). No gender/state fields in employee branch.
 
 ### Response
 ```json
@@ -266,34 +273,24 @@ Returns the profile completion percentage with breakdown. Logic differs for `use
   "data": {
     "total": 78,
     "complete": {
-      "profile": "2",
-      "email": "2",
-      "email_verified": "3",
-      "phone": "2",
-      "phone_verified": "3",
-      "dob": "3",
-      "gender": "2",
-      "profile_description": "5"
+      "profile": 2,
+      "email": 2,
+      "email_verified": 3
     },
-    "uncomplete": [
-      "City",
-      "State",
-      "Country"
-    ],
+    "uncomplete": ["City", "Present Address"],
     "incomplete": [
       { "key": "City", "value": "2%" },
-      { "key": "State", "value": "2%" },
-      { "key": "Country", "value": "2%" }
+      { "key": "Present Address", "value": "10%" }
     ]
   }
 }
 ```
 | Key          | Type             | Description                                    |
 |--------------|------------------|------------------------------------------------|
-| `total`      | int              | Total points accumulated (not percentage)      |
-| `complete`   | object           | Key-value pairs of completed fields + points   |
-| `uncomplete` | string[]         | Array of missing field labels                  |
-| `incomplete` | object[]         | Array of `{ key, value }` for missing fields   |
+| `total`      | int              | Sum of completed weights                       |
+| `complete`   | object           | Field key → weight (number)                    |
+| `uncomplete` | string[]         | Missing field **labels**                       |
+| `incomplete` | object[]         | `{ key: label, value: "N%" }`                  |
 
 ---
 
@@ -655,11 +652,31 @@ Filters out the row matching `employment_id` from the results.
 
 ## Endpoint 11: GET Dashboard
 
-**Path:** `GET /wapi/employee/dashboard`
+**Path:** `GET /wapi/employee/dashboard`  
+**Handler:** `dashboard` → `dashboardService(req.auth.id, req.auth.user_id)`  
+**Auth:** JWT · acting id = `req.auth.id` (honours `X-Company`); human = `req.auth.user_id`  
+**Query:** none (no limit/offset)
 
-Returns a comprehensive dashboard summary with counts, skills, pending follow requests, and current employment details.
+Contract lock: `src/debug/employee-dashboard-endpoint.md`.
 
-### Response Shape
+### Node file map
+
+| Layer | File |
+|-------|------|
+| Route | `src/routes/employee.route.ts` — `GET /dashboard` + `Authorization` |
+| Controller | `src/controllers/job-dashboard.controller.ts` — `dashboard` |
+| Service | `src/services/job-dashboard.service.ts` — `dashboardService`, `profilePercentageService` |
+| Repositery | `src/repositery/job-dashboard.repositery.ts` (+ employment / company / review / skill) |
+
+### Global envelope
+
+| Case | HTTP | Body |
+|------|------|------|
+| Success | **200** | `{ status: true, data }` — **no `messages` key** |
+| Exception | **200** | `{ status: false, messages: "<exception message>" }` |
+| Auth fail | **401** | filter-dependent |
+
+### Response shape
 ```json
 {
   "status": true,
@@ -670,8 +687,8 @@ Returns a comprehensive dashboard summary with counts, skills, pending follow re
     "messages": 5,
     "percentage": {
       "total": 78,
-      "complete": { "profile": "2", "email": "2" },
-      "uncomplete": ["City", "State"],
+      "complete": { "profile": 2, "email": 2 },
+      "uncomplete": ["City"],
       "incomplete": [{ "key": "City", "value": "2%" }]
     },
     "followList": [
@@ -681,7 +698,7 @@ Returns a comprehensive dashboard summary with counts, skills, pending follow re
         "create_date": "2024-06-14 08:00:00",
         "fname": "John",
         "lname": "Doe",
-        "profile": "https://s3.amazonaws.com/bucket/profile.jpg",
+        "profile": "https://s3.../profile.jpg",
         "slug": "john-doe",
         "user_type": 1,
         "individual_id": "CC002",
@@ -695,20 +712,55 @@ Returns a comprehensive dashboard summary with counts, skills, pending follow re
       { "id": 1, "skill": "JavaScript", "rating": 5 },
       { "id": 2, "skill": "React", "rating": 4 }
     ],
-    "currentEmployees": [ ... ]
+    "currentEmployees": [
+      {
+        "id": 10,
+        "company_logo": "https://...",
+        "company": "Acme",
+        "company_id": 99,
+        "individual_id": "CC99",
+        "is_verified": true,
+        "joining_date": "2020-01-01",
+        "worked_till_date": "",
+        "claim_status": 1,
+        "added_by": false,
+        "approved": 1,
+        "status": 1,
+        "company_slug": "acme",
+        "user_slug": "jane",
+        "hired": true,
+        "sendReminder": false,
+        "showSalaryStatus": 1,
+        "employmentScore": "4.5",
+        "totalExperienceMonths": 3,
+        "still_working": 1,
+        "lists": [ { "id": 10, "verificationProcess": { "level1": true, "level2": false, "level3": true, "level4": true }, "salary": "…" } ]
+      }
+    ]
   }
 }
 ```
-| Key              | Type             | Description                                    |
-|------------------|------------------|------------------------------------------------|
-| `jobsApplieds`   | int              | Total count of jobs applied                    |
-| `connections`    | int              | Total accepted connections                     |
-| `followRequests` | int              | Pending follow requests count                  |
-| `messages`       | int              | Unread messages count                          |
-| `percentage`     | object           | Profile completion breakdown (same as Endpoint 4)|
-| `followList`     | object[]         | Top 10 pending follow requests                 |
-| `skillList`      | object[]         | User skills with ratings, sorted by rating desc|
-| `currentEmployees` | object[]      | Detailed current employment records            |
+
+| Key | Type | Notes |
+|-----|------|-------|
+| `jobsApplieds` | int | Applications on non-deleted job + company (`application` table) |
+| `connections` | int | Accepted **inbound** follows (`follower_id = me`, `status = 1`) |
+| `followRequests` | int | `status != 1` (pending + rejected) |
+| `messages` | int | Inbox `is_viewed != 1` |
+| `percentage` | object | Same as ProfilePercentage `data` |
+| `followList` | array | Pending cards (`status = 0`), **no LIMIT** |
+| `skillList` | array | `{ id: user_skill.id, skill: name string, rating }` rating DESC |
+| `currentEmployees` | array | Still-working groups with nested `lists`, salary, ratings |
+
+### Bug magnets (do not regress)
+
+- Success **must not** include top-level `messages`
+- Key spelling: `jobsApplieds`, `currentEmployees` (not company typo `currentEmployies`)
+- `followRequests` is a **number**; `followList` is an **array**
+- Count `status != 1` vs list `status = 0` can disagree
+- `skillList[].id` is **user_skill** row id, not skill master id
+- Profile image: S3+profile if set, else `social_image` as-is
+- `totalExperienceMonths` uses PHP `%m` remainder (0–11) per stint
 
 ### Response (Exception)
 ```json
@@ -821,8 +873,10 @@ Returns nothing (function exits early without setting `response`).
 6. **`rejectVeiwRequest` just sets `status = 0`:** Unlike approve (which toggles), reject explicitly sets to `0`.
 7. **`deleteViewRequest` is soft-delete:** Uses `is_deleted = 1`, not a hard delete.
 8. **`AllViewRequest` combines two lists:** Returns both view requests and pending follow requests in a single response, with separate counts.
-9. **`dashboard` has no `messages` key:** The response uses `data` directly without a `messages` field — unlike other endpoints.
-10. **`ProfilePercentage` scoring differs by user type:** Individual users get different point allocations than company users (e.g., experience_approved is 10 for domestic, 15 for international).
+9. **`dashboard` has no `messages` key:** Success body is `{ status: true, data }` only. Exceptions still return HTTP **200** + `{ status: false, messages }`.
+10. **`ProfilePercentage` employee labels/weights are locked:** See Endpoint 4 and `src/debug/employee-dashboard-endpoint.md` (typo `Profile Descripton`, conditional Review / Verify Pending).
 11. **`removeResume` exits early without response:** If no resume exists, the function returns nothing (no JSON). Frontend should handle empty response body.
 12. **Pagination uses 1-based offset:** Both `AllViewRequest` and `appliedjob` treat `offset` as a page number. `offset = 0` or `offset = 1` both return the first page.
-13. **Exception messages exposed:** `applyJob`, `appliedjob`, `checkCurrentCompany`, `dashboard` expose `ex->getMessage()` in error responses. Other endpoints use generic `"Access denied"`.
+13. **Exception messages exposed:** `dashboard` returns PHP-style HTTP 200 + `messages` from the exception text.
+14. **Follow column inversion:** `follower_id` = target (me for inbound); `followed_id` = initiator. Dashboard connections/followList use that model.
+15. **`followList` is unlimited:** PHP ignores the call-site `10`; Node matches (no LIMIT).
