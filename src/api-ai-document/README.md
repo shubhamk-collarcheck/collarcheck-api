@@ -49,6 +49,7 @@ src/worker/           → SQS consumers
 | [other/swipe-collaborator-rating-endpoints.md](./other/swipe-collaborator-rating-endpoints.md) | swipe phones, collaborators, clarity, chat FAQ, domains, skill ratings — **implemented** |
 | [restaurant-reward-endpoints.md](./restaurant-reward-endpoints.md) | restaurant partner OTP/profile/visits + employee restaurant-list discounts — **implemented** |
 | [ai-api/ai-proxy-endpoints.md](./ai-api/ai-proxy-endpoints.md) | AI BFF proxy (semantic, chat, domain, rank, scrape) — **X-API-KEY**, **implemented** |
+| [post-form-data-support.md](./post-form-data-support.md) | **All POST APIs** accept `multipart/form-data` body fields (`formData` / upload multer) — changelog of which routes were updated |
 
 ### Employee (`/wapi/employee`)
 | Doc | Coverage |

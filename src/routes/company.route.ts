@@ -53,7 +53,9 @@ import { companyRegister } from "../controllers/login.controller";
 
 const companyRouter = Router();
 
-// multipart/form-data field parser (no files) — register + addBenafit
+// multipart/form-data field parser (no files).
+// JSON still works via express.json; formData is a no-op for application/json.
+// Routes with file upload (educationUpload / uploadToS3 / galleryUpload) already parse multipart.
 const formData = multer().none();
 
 /**
@@ -66,17 +68,17 @@ const galleryUpload = educationUpload.any();
 // Company form register (JWT required)
 companyRouter.post("/register", Authorization, formData, validateData(companyRegisterSchema), companyRegister);
 
-companyRouter.post("/sendUserProfileViewRequest", Authorization, validateData(sendUserProfileViewRequestSchema), sendUserProfileViewRequest);
+companyRouter.post("/sendUserProfileViewRequest", Authorization, formData, validateData(sendUserProfileViewRequestSchema), sendUserProfileViewRequest);
 
 companyRouter.get("/getSetting", Authorization, getCompanySetting);
-companyRouter.post("/saveSetting", Authorization, saveCompanySetting);
+companyRouter.post("/saveSetting", Authorization, formData, saveCompanySetting);
 companyRouter.post("/edit-user", Authorization, educationUpload.array("profile"), validateData(editCompanySchema), editCompany);
 companyRouter.get("/all-connection", Authorization, validateData(allConnectionQuerySchema), allConnection);
-companyRouter.post("/add-connection", Authorization, validateData(addConnectionSchema), addConnection);
+companyRouter.post("/add-connection", Authorization, formData, validateData(addConnectionSchema), addConnection);
 companyRouter.get("/all-employement", Authorization, allEmployment);
 companyRouter.put("/update-employement/:id", Authorization, validateData(updateEmploymentParamsSchema), updateEmployment);
 companyRouter.get("/all-wishlist", Authorization, allWishlist);
-companyRouter.post("/add-wishlist", Authorization, validateData(addWishlistSchema), addWishlist);
+companyRouter.post("/add-wishlist", Authorization, formData, validateData(addWishlistSchema), addWishlist);
 companyRouter.delete("/delete-wishlist/:id", Authorization, validateData(deleteWishlistParamsSchema), deleteWishlist);
 companyRouter.post("/add-document", Authorization, uploadToS3.array("document"), validateData(addCompanyDocumentSchema), addCompanyDocument);
 
@@ -89,21 +91,19 @@ companyRouter.delete("/cancel-job/:id", Authorization, validateData(jobIdParamsS
 companyRouter.get("/job-detail/:id", Authorization, validateData(jobIdParamsSchema), jobDetail);
 companyRouter.get("/job-template-detail/:id", Authorization, validateData(jobIdParamsSchema), jobTemplateDetail);
 companyRouter.get("/job-template", Authorization, jobTemplate);
-companyRouter.post("/multi-cancel-job", Authorization, validateData(multiCancelJobSchema), multiCancelJob);
-companyRouter.post("/multi-jobStatusChange", Authorization, validateData(multiJobStatusChangeSchema), multiJobStatusChange);
+companyRouter.post("/multi-cancel-job", Authorization, formData, validateData(multiCancelJobSchema), multiCancelJob);
+companyRouter.post("/multi-jobStatusChange", Authorization, formData, validateData(multiJobStatusChangeSchema), multiJobStatusChange);
 
 companyRouter.get("/all-review", Authorization, validateData(allReviewQuerySchema), allReview);
 companyRouter.post("/add-review", Authorization, educationUpload.array("document"), validateData(addReviewSchema), addReview);
 companyRouter.post("/add-review/:id", Authorization, educationUpload.array("document"), validateData(addReviewUpdateSchema), addReviewUpdate);
 companyRouter.put("/rejectReview/:id", Authorization, validateData(reviewIdParamsSchema), rejectReview);
 companyRouter.get("/view-review/:id", Authorization, validateData(viewReviewParamsSchema), viewReviewDetail);
-companyRouter.post("/add-help", Authorization, validateData(addHelpSchema), addHelp);
+companyRouter.post("/add-help", Authorization, formData, validateData(addHelpSchema), addHelp);
 companyRouter.get("/allapplication", Authorization, validateData(allApplicationQuerySchema), allApplication);
 companyRouter.put("/updateBasicExperience/:id", Authorization, validateData(updateBasicExperienceParamsSchema), updateBasicExperience);
 
 companyRouter.get("/benefit", Authorization, getBenefit);
-// formData (multer.none): FE posts multipart/form-data with benefit_id only — no files
-// (JSON still works via express.json; formData is a no-op for application/json)
 companyRouter.post("/addBenafit", Authorization, formData, validateData(addBenefitSchema), addBenefit);
 companyRouter.post("/addBenafit/:id", Authorization, formData, validateData(addBenefitUpdateSchema), addBenefitUpdate);
 companyRouter.delete("/deleteBenafit/:id", Authorization, validateData(benefitIdParamsSchema), deleteBenefit);
@@ -124,7 +124,7 @@ companyRouter.post("/addEmployee/:id", Authorization, addEmployeeUpload, validat
 companyRouter.get("/employeeDetail/:id", Authorization, validateData(employeeDetailParamsSchema), employeeDetail);
 companyRouter.put("/rejectEmployement/:id", Authorization, validateData(rejectEmploymentCombinedSchema), rejectEmployment);
 companyRouter.delete("/rejectPromotion/:id", Authorization, validateData(rejectPromotionCombinedSchema), rejectPromotion);
-companyRouter.post("/leaveExperience", Authorization, validateData(leaveExperienceSchema), leaveExperience);
+companyRouter.post("/leaveExperience", Authorization, formData, validateData(leaveExperienceSchema), leaveExperience);
 companyRouter.get("/reviewUniqueUsers", Authorization, validateData(reviewUniqueUserQuerySchema), reviewUniqueUsers);
 companyRouter.get("/validToReview/:id", Authorization, validateData(validToReviewParamsSchema), validToReview);
 companyRouter.get("/followRequestList", Authorization, validateData(followRequestListQuerySchema), followRequestList);
@@ -135,6 +135,6 @@ companyRouter.post("/add-company", Authorization, educationUpload.single("profil
 companyRouter.post("/add-company/:id", Authorization, educationUpload.single("profile"), validateData(inviteCompanySchema), inviteCompany);
 companyRouter.get("/user-detail", Authorization, companyDetail);
 companyRouter.post("/invite-company", Authorization, educationUpload.single("profile"), validateData(inviteCompanySchema), inviteCompany);
-companyRouter.post("/revoke-delete-account", Authorization, validateData(revokeDeleteAccountSchema), revokeDeleteAccount);
+companyRouter.post("/revoke-delete-account", Authorization, formData, validateData(revokeDeleteAccountSchema), revokeDeleteAccount);
 
 export default companyRouter;

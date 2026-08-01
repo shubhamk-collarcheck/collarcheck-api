@@ -13,8 +13,8 @@ const userRouter = Router();
 const formData = multer().none();
 userRouter.get("/getSetting", Authorization, getSetting);
 userRouter.post("/saveSetting", formData, Authorization, saveSetting);
-userRouter.post("/updatePhone", Authorization, validateData(updatePhoneSchema), updatePhone);
-userRouter.post("/updateEmail", Authorization, validateData(updateEmailSchema), updateEmail);
+userRouter.post("/updatePhone", Authorization, formData, validateData(updatePhoneSchema), updatePhone);
+userRouter.post("/updateEmail", Authorization, formData, validateData(updateEmailSchema), updateEmail);
 
 // Email OTP verification (JWT) — see verify.md
 userRouter.post("/sendEmailOtp", Authorization, formData, validateData(sendEmailOtpSchema), sendEmailOtp);

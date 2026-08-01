@@ -121,7 +121,8 @@ employRouter.get("/language-detail/:id", Authorization, validateData(commonIdPar
 employRouter.delete("/language/:id", Authorization, validateData(commonIdParamsSchema), deleteLanguage)
 
 employRouter.get("/currentCompany", Authorization, currentCompany)
-employRouter.post("/sendCompanyInvite", Authorization, validateData(companyInviteRequestSchema), sendCompanyInvite)
+// formData (multer.none): multipart fields → req.body; file-upload routes already parse multipart
+employRouter.post("/sendCompanyInvite", Authorization, formData, validateData(companyInviteRequestSchema), sendCompanyInvite)
 employRouter.post("/add-review", Authorization, educationUpload.array("document"), validateData(reviewRequestSchema), addReview)
 employRouter.post("/add-review/:id", Authorization, educationUpload.array("document"), validateData(reviewUpdateRequestSchema), updateReview)
 employRouter.delete("/deleteReview/:id", Authorization, validateData(commonIdParamsSchema), deleteReview)
@@ -130,15 +131,15 @@ employRouter.put("/show-home-review/:id", Authorization, validateData(showHomeRe
 
 
 employRouter.post("/edit-user", Authorization, educationUploads, validateData(editUserRequestSchema), editUser)
-employRouter.post("/changeEmploymentBasic", Authorization, validateData(changeEmploymentBasicRequestSchema), changeEmploymentBasic)
+employRouter.post("/changeEmploymentBasic", Authorization, formData, validateData(changeEmploymentBasicRequestSchema), changeEmploymentBasic)
 
-employRouter.post("/apply-job", Authorization, validateData(applyJobSchema), applyJob)
+employRouter.post("/apply-job", Authorization, formData, validateData(applyJobSchema), applyJob)
 employRouter.get("/applyJobList", Authorization, applyJobList)
 employRouter.get("/appliedjob", Authorization, validateData(paginationQuerySchema), appliedjob)
 employRouter.get("/ProfilePercentage", Authorization, profilePercentage)
 employRouter.put("/approvedEmployment/:id", Authorization, validateData(approvedEmploymentSchema), approvedEmployment)
 employRouter.get("/AllViewRequest", Authorization, validateData(paginationQuerySchema), allViewRequest)
-employRouter.post("/approvedVeiwRequest", Authorization, validateData(approvedViewRequestSchema), approvedVeiwRequest)
+employRouter.post("/approvedVeiwRequest", Authorization, formData, validateData(approvedViewRequestSchema), approvedVeiwRequest)
 employRouter.put("/rejectVeiwRequest/:id", Authorization, validateData(viewRequestIdSchema), rejectVeiwRequest)
 employRouter.delete("/deleteViewRequest/:id", Authorization, validateData(viewRequestIdSchema), deleteViewRequest)
 employRouter.get("/checkCurrentCompany", Authorization, validateData(checkCurrentCompanySchema), checkCurrentCompany)
@@ -146,10 +147,10 @@ employRouter.get("/dashboard", Authorization, dashboard)
 employRouter.delete("/remove-resume", Authorization, removeResume)
 
 employRouter.get("/sidebar-count", Authorization, sidebarCount)
-employRouter.post("/leave-reminder-experience", Authorization, leaveReminderExperience)
-employRouter.post("/save-exploring", Authorization, validateData(saveExploringSchema), saveExploring)
+employRouter.post("/leave-reminder-experience", Authorization, formData, leaveReminderExperience)
+employRouter.post("/save-exploring", Authorization, formData, validateData(saveExploringSchema), saveExploring)
 employRouter.get("/cv-details", Authorization, cvDetails)
-employRouter.post("/edit-profile", Authorization, validateData(editProfileSchema), editProfile)
+employRouter.post("/edit-profile", Authorization, formData, validateData(editProfileSchema), editProfile)
 employRouter.get("/all-company", Authorization, validateData(allCompanyQuerySchema), allCompany)
 employRouter.get("/user-detail", Authorization, userDetail)
 
