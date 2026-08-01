@@ -75,11 +75,16 @@ No body params.
 
 ### Route
 ```
-POST /wapi/company/addBenafit         → Create new benefit
+POST /wapi/company/addBenafit         → Create new benefit  (legacy typo — primary path)
 POST /wapi/company/addBenafit/{id}    → Update existing benefit
 ```
 ### Auth
-JWT required. `req.auth.id` = company ID.
+JWT required. `req.auth.id` = company ID (`X-Company`).
+
+### Middleware
+`Authorization` → `formData` (`multer().none()`) → `validateData(addBenefitSchema)`  
+FE uses **multipart/form-data** with `benefit_id` only (see company-benefits mutations).  
+JSON / urlencoded also work via `express.json` / `urlencoded`.
 
 ### DB Queries
 ```
@@ -99,11 +104,11 @@ JWT required. `req.auth.id` = company ID.
 5. ELSE (create):
    INSERT INTO company_benefits (company_id, benefit_id, sortOrder, description, create_date, modify_date)
 ```
-### Request
+### Request (form-data or JSON)
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| `benefit_id` | string/int | Yes | Benefit type ID (int) or name (string, auto-creates) |
-| `sortOrder` | string | No | Display order |
+| `benefit_id` | string/int | Yes | Benefit type ID (int) or name (string, auto-creates). Alias: `benefitId` |
+| `sortOrder` | string | No | Display order. Alias: `sort_order` |
 | `description` | string | No | Benefit description |
 
 ### Response
@@ -111,11 +116,11 @@ JWT required. `req.auth.id` = company ID.
 { "status": true, "messages": "Successfully added" }
 ```
 ```json
-{ "status": false, "messages": "benefit_id is required." }
+{ "status": false, "messages": "Id is required." }
 { "status": false, "messages": "Record Already added!" }
 ```
 ### Notes
-- Path spelling: **`addBenafit`** (legacy typo).
+- Path spelling: **`addBenafit`** (legacy typo) is the primary FE path.
 - `benefit_id` accepts pure integer string (id) or free-text name (auto-creates `benefits` with `user_defined=1`).
 - Name match is **case-insensitive** (`LOWER(TRIM(name))`).
 - **Duplicate check always runs** (create and `:id` update) — same `benefit_id` → `"Record Already added!"` even on update path (PHP parity).

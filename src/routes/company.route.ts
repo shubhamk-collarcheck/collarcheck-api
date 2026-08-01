@@ -102,7 +102,8 @@ companyRouter.get("/allapplication", Authorization, validateData(allApplicationQ
 companyRouter.put("/updateBasicExperience/:id", Authorization, validateData(updateBasicExperienceParamsSchema), updateBasicExperience);
 
 companyRouter.get("/benefit", Authorization, getBenefit);
-// formData so multipart/form-data fields populate req.body (JSON still works via express.json)
+// formData (multer.none): FE posts multipart/form-data with benefit_id only — no files
+// (JSON still works via express.json; formData is a no-op for application/json)
 companyRouter.post("/addBenafit", Authorization, formData, validateData(addBenefitSchema), addBenefit);
 companyRouter.post("/addBenafit/:id", Authorization, formData, validateData(addBenefitUpdateSchema), addBenefitUpdate);
 companyRouter.delete("/deleteBenafit/:id", Authorization, validateData(benefitIdParamsSchema), deleteBenefit);
@@ -112,8 +113,14 @@ companyRouter.post("/addGallery", Authorization, galleryUpload, validateData(add
 companyRouter.post("/addGallery/:id", Authorization, galleryUpload, validateData(addGalleryUpdateSchema), addGalleryUpdate);
 companyRouter.delete("/deleteGallery/:id", Authorization, validateData(galleryIdParamsSchema), deleteGallery);
 
-companyRouter.post("/addEmployee", Authorization, validateData(addEmployeeSchema), addEmployee);
-companyRouter.post("/addEmployee/:id", Authorization, validateData(addEmployeeUpdateCombinedSchema), addEmployeeUpdate);
+// multipart: fields + document / document[] (educationUpload allows pdf/images/docs)
+const addEmployeeUpload = educationUpload.fields([
+	{ name: "document", maxCount: 5 },
+	{ name: "document[]", maxCount: 5 },
+	{ name: "file", maxCount: 5 },
+]);
+companyRouter.post("/addEmployee", Authorization, addEmployeeUpload, validateData(addEmployeeSchema), addEmployee);
+companyRouter.post("/addEmployee/:id", Authorization, addEmployeeUpload, validateData(addEmployeeUpdateCombinedSchema), addEmployeeUpdate);
 companyRouter.get("/employeeDetail/:id", Authorization, validateData(employeeDetailParamsSchema), employeeDetail);
 companyRouter.put("/rejectEmployement/:id", Authorization, validateData(rejectEmploymentCombinedSchema), rejectEmployment);
 companyRouter.delete("/rejectPromotion/:id", Authorization, validateData(rejectPromotionCombinedSchema), rejectPromotion);

@@ -125,32 +125,115 @@ class companyEmployeeRequestRepositery {
 	async createExperience(data: {
 		user: number;
 		company: number;
-		joiningDate?: string;
-		salary?: string;
-		designation?: number;
-		department?: number;
-		employmentType?: number;
-		skill?: string;
-		description?: string;
+		joiningDate?: string | null;
+		workedTillDate?: string | null;
+		salary?: string | null;
+		salaryInhand?: string | null;
+		salaryMode?: string | null;
+		designation?: number | null;
+		department?: number | null;
+		employmentType?: number | null;
+		skill?: string | null;
+		description?: string | null;
+		certificate?: string | null;
+		stillWorking?: number;
+		hired?: number;
 		approved?: number;
+		status?: number;
+		addedBy?: number;
 	}) {
 		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 		const [{ id }] = await db.insert(cybUserExperience).values({
 			user: data.user,
 			company: data.company,
-			joiningDate: data.joiningDate,
-			salary: data.salary,
-			designation: data.designation,
-			department: data.department,
-			employmentType: data.employmentType,
-			skill: data.skill,
-			description: data.description,
-			approved: data.approved || 3,
-			stillWorking: 1,
-			status: 1,
-			createDate: now,
+			joiningDate: data.joiningDate ?? undefined,
+			workedTillDate: data.workedTillDate ?? null,
+			salary: data.salary ?? undefined,
+			salaryInhand: data.salaryInhand ?? undefined,
+			salaryMode: data.salaryMode ?? undefined,
+			designation: data.designation ?? undefined,
+			department: data.department ?? undefined,
+			employmentType: data.employmentType ?? undefined,
+			skill: data.skill ?? undefined,
+			description: data.description ?? undefined,
+			certificate: data.certificate ?? undefined,
+			// PHP create: approved=1, status=0, added_by=1
+			approved: data.approved ?? 1,
+			status: data.status ?? 0,
+			stillWorking: data.stillWorking ?? 0,
+			hired: data.hired ?? 0,
+			addedBy: data.addedBy ?? 1,
+			createDate: now.slice(0, 10),
+			modifyDate: now,
 		}).$returningId();
 		return id;
+	}
+
+	async updateExperience(id: number, data: {
+		user?: number;
+		joiningDate?: string | null;
+		workedTillDate?: string | null;
+		salary?: string | null;
+		salaryInhand?: string | null;
+		salaryMode?: string | null;
+		designation?: number | null;
+		department?: number | null;
+		employmentType?: number | null;
+		skill?: string | null;
+		description?: string | null;
+		certificate?: string | null;
+		stillWorking?: number;
+		hired?: number;
+		approved?: number;
+		status?: number;
+	}) {
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const patch: Record<string, unknown> = { modifyDate: now };
+		if (data.user !== undefined) patch.user = data.user;
+		if (data.joiningDate !== undefined) patch.joiningDate = data.joiningDate;
+		if (data.workedTillDate !== undefined) patch.workedTillDate = data.workedTillDate;
+		if (data.salary !== undefined) patch.salary = data.salary;
+		if (data.salaryInhand !== undefined) patch.salaryInhand = data.salaryInhand;
+		if (data.salaryMode !== undefined) patch.salaryMode = data.salaryMode;
+		if (data.designation !== undefined) patch.designation = data.designation;
+		if (data.department !== undefined) patch.department = data.department;
+		if (data.employmentType !== undefined) patch.employmentType = data.employmentType;
+		if (data.skill !== undefined) patch.skill = data.skill;
+		if (data.description !== undefined) patch.description = data.description;
+		if (data.certificate !== undefined) patch.certificate = data.certificate;
+		if (data.stillWorking !== undefined) patch.stillWorking = data.stillWorking;
+		if (data.hired !== undefined) patch.hired = data.hired;
+		if (data.approved !== undefined) patch.approved = data.approved;
+		if (data.status !== undefined) patch.status = data.status;
+
+		await db.update(cybUserExperience).set(patch).where(eq(cybUserExperience.id, id));
+		return id;
+	}
+
+	/** PHP FrontModel::check_employment — duplicate joining_date + designation + user + company (approved != 2) */
+	async hasDuplicateEmployment(
+		userId: number,
+		companyId: number,
+		joiningDate: string,
+		designationId: number,
+		excludeId?: number,
+	) {
+		const conditions = [
+			eq(cybUserExperience.user, userId),
+			eq(cybUserExperience.company, companyId),
+			eq(cybUserExperience.joiningDate, joiningDate),
+			eq(cybUserExperience.designation, designationId),
+			ne(cybUserExperience.approved, 2),
+		];
+		if (excludeId) {
+			conditions.push(ne(cybUserExperience.id, excludeId));
+		}
+		const [row] = await db
+			.select({ id: cybUserExperience.id })
+			.from(cybUserExperience)
+			.where(and(...conditions))
+			.limit(1);
+		return !!row;
 	}
 
 	async getExperienceById(experienceId: number) {

@@ -2,20 +2,113 @@ import { z } from "zod";
 
 /** validateData always parses { params, query, body }. Nest fields under the right key. */
 
+const idOrText = z.union([
+	z.coerce.number().int().positive(),
+	z.string().trim().min(1),
+]);
+
+/** form-data may send skill[0]/skill[1] as separate keys, skill as array, or single value */
+function normalizeAddEmployeeBody(raw: unknown): Record<string, unknown> {
+	const body: Record<string, unknown> =
+		raw != null && typeof raw === "object" && !Array.isArray(raw)
+			? { ...(raw as Record<string, unknown>) }
+			: {};
+
+	const indexedSkillKeys = Object.keys(body)
+		.filter((k) => /^skill\[\d+\]$/.test(k) || k === "skill[]")
+		.sort((a, b) => {
+			const ai = parseInt(a.replace(/\D/g, "") || "0", 10);
+			const bi = parseInt(b.replace(/\D/g, "") || "0", 10);
+			return ai - bi;
+		});
+
+	const fromIndexed = indexedSkillKeys.map((k) => body[k]);
+	for (const k of indexedSkillKeys) delete body[k];
+
+	let skill = body.skill;
+	if (skill === undefined || skill === null || skill === "") {
+		skill = fromIndexed;
+	} else if (Array.isArray(skill)) {
+		skill = [...skill, ...fromIndexed];
+	} else if (typeof skill === "object") {
+		skill = [...Object.values(skill as Record<string, unknown>), ...fromIndexed];
+	} else {
+		skill = [skill, ...fromIndexed];
+	}
+	body.skill = skill;
+
+	return body;
+}
+
 export const addEmployeeBodySchema = z.object({
-	email: z.string().email().optional(),
-	phone: z.string().optional(),
-	joining_date: z.string().min(1, "Joining date is required"),
-	salary: z.string().optional(),
-	designation: z.string().optional(),
-	department: z.string().optional(),
-	employment_type: z.string().optional(),
-	skill: z.string().optional(),
-	description: z.string().optional(),
-}).refine((data) => data.email || data.phone, {
-	message: "Email or phone is required",
+	// FE / PHP: existing employee user id (not email/phone invite)
+	user: z.coerce.number().int().positive("user is required"),
+
+	employment_type: z.coerce.number().int().positive("employment type is required"),
+
+	designation: idOrText,
+
+	department: z.preprocess(
+		(v) => (v == null || v === "" ? undefined : v),
+		idOrText.optional(),
+	),
+
+	// form-data: skill[0], skill[1] → array of id or name
+	skill: z.preprocess((val) => {
+		if (val === undefined || val === null || val === "") return [];
+		if (Array.isArray(val)) return val;
+		if (typeof val === "object") return Object.values(val as Record<string, unknown>);
+		return [val];
+	}, z.array(z.union([z.string(), z.number()])).default([])),
+
+	joining_date: z.preprocess(
+		(v) => (v == null || v === "" ? undefined : String(v).trim()),
+		z.string().min(1, "Joining date is required"),
+	),
+
+	worked_till_date: z.preprocess(
+		(v) => (v == null || v === "" || v === "present" ? undefined : String(v).trim()),
+		z.string().optional(),
+	),
+
+	salary: z.preprocess(
+		(v) => (v == null || v === "" ? undefined : String(v)),
+		z.string().optional(),
+	),
+
+	salary_inhand: z.preprocess(
+		(v) => (v == null || v === "" ? undefined : String(v)),
+		z.string().optional(),
+	),
+
+	salary_mode: z.preprocess(
+		(v) => (v == null || v === "" ? undefined : String(v)),
+		z.string().optional(),
+	),
+
+	description: z.preprocess(
+		(v) => (v == null ? "" : String(v)),
+		z.string().optional().default(""),
+	),
+
+	// form-data: "true"/"TRUE"/"1"/true → true; "false"/"0"/false → false
+	hired: z.preprocess((value) => {
+		if (value === true || value === 1 || value === "1" || value === "TRUE" || value === "true") return true;
+		return false;
+	}, z.boolean().default(false)),
+
+	// form-data: "1"/1/"true" → true; "0"/0/"false" → false
+	still_working: z.preprocess((value) => {
+		if (value === true || value === 1 || value === "1" || value === "TRUE" || value === "true") return true;
+		return false;
+	}, z.boolean().default(false)),
 });
-export const addEmployeeSchema = z.object({ body: addEmployeeBodySchema });
+
+/** body may be undefined before form parsers run — coerce to {} and fold skill[n] keys */
+const bodyObject = <T extends z.ZodTypeAny>(schema: T) =>
+	z.preprocess((v) => normalizeAddEmployeeBody(v), schema);
+
+export const addEmployeeSchema = z.object({ body: bodyObject(addEmployeeBodySchema) });
 
 export const employeeDetailIdSchema = z.object({
 	id: z.coerce.number().int().positive("Invalid experience ID"),
@@ -177,7 +270,7 @@ export const rejectPromotionCombinedSchema = z.object({
 
 export const addEmployeeUpdateCombinedSchema = z.object({
 	params: employeeDetailIdSchema,
-	body: addEmployeeBodySchema,
+	body: bodyObject(addEmployeeBodySchema),
 });
 
 export type AddEmployeeBody = z.infer<typeof addEmployeeBodySchema>;

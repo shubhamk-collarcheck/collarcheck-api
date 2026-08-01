@@ -4,10 +4,12 @@ import { z, ZodError } from 'zod';
 export function validateData<T extends z.ZodTypeAny>(schema: T) {
 	return (req: Request, res: Response, next: NextFunction) => {
 		try {
+			// multipart without a form parser leaves body undefined — coerce to {}
+			// so Zod "expected object, received undefined" never fires for empty body
 			req.validated = schema.parse({
-				params: req.params,
-				query: req.query,
-				body: req.body,
+				params: req.params ?? {},
+				query: req.query ?? {},
+				body: req.body ?? {},
 			});
 
 			next();

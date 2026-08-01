@@ -4,7 +4,11 @@ import companyRepositery from "../repositery/company.repositery";
 import generalRepositery from "../repositery/general.repositery";
 import employmentRepositery from "../repositery/employee.repositery";
 import skillRepositery from "../repositery/skill.repositery";
+import designationRepositery from "../repositery/designation.repositery";
+import departmentRepositery from "../repositery/department.repositery";
 import { user_verified } from "./users.service";
+import { resolveDesignation, resolveDepartment, resolveSkill } from "./employee.service";
+import type { AddEmployeeBody } from "../types/company-employee-request.types";
 
 const S3_PREFIX = process.env.S3_PREFIX || '';
 
@@ -242,63 +246,155 @@ class companyEmployeeRequestService {
 		};
 	}
 
-	async addEmployeeService(companyId: number, data: {
-		email?: string;
-		phone?: string;
-		joining_date: string;
-		salary?: string;
-		designation?: string;
-		department?: string;
-		employment_type?: string;
-		skill?: string;
-		description?: string;
-	}) {
-		// Find or create user
-		let user = await companyEmployeeRequestRepositery.findUserByEmailOrPhone(data.email, data.phone);
-		let userId: number;
-
-		if (user) {
-			userId = user.id;
-		} else {
-			userId = await companyEmployeeRequestRepositery.createUser({
-				email: data.email,
-				phone: data.phone,
-			});
+	/**
+	 * PHP CompanyApi::addEmployee — company adds employment for existing user.
+	 * Form-data: user, employment_type, designation, department, skill[], salary*,
+	 * joining_date, worked_till_date, still_working, hired, description, document[].
+	 */
+	async addEmployeeService(
+		companyId: number,
+		data: AddEmployeeBody,
+		files?: Express.MulterS3.File[],
+		experienceId?: number,
+	) {
+		const employee = await companyEmployeeRequestRepositery.getUserById(data.user);
+		if (!employee) {
+			return { success: false, message: "Employee not found!" };
 		}
 
-		// Parse designation/department/employment_type to IDs if needed
-		let designationId: number | undefined;
-		let departmentId: number | undefined;
-		let employmentTypeId: number | undefined;
+		const company = await companyEmployeeRequestRepositery.getCompanyDetail(companyId);
 
-		if (data.designation) {
-			const parsed = parseInt(data.designation);
-			designationId = isNaN(parsed) ? undefined : parsed;
+		// Resolve designation (id or free-text name)
+		const designationResolved = await resolveDesignation(data.designation, companyId);
+		let designationId = designationResolved.id;
+		if (!designationId && designationResolved.data) {
+			const created = await designationRepositery.create(designationResolved.data);
+			designationId = created.id;
 		}
-		if (data.department) {
-			const parsed = parseInt(data.department);
-			departmentId = isNaN(parsed) ? undefined : parsed;
-		}
-		if (data.employment_type) {
-			const parsed = parseInt(data.employment_type);
-			employmentTypeId = isNaN(parsed) ? undefined : parsed;
+		if (!designationId) {
+			return { success: false, message: "designation is required" };
 		}
 
-		// Create experience record with approved=3 (pending)
-		await companyEmployeeRequestRepositery.createExperience({
-			user: userId,
-			company: companyId,
+		// Resolve department (optional)
+		let departmentId: number | null = null;
+		if (data.department != null && data.department !== "") {
+			const departmentResolved = await resolveDepartment(data.department, companyId);
+			departmentId = departmentResolved.id;
+			if (!departmentId && departmentResolved.data) {
+				const created = await departmentRepositery.create(departmentResolved.data);
+				departmentId = created.id;
+			}
+		}
+
+		// Resolve skills (ids and/or names) → JSON array of id strings (PHP)
+		const skillResolved = await resolveSkill(data.skill ?? [], companyId);
+		let skillIds = [...skillResolved.ids];
+		for (const row of skillResolved.data) {
+			const created = await skillRepositery.create(row);
+			skillIds.push(created.id);
+		}
+		const skillJson = JSON.stringify(skillIds.map(String));
+
+		const isStillWorking = !!data.still_working;
+		const workedTillDate = isStillWorking ? null : (data.worked_till_date || null);
+
+		// Documents → certificate (comma-separated S3 keys); append on update
+		let certificate: string | null | undefined;
+		if (files && files.length > 0) {
+			const keys = files
+				.map((f) => f.key || (f as Express.MulterS3.File & { location?: string }).location || "")
+				.filter(Boolean)
+				.join(",");
+			if (experienceId) {
+				const existing = await companyEmployeeRequestRepositery.getExperienceById(experienceId);
+				const prev = existing?.certificate || "";
+				certificate = prev ? `${prev}${keys.endsWith(",") ? keys : keys + ","}` : (keys.endsWith(",") ? keys : keys + ",");
+			} else {
+				certificate = keys.endsWith(",") ? keys : keys + ",";
+			}
+		}
+
+		const isDuplicate = await companyEmployeeRequestRepositery.hasDuplicateEmployment(
+			data.user,
+			companyId,
+			data.joining_date,
+			designationId,
+			experienceId,
+		);
+		if (isDuplicate) {
+			return {
+				success: false,
+				message:
+					"An employment record with the same designation, joining date, and company already exists. Can not add duplicate employment.",
+			};
+		}
+
+		const save = {
+			user: data.user,
 			joiningDate: data.joining_date,
-			salary: data.salary,
+			workedTillDate,
+			salary: data.salary ?? null,
+			salaryInhand: data.salary_inhand ?? null,
+			salaryMode: data.salary_mode ?? null,
 			designation: designationId,
 			department: departmentId,
-			employmentType: employmentTypeId,
-			skill: data.skill,
-			description: data.description,
-			approved: 3,
-		});
+			employmentType: data.employment_type,
+			skill: skillJson,
+			description: data.description ?? "",
+			stillWorking: isStillWorking ? 1 : 0,
+			hired: data.hired ? 1 : 0,
+			approved: 1 as number,
+			...(certificate !== undefined ? { certificate } : {}),
+		};
 
-		return { success: true, message: "Employee added successfully!" };
+		let resultId: number;
+		let message: string;
+		let notifyText: string;
+
+		const empName = `${employee.fname || ""} ${employee.lname || ""}`.trim() || "Employee";
+		const companyName = company?.fname || "Company";
+
+		if (experienceId) {
+			const existing = await companyEmployeeRequestRepositery.getExperienceById(experienceId);
+			if (!existing || existing.company !== companyId) {
+				return { success: false, message: "Experience not found" };
+			}
+			// PHP update: status=1 (pre-approved when company edits)
+			await companyEmployeeRequestRepositery.updateExperience(experienceId, {
+				...save,
+				status: 1,
+			});
+			resultId = experienceId;
+			message = "Successfully updated !";
+			notifyText = `Hi, ${empName} your employment have been updated by ${companyName}`;
+		} else {
+			// PHP create: status=0, added_by=1, approved=1
+			resultId = await companyEmployeeRequestRepositery.createExperience({
+				...save,
+				company: companyId,
+				status: 0,
+				addedBy: 1,
+				approved: 1,
+			});
+			message = "Successfully Added !";
+			notifyText = `Hi, ${empName} you have a new employment added by ${companyName}`;
+		}
+
+		// Best-effort in-app notification (PHP always inserts)
+		try {
+			await companyRepositery.createNotification(
+				companyId,
+				data.user,
+				notifyText,
+				"/dashboard/user/employment",
+				"profile",
+				"employment",
+			);
+		} catch (err) {
+			console.error("addEmployee notification error:", err);
+		}
+
+		return { success: true, message, id: resultId };
 	}
 
 	async getEmployeeDetailService(companyId: number, experienceId: number) {

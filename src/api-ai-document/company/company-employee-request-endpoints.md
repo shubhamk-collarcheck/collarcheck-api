@@ -94,30 +94,41 @@ Returns the authenticated company's full profile with verification status, domai
 
 ## 2. Add Employee
 
-**Route:** `POST /wapi/company/add-employee`
-**Controller:** `addEmployee` ()
+**Route:** `POST /wapi/company/addEmployee` · update: `POST /wapi/company/addEmployee/:id`  
+**Controller:** `addEmployee` / `addEmployeeUpdate` — `src/controllers/company-employee-request.controller.ts`  
+**Middleware:** `Authorization` → `educationUpload.fields(document|document[]|file)` → `validateData(addEmployeeSchema)`  
+**Content-Type:** `multipart/form-data` (files + fields) or JSON without files
 
-Company adds an employee by email/phone. Creates or finds user, creates `user_experience` record with `approved=3` (pending).
+Company adds employment for an **existing employee user** (`user` id). Matches PHP `CompanyApi::addEmployee`.
 
-**DB Tables:** `user`, `user_experience`, `user_update_experience`
+**DB Tables:** `cyb_user_experience`, `cyb_user`, `cyb_designation`, `cyb_department`, `cyb_skill`, `cyb_notifications`
 
-**Request:**
+**Request (form-data):**
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| email | string | if no phone | Employee email |
-| phone | string | if no phone | Employee phone |
-| joining_date | string | yes | Date string |
+| user | int | yes | Employee `cyb_user.id` |
+| employment_type | int | yes | Employment type id |
+| designation | int\|string | yes | Designation id or free-text name |
+| department | int\|string | no | Department id or name |
+| joining_date | string | yes | `YYYY-MM-DD` |
+| worked_till_date | string | no | Date; cleared when `still_working` |
+| still_working | 0\|1\|bool | no | Form often sends `0` / `1` |
+| hired | bool\|string | no | `true` / `TRUE` / `false` |
 | salary | string | no | |
-| designation | string/int | no | Name or ID |
-| department | string/int | no | Name or ID |
-| employment_type | string/int | no | Name or ID |
-| skill | string | no | Comma-separated IDs |
+| salary_inhand | string | no | e.g. `CTC`, `In Hand` |
+| salary_mode | string | no | e.g. `Per Annum`, `Per Month` |
 | description | string | no | |
+| skill\[0\], skill\[1\], … | string\|int | no | Skill names or ids (array) |
+| document\[\] / document | file | no | PDF/images/docs → `certificate` |
 
 **Response:**
 ```json
-{"status": true, "messages": "Employee added successfully!"}
+{"status": true, "messages": "Successfully Added !"}
 ```
+Update: `"Successfully updated !"`. Errors: `"Employee not found!"`, duplicate employment message.
+
+**Notes:** Acting company = `req.auth.id` (`X-Company`). Create sets `approved=1`, `status=0`, `added_by=1`. Skills stored as JSON id array. Documents appended as comma-separated S3 keys on `certificate`.
+
 ---
 
 ## 3. Employee Detail

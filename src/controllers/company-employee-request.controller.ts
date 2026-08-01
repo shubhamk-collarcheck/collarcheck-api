@@ -28,13 +28,32 @@ export const companyDetail = async (req: Request, res: Response) => {
 	}
 };
 
+/** Normalize multer .fields() output for employment document uploads. */
+function addEmployeeFiles(req: Request): Express.MulterS3.File[] {
+	const f = req.files as
+		| { [fieldname: string]: Express.MulterS3.File[] }
+		| Express.MulterS3.File[]
+		| undefined;
+	if (!f) return [];
+	if (Array.isArray(f)) return f;
+	return [
+		...(f.document || []),
+		...(f["document[]"] || []),
+		...(f.file || []),
+	];
+}
+
 export const addEmployee = async (req: Request, res: Response) => {
 	try {
-		const { user_id: companyId } = req.auth as AuthUser;
-
+		// Acting company (honours X-Company); matches PHP $this->request->id
+		const { id: companyId } = req.auth as AuthUser;
 		const { body } = req.validated as { body: AddEmployeeBody };
 
-		const result = await companyEmployeeRequestService.addEmployeeService(companyId, body);
+		const result = await companyEmployeeRequestService.addEmployeeService(
+			companyId,
+			body,
+			addEmployeeFiles(req),
+		);
 
 		return res.status(result.success ? 200 : 400).json({
 			status: result.success,
@@ -48,14 +67,19 @@ export const addEmployee = async (req: Request, res: Response) => {
 
 export const addEmployeeUpdate = async (req: Request, res: Response) => {
 	try {
-		const { user_id: companyId } = req.auth as AuthUser;
-
+		const { id: companyId } = req.auth as AuthUser;
 		const { params, body } = req.validated as { params: EmployeeDetailParams; body: AddEmployeeBody };
 
-		// TODO: Implement update logic
-		return res.status(200).json({
-			status: true,
-			messages: "Employee updated successfully!",
+		const result = await companyEmployeeRequestService.addEmployeeService(
+			companyId,
+			body,
+			addEmployeeFiles(req),
+			params.id,
+		);
+
+		return res.status(result.success ? 200 : 400).json({
+			status: result.success,
+			messages: result.message,
 		});
 	} catch (error) {
 		console.error("addEmployeeUpdate error:", error);

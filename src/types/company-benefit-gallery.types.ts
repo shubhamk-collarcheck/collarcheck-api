@@ -2,24 +2,50 @@ import { z } from "zod";
 
 /** validateData always parses { params, query, body }. Nest fields under the right key. */
 
-/** benefit_id: numeric id or free-text name (auto-create). Form often sends string. */
+/**
+ * FE sends multipart/form-data: benefit_id (required), optional sortOrder, description.
+ * Also accept benefitId / sort_order aliases from alternate clients.
+ */
+function normalizeAddBenefitBody(raw: unknown): Record<string, unknown> {
+	const body: Record<string, unknown> =
+		raw != null && typeof raw === "object" && !Array.isArray(raw)
+			? { ...(raw as Record<string, unknown>) }
+			: {};
+
+	// aliases
+	if ((body.benefit_id == null || body.benefit_id === "") && body.benefitId != null) {
+		body.benefit_id = body.benefitId;
+	}
+	if ((body.sortOrder == null || body.sortOrder === "") && body.sort_order != null) {
+		body.sortOrder = body.sort_order;
+	}
+
+	return body;
+}
+
+/** benefit_id: numeric id or free-text name (auto-create). Form always sends strings. */
 export const addBenefitBodySchema = z.object({
 	benefit_id: z.preprocess(
 		(v) => {
-			if (v == null || v === '') return v;
+			if (v == null || v === "") return undefined;
+			// form-data / JSON number both OK
 			return String(v).trim();
 		},
 		z.string().min(1, "Id is required."),
 	),
 	sortOrder: z.preprocess(
-		(v) => (v == null || v === '' ? undefined : String(v)),
+		(v) => (v == null || v === "" ? undefined : String(v)),
 		z.string().optional(),
 	),
-	description: z.string().optional(),
+	description: z.preprocess(
+		(v) => (v == null || v === "" ? undefined : String(v)),
+		z.string().optional(),
+	),
 });
-/** body may be undefined before form parsers run — coerce to {} */
+
+/** body may be undefined before form parsers run — coerce to {} + fold aliases */
 const bodyObject = <T extends z.ZodTypeAny>(schema: T) =>
-	z.preprocess((v) => (v == null || typeof v !== "object" || Array.isArray(v) ? {} : v), schema);
+	z.preprocess((v) => normalizeAddBenefitBody(v), schema);
 
 export const addBenefitSchema = z.object({ body: bodyObject(addBenefitBodySchema) });
 
