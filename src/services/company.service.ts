@@ -1,7 +1,63 @@
 import companyRepositery from '../repositery/company.repositery';
+import generalRepositery from '../repositery/general.repositery';
+import reviewRepositery from '../repositery/review.repositery';
+import skillRepositery from '../repositery/skill.repositery';
+import employmentRepositery from '../repositery/employee.repositery';
+import { user_verified } from './users.service';
 import { getSettingService, saveSettingService } from './common-auth.service';
+import { decodeCertificateURLs } from '../utils/decoders';
+import { getS3Url } from '../utils/helpers';
 
 const s3Prefix = process.env.S3_PREFIX || '';
+
+function profileUrl(profile?: string | null, social?: string | null) {
+	if (profile) return `${s3Prefix}${profile}`;
+	return social || '';
+}
+
+function parseJsonArray(raw: string | null | undefined): number[] {
+	if (!raw) return [];
+	try {
+		const v = JSON.parse(raw);
+		if (Array.isArray(v)) return v.map(Number).filter((n) => Number.isFinite(n));
+	} catch { /* ignore */ }
+	return [];
+}
+
+/** PHP ExploringTrait::show_exploring (simplified). */
+async function showExploring(employeeId: number, companyId: number): Promise<boolean> {
+	const privacy = await generalRepositery.getUserExploringPrivacy(employeeId);
+	const options = parseJsonArray(privacy?.exploringOption ?? null);
+	if (options.length === 0) return true;
+	const hideIds = new Set(parseJsonArray(privacy?.exploringDetails ?? null));
+	const has3 = options.includes(3);
+	const has4 = options.includes(4);
+	if ((has3 || has4) && hideIds.has(companyId)) return false;
+	return true;
+}
+
+async function exploringFlags(
+	employeeId: number,
+	companyId: number,
+	onExploreUser: number | null | undefined,
+	onImmediateUser: number | null | undefined,
+	onNoticeUser: number | null | undefined,
+) {
+	const on_explore_user_flag = onExploreUser ? 1 : 0;
+	let on_explore = 0;
+	if (on_explore_user_flag === 1) {
+		on_explore = (await showExploring(employeeId, companyId)) ? 1 : 0;
+	}
+	const on_immediate = on_explore === 1 ? (onImmediateUser ? 1 : 0) : 0;
+	const on_notice = on_explore === 1 ? (onNoticeUser ? 1 : 0) : 0;
+	return { on_explore, on_immediate, on_notice };
+}
+
+/** Page query → SQL offset (0 and 1 both first page). */
+function pageToSqlOffset(page: number, limit: number) {
+	const p = page || 0;
+	return p <= 1 ? 0 : p * limit - limit;
+}
 
 // ====== 1. Get Setting (Reuses common-auth) ======
 
@@ -68,6 +124,7 @@ export async function editCompanyService(userId: number, type: number, data: Rec
 			}
 		}
 
+		// New multipart upload wins; otherwise body may carry existing profile URL
 		if (profilePath) {
 			data.profile = profilePath;
 		}
@@ -103,183 +160,353 @@ export async function editCompanyService(userId: number, type: number, data: Rec
 }
 
 // ====== 4. All Connection ======
+// Contract: src/debug/company-all-employement-and-all-connection-endpoints.md
 
-export async function allConnectionService(companyId: number, keyword: string, sortBy: number, limit: number, offset: number) {
-	const [currentEmployees, pastEmployees, currentCount, pastCount] = await Promise.all([
-		companyRepositery.getCurrentEmployees(companyId, keyword, sortBy, limit, offset),
-		companyRepositery.getPastEmployees(companyId, keyword, sortBy, limit, offset),
-		companyRepositery.countCurrentEmployees(companyId),
-		companyRepositery.countPastEmployees(companyId),
-	]);
+export async function allConnectionService(
+	companyId: number,
+	loginUserId: number,
+	userType: number | null,
+	keyword: string,
+	sortBy: number | null | undefined,
+	limit: number,
+	pageOffset: number,
+) {
+	try {
+		if (userType === 2) {
+			const perm = await companyRepositery.checkMenuAccess(loginUserId, companyId, 5);
+			if (!perm.ok) {
+				return { status: false as const, message: perm.message || "You don't have permission to access this.", httpStatus: 403 as const };
+			}
+		}
 
-	const currentWithRatings = await Promise.all(
-		currentEmployees.map(async (emp) => {
-			const [rating, inWishlist] = await Promise.all([
-				companyRepositery.getUserRating(emp.user),
-				companyRepositery.checkInWishlist(companyId, emp.user),
-			]);
-			return {
-				user: emp.user,
-				profile: emp.profile ? `${s3Prefix}${emp.profile}` : (emp.socialImage || ''),
+		const sqlOffset = pageToSqlOffset(pageOffset, limit);
+		const kw = keyword || '';
+
+		const [currentRes, pastRes, currentEmployeeCount, pastEmployeeCount] = await Promise.all([
+			companyRepositery.getAllCollections(companyId, {
+				keyword: kw,
+				sortBy,
+				type: 1,
+				limit,
+				sqlOffset,
+			}),
+			companyRepositery.getAllCollections(companyId, {
+				keyword: kw,
+				sortBy,
+				type: null,
+				limit,
+				sqlOffset,
+			}),
+			companyRepositery.countCurrentEmployees(companyId, kw),
+			companyRepositery.countPastEmployees(companyId, kw),
+		]);
+
+		const currentRows = currentRes.rows;
+		const currentIds = new Set(currentRows.map((r) => r.user as number));
+		// Dedupe past against current by user id
+		const pastRows = pastRes.rows.filter((r) => !currentIds.has(r.user as number));
+
+		const allUserIds = [
+			...currentRows.map((r) => r.user as number),
+			...pastRows.map((r) => r.user as number),
+		];
+
+		const [ratingsMap, wishlistSet, verifiedMap, userRatingMap] = await Promise.all([
+			companyRepositery.batchUserRatings(allUserIds),
+			companyRepositery.batchInWishlist(companyId, pastRows.map((r) => r.user as number)),
+			// user_verified in parallel
+			Promise.all(allUserIds.map(async (id) => [id, await user_verified(id)] as const)).then(
+				(pairs) => new Map(pairs),
+			),
+			Promise.all(
+				allUserIds.map(async (id) => [id, await employmentRepositery.getOverallProfileRating(id)] as const),
+			).then((pairs) => new Map(pairs)),
+		]);
+
+		async function mapCard(emp: (typeof currentRows)[number], isPast: boolean) {
+			const uid = emp.user as number;
+			const flags = await exploringFlags(
+				uid,
+				companyId,
+				emp.onExplore,
+				emp.onImmediate,
+				emp.onNotice,
+			);
+			const card: Record<string, unknown> = {
+				user: uid,
+				profile: profileUrl(emp.profile, emp.socialImage),
 				username: `${emp.fname ?? ''} ${emp.lname ?? ''}`.trim(),
-				contact_person: emp.phone,
-				email: emp.email,
-				designation: emp.designationName,
-				employee_status: "Current",
-				connectiondate: emp.createDate,
+				contact_person: emp.phone || '',
+				email: emp.email || '',
+				designation: emp.designationName || '',
+				employee_status: isPast ? 'Past' : 'Current',
+				connectiondate: emp.connectiondate,
 				approved: emp.approved,
 				experience_id: emp.experienceId,
-				linkdin: emp.linkdin,
+				linkdin: emp.linkdin || '',
+				youtube: emp.youtube || '',
+				instagram: emp.instagram || '',
+				facebook: emp.facebook || '',
 				individual_id: emp.individualId,
-				is_verified: emp.emailVerified === 1 || emp.phoneVerified === 1,
-				slug: emp.slug,
-				profile_description: emp.profileDescription,
-				dob: emp.dob,
-				present_address: emp.presentAddress,
+				is_verified: verifiedMap.get(uid) ?? false,
+				slug: emp.slug || '',
+				profile_description: emp.profileDescription || '',
+				dob: emp.dob || '',
+				present_address: emp.presentAddress || '',
 				joining_date: emp.joiningDate,
-				last_modify_date: emp.createDate,
-				account_create_date: emp.createDate,
-				totalRating: rating,
-				userRating: rating.avgRating,
-				in_wishlist: inWishlist,
-				on_explore: emp.onExplore,
-				on_immediate: emp.onImmediate,
-				on_notice: emp.onNotice,
+				last_modify_date: emp.modifyDate,
+				account_create_date: emp.accountCreateDate,
+				totalRating: ratingsMap.get(uid) ?? { rating: 0, noofrecord: 0 },
+				userRating: userRatingMap.get(uid) ?? 0,
+				// current: always false (PHP hard-disables wishlist for current)
+				in_wishlist: isPast ? wishlistSet.has(uid) : false,
+				...flags,
 			};
-		})
-	);
+			if (isPast) {
+				card.worked_till_date = emp.workedTillDate;
+			}
+			return card;
+		}
 
-	const pastWithRatings = await Promise.all(
-		pastEmployees.map(async (emp) => {
-			const [rating, inWishlist] = await Promise.all([
-				companyRepositery.getUserRating(emp.user),
-				companyRepositery.checkInWishlist(companyId, emp.user),
-			]);
-			return {
-				user: emp.user,
-				profile: emp.profile ? `${s3Prefix}${emp.profile}` : (emp.socialImage || ''),
-				username: `${emp.fname ?? ''} ${emp.lname ?? ''}`.trim(),
-				contact_person: emp.phone,
-				email: emp.email,
-				designation: emp.designationName,
-				employee_status: "Past",
-				connectiondate: emp.createDate,
-				approved: emp.approved,
-				experience_id: emp.experienceId,
-				linkdin: emp.linkdin,
-				individual_id: emp.individualId,
-				is_verified: emp.emailVerified === 1 || emp.phoneVerified === 1,
-				slug: emp.slug,
-				profile_description: emp.profileDescription,
-				dob: emp.dob,
-				present_address: emp.presentAddress,
-				joining_date: emp.joiningDate,
-				worked_till_date: emp.workedTillDate,
-				last_modify_date: emp.createDate,
-				account_create_date: emp.createDate,
-				totalRating: rating,
-				userRating: rating.avgRating,
-				in_wishlist: inWishlist,
-				on_explore: emp.onExplore,
-				on_immediate: emp.onImmediate,
-				on_notice: emp.onNotice,
-			};
-		})
-	);
+		const [current, past] = await Promise.all([
+			Promise.all(currentRows.map((r) => mapCard(r, false))),
+			Promise.all(pastRows.map((r) => mapCard(r, true))),
+		]);
 
-	return {
-		status: true,
-		messages: "Company Connection",
-		data: {
-			current_count: currentCount,
-			current: currentWithRatings,
-			past_count: pastCount,
-			past: pastWithRatings,
-			currentEmployeeCount: currentCount,
-			pastEmployeeCount: pastCount,
-		},
-	};
+		return {
+			status: true as const,
+			messages: 'Company Connection',
+			data: {
+				current_count: current.length,
+				current,
+				past_count: past.length,
+				past,
+				currentEmployeeCount,
+				pastEmployeeCount,
+			},
+		};
+	} catch (e: any) {
+		return { status: false as const, messages: e?.message || 'Access denied' };
+	}
 }
 
 // ====== 5. All Employment ======
 
-export async function allEmploymentService(companyId: number) {
-	const [experienceList, updateList] = await Promise.all([
-		companyRepositery.getCompanyExperienceList(companyId),
-		companyRepositery.getBasicExperienceUpdateList(companyId),
-	]);
+function skillNamesFromJson(skillJson: string | null | undefined, nameMap: Map<number, string>): string[] {
+	if (!skillJson) return [];
+	try {
+		const decoded = JSON.parse(skillJson);
+		if (!Array.isArray(decoded)) return [];
+		return decoded
+			.map(Number)
+			.filter(Boolean)
+			.map((id: number) => nameMap.get(id) || '')
+			.filter(Boolean);
+	} catch {
+		return [];
+	}
+}
 
-	const employmentData = await Promise.all(
-		experienceList.map(async (exp) => {
-			const [rating, updateExists] = await Promise.all([
-				companyRepositery.getEmploymentRating(exp.id),
-				companyRepositery.getBasicExperienceUpdateList(companyId),
-			]);
-
-			const hasUpdate = updateExists.some((u) => u.experienceId === exp.id);
-			const requestType = hasUpdate ? 3 : 1;
-
+export async function allEmploymentService(
+	companyId: number,
+	loginUserId: number,
+	userType: number | null,
+) {
+	try {
+		if (!companyId) {
 			return {
-				id: exp.id,
-				profile: exp.userProfile ? `${s3Prefix}${exp.userProfile}` : (exp.userSocialImage || ''),
-				userName: `${exp.userFname ?? ''} ${exp.userLname ?? ''}`.trim(),
-				salary: exp.salary,
-				employment_type: exp.employmentTypeName,
-				designation: exp.designationName,
-				joining_date: exp.joiningDate,
-				worked_till_date: exp.workedTillDate,
-				still_working: exp.stillWorking,
-				approved: exp.approved,
-				skill: exp.skill,
-				description: exp.description,
-				document: null,
-				salary_inhand: exp.salaryInhand,
-				salary_mode: exp.salaryMode,
-				department: exp.departmentName,
-				claim_status: 1,
-				rating: rating,
-				employment_status: { verified: exp.approved === 1 },
-				employement_id: exp.id,
-				slug: exp.userSlug,
-				individual_id: exp.userIndividualId,
-				status: exp.status,
-				is_verified: exp.userEmailVerified === 1 || exp.userPhoneVerified === 1,
-				user_slug: exp.userSlug,
-				lastReview: rating.noofrecord,
-				updateHistory: [],
-				on_explore: exp.userOnExplore,
-				on_immediate: exp.userOnImmediate,
-				on_notice: exp.userOnNotice,
-				request_type: requestType,
+				status: true as const,
+				messages: 'Employement History',
+				data: [],
+				newUpdateList: [],
 			};
-		})
-	);
+		}
 
-	const newUpdateList = updateList.map((u) => ({
-		id: u.id,
-		experience_id: u.experienceId,
-		user: u.user,
-		salary: u.salary,
-		salary_inhand: u.salaryInhand,
-		salary_mode: u.salaryMode,
-		designation: u.designation,
-		worked_till_date: u.workedTillDate,
-		status: u.status,
-		type: u.type,
-		create_date: u.createDate,
-		old_designation: null,
-		old_salary: null,
-		is_verified: u.userEmailVerified === 1 || u.userPhoneVerified === 1,
-		individual_id: u.userIndividualId,
-		slug: u.userSlug,
-	}));
+		if (userType === 2) {
+			const perm = await companyRepositery.checkMenuAccess(loginUserId, companyId, 6);
+			if (!perm.ok) {
+				return { status: false as const, message: perm.message || "You don't have permission to access this.", httpStatus: 403 as const };
+			}
+		}
 
-	return {
-		status: true,
-		messages: "Employement History",
-		data: employmentData,
-		newUpdateList,
-	};
+		const [experienceList, updateList] = await Promise.all([
+			companyRepositery.getCompanyExperienceList(companyId),
+			companyRepositery.getBasicExperienceUpdateList(companyId),
+		]);
+
+		const experienceIds = experienceList.map((e) => e.id);
+		const employeeIds = [
+			...new Set(
+				[
+					...experienceList.map((e) => e.user).filter((id): id is number => id != null),
+					...updateList.map((u) => u.user).filter((id): id is number => id != null),
+				],
+			),
+		];
+
+		// Skill ids from all experiences
+		const allSkillIds = new Set<number>();
+		for (const exp of experienceList) {
+			if (!exp.skill) continue;
+			try {
+				const decoded = JSON.parse(exp.skill);
+				if (Array.isArray(decoded)) {
+					for (const id of decoded.map(Number).filter(Boolean)) allSkillIds.add(id);
+				}
+			} catch { /* ignore */ }
+		}
+
+		const [
+			skillNameMap,
+			updateCountMap,
+			employmentStatusMap,
+			allRatings,
+			historyMap,
+			verifiedMap,
+		] = await Promise.all([
+			skillRepositery.getSkillNamesByIds([...allSkillIds]),
+			companyRepositery.batchCountUpdateExperience(experienceIds),
+			reviewRepositery.getEmploymentStatusByExperienceIds(experienceIds),
+			reviewRepositery.getRatingsByExperienceIds(experienceIds),
+			companyRepositery.getEmploymentHistoryByExperienceIds(experienceIds),
+			Promise.all(employeeIds.map(async (id) => [id, await user_verified(id)] as const)).then(
+				(pairs) => new Map(pairs),
+			),
+		]);
+
+		const ratingIds = allRatings.map((r) => r.id);
+		const [ratingHistoryMap, skillRatingMap] = await Promise.all([
+			ratingIds.length > 0
+				? (reviewRepositery.getRatingHistory(ratingIds) as Promise<Record<number, any[]>>)
+				: Promise.resolve({} as Record<number, any[]>),
+			ratingIds.length > 0
+				? skillRepositery.getReviewsWithSkills(ratingIds, 0)
+				: Promise.resolve({} as Record<number, any[]>),
+		]);
+
+		const ratingsByExperience = new Map<number, typeof allRatings>();
+		for (const rating of allRatings) {
+			const expId = rating.experience!;
+			if (!ratingsByExperience.has(expId)) ratingsByExperience.set(expId, []);
+			ratingsByExperience.get(expId)!.push(rating);
+		}
+
+		const ratingMap = new Map<number, Record<string, unknown>[]>();
+		for (const [expId, ratings] of ratingsByExperience) {
+			const enriched = ratings.map((r) => {
+				const history = ratingHistoryMap[r.id] ?? [];
+				const skills = skillRatingMap[r.id] ?? [];
+				let doc: string | string[] | null = null;
+				if (r.doc) {
+					try {
+						const paths = JSON.parse(r.doc);
+						if (Array.isArray(paths)) {
+							doc = paths.map((path: string) => getS3Url(path));
+						}
+					} catch {
+						doc = r.doc;
+					}
+				}
+				return {
+					id: r.id,
+					approved: r.approved,
+					status: r.approved === 1 ? 'complete' : 'pending',
+					doc: doc ?? [],
+					date: r.modifyDate || r.createDate,
+					link: r.link || '',
+					show_home: r.showHome ?? 0,
+					show_review: r.showReview ?? 0,
+					history,
+					skill_rating: skills,
+					rating: r.rating,
+					review: r.review,
+				};
+			});
+			ratingMap.set(expId, enriched);
+		}
+
+		const employmentData = await Promise.all(
+			experienceList.map(async (exp) => {
+				const uid = exp.user as number;
+				const flags = await exploringFlags(
+					uid,
+					companyId,
+					exp.userOnExplore,
+					exp.userOnImmediate,
+					exp.userOnNotice,
+				);
+				const updateCount = updateCountMap.get(exp.id) ?? 0;
+				return {
+					id: exp.id,
+					employement_id: exp.id,
+					profile: profileUrl(exp.userProfile, exp.userSocialImage),
+					userName: `${exp.userFname ?? ''} ${exp.userLname ?? ''}`.trim(),
+					salary: exp.salary,
+					employment_type: exp.employmentTypeName || '',
+					designation: exp.designationName || '',
+					joining_date: exp.joiningDate,
+					worked_till_date: exp.workedTillDate,
+					still_working: exp.stillWorking,
+					approved: exp.approved,
+					skill: skillNamesFromJson(exp.skill, skillNameMap),
+					description: exp.description || '',
+					document: decodeCertificateURLs(exp.certificate),
+					salary_inhand: exp.salaryInhand,
+					salary_mode: exp.salaryMode,
+					department: exp.departmentName || '',
+					claim_status: exp.userClaimStatus ? 1 : 0,
+					rating: ratingMap.get(exp.id) ?? [],
+					employment_status: employmentStatusMap.get(exp.id) ?? 'pending',
+					slug: exp.userSlug || '',
+					user_slug: exp.userSlug || '',
+					individual_id: exp.userIndividualId,
+					status: exp.status,
+					is_verified: verifiedMap.get(uid) ?? false,
+					lastReview: exp.lastReview ?? 0,
+					updateHistory: historyMap.get(exp.id) ?? [],
+					...flags,
+					request_type: updateCount > 0 ? 3 : 1,
+				};
+			}),
+		);
+
+		const newUpdateList = await Promise.all(
+			updateList.map(async (u) => ({
+				id: u.id,
+				experience_id: u.experienceId,
+				user: u.user,
+				salary: u.salary,
+				salary_inhand: u.salaryInhand,
+				salary_mode: u.salaryMode,
+				designation: u.designation || '',
+				worked_till_date: u.workedTillDate,
+				status: u.status,
+				type: u.type,
+				create_date: u.createDate,
+				modify_date: u.modifyDate,
+				profile: profileUrl(u.userProfile, u.userSocialImage),
+				fname: u.userFname || '',
+				lname: u.userLname || '',
+				old_designation: u.oldDesignation || '',
+				old_salary: u.oldSalary,
+				is_verified: verifiedMap.get(u.user) ?? false,
+				individual_id: u.userIndividualId,
+				slug: u.userSlug || '',
+				lastReview: u.lastReview ?? 0,
+				// PHP bug magnet: request_type always 1 on newUpdateList
+				request_type: 1,
+			})),
+		);
+
+		return {
+			status: true as const,
+			messages: 'Employement History',
+			data: employmentData,
+			newUpdateList,
+		};
+	} catch (e: any) {
+		return { status: false as const, messages: e?.message || 'Access denied' };
+	}
 }
 
 // ====== 6. Update Employment ======

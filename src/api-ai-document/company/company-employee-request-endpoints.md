@@ -226,14 +226,14 @@ Company processes employee leave/promotion. Three modes:
 
 ## 7. Review Unique Users
 
-**Route:** `GET /wapi/company/review-unique-user`
-**Controller:** `reviewUniqueUsers` ()
+> **Route:** `GET /wapi/company/reviewUniqueUsers` (camelCase — not `review-unique-user`)  
+> **Controller:** `reviewUniqueUsers` · **Service:** `reviewUniqueUsersService`  
+> **Auth:** `req.auth.id` company; menu **8** when `user_type==2` → **403** `{ message }` singular  
+> **Contract:** `src/debug/company-reviewuniqueusers-addgallery-addbenafit-endpoints.md` · **Status:** implemented
 
-List unique employees who have reviews or are still working, with aggregated rating stats and explore status.
+**Query:** `keyword` optional — **fname LIKE only**.
 
-**DB Tables:** `user_experience`, `user_experience_rating`, `user`
-
-**Query Params:** `keyword` (optional search)
+Emits cards only when user passes still-working / lastReview / review gate **and** `noofrecord > 0` (skill-based avg > 0 on reviews).
 
 **Response:**
 ```json
@@ -242,17 +242,25 @@ List unique employees who have reviews or are still working, with aggregated rat
   "messages": "review list",
   "data": [
     {
-      "id": 1, "user_id": 123, "isVerified": true,
-      "designation": "Engineer", "user_slug": "...",
-      "user": "John Doe", "profile": "...",
-      "rating": 0, "noofrecord": 3,
-      "employmentScore": 85,
+      "id": 100,
+      "user_id": 55,
+      "isVerified": true,
+      "designation": "Engineer",
+      "user_slug": "john-doe",
+      "user": "John Doe",
+      "profile": "https://s3.../p.jpg",
+      "rating": 0,
+      "noofrecord": 3,
+      "employmentScore": "4.5",
       "pendingReview": 1,
-      "on_explore": 1, "on_immediate": 1, "on_notice": 0
+      "on_explore": 0,
+      "on_immediate": 0,
+      "on_notice": 0
     }
   ]
 }
 ```
+- `id` = experience id (grouped row); `user` = display name; `rating` always **0** (PHP sum commented out).
 ---
 
 ## 8. Valid To Review

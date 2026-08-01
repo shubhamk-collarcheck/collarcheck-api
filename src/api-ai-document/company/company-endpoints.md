@@ -46,13 +46,15 @@ Identical to `POST wapi/user/saveSetting`. See [common-auth-endpoints.md](../com
 
 ### Route
 ```
-POST /wapi/company/edit-user
+POST /wapi/company/edit-user?type=1
+POST /wapi/company/edit-user?type=2
+POST /wapi/company/edit-user?type=3
 ```
 ### Auth
-JWT required. `req.auth.id` = company user ID.
+JWT required. `req.auth.user_id` / acting company via JWT or `X-Company`.
 
 ### Multi-Step Update
-Uses `type` parameter to determine which fields to update:
+**`type` is a query param** (`?type=1`), not body (body.type accepted as legacy fallback).
 
 | `type` | Fields | Validation |
 |--------|--------|------------|
@@ -127,43 +129,24 @@ Always:
 
 ## 4. GET `company/all-connection`
 
+> **Stack:** Node · `company.controller.ts` `allConnection` · `allConnectionService` · `company.repositery.ts`  
+> **Contract:** `src/debug/company-all-employement-and-all-connection-endpoints.md`  
+> **Status:** **implemented**
+
 ### Route
 ```
-GET /wapi/company/all-connection
+GET /wapi/company/all-connection?limit=10&offset=1&keyword=&sort_by=4
 ```
 ### Auth
-JWT required. `req.auth.id` = company ID.
-**Permission guard:** `checkMenuAccess(loginUserId, companyId, 5)`. Returns **403** if denied.
+JWT. Acting company = **`req.auth.id`** (honours `X-Company`). Menu **5** when `user_type == 2` → HTTP **403** `{ status:false, message }` (singular).
 
-### DB Queries
-```
-MainModel::getAllCollections(companyId, keyword, sort_by, type, limit, offset)
-  → SELECT us.*, ue.id as experience_id, ue.still_working, ue.approved,
-    ue.create_date as connectiondate, ds.name as designation
-    FROM user us
-    INNER JOIN user_experience ue ON ue.user = us.id
-    INNER JOIN designation ds ON ue.designation = ds.id
-    WHERE ue.company = {companyId}
-    AND ue.approved = 1
-    [AND ue.still_working = 1] (if type=1) or [AND ue.still_working = 0] (if not)
-    AND us.is_deleted = 0 AND us.status = 1
-    [keyword filter: name LIKE or individual_id LIKE]
-    GROUP BY us.id
-    ORDER BY {sort}
-
-Called twice: once for current (type=1) and once for past employees.
-
-For each employee:
-  - getoverallprofileScore(id) → userRating
-  - show_exploring(userId, companyId) → on_explore visibility
-```
-### Request
-| Field | Source | Required | Notes |
-|-------|--------|----------|-------|
-| `keyword` | GET query string | No | Search by name or individual_id |
-| `sort_by` | GET query string | No | 1=name asc, 2=name desc, 3=date asc, 4=date desc (default) |
-| `limit` | GET query string | No | Default: 10 |
-| `offset` | GET query string | No | Page-based (0 = first page) |
+### Query
+| Field | Default | Notes |
+|-------|---------|-------|
+| `keyword` | `''` | Name words OR individual_id |
+| `sort_by` | empty → `ue.id DESC` | 1 fname ASC, 2 DESC, 3 create ASC, else create DESC |
+| `limit` | 10 | page size |
+| `offset` | 0 | **page number** (0 and 1 = first page) |
 
 ### Response
 ```json
@@ -171,89 +154,71 @@ For each employee:
   "status": true,
   "messages": "Company Connection",
   "data": {
-    "current_count": 5,
+    "current_count": 2,
     "current": [
       {
-        "user": 1,
-        "profile": "https://s3.../profile.jpg",
+        "user": 55,
+        "profile": "https://s3.../p.jpg",
         "username": "John Doe",
-        "contact_person": "+1234567890",
+        "contact_person": "9999999999",
         "email": "john@example.com",
-        "designation": "Software Engineer",
+        "designation": "Engineer",
         "employee_status": "Current",
         "connectiondate": "2024-01-15 10:30:00",
         "approved": 1,
-        "experience_id": 10,
-        "linkdin": "https://linkedin.com/in/john",
+        "experience_id": 100,
+        "linkdin": "",
+        "youtube": "",
+        "instagram": "",
+        "facebook": "",
         "individual_id": "IND-001",
         "is_verified": true,
         "slug": "john-doe",
         "profile_description": "...",
         "dob": "1990-01-15",
-        "present_address": "123 Main St",
+        "present_address": "...",
         "joining_date": "2024-01-15",
-        "last_modify_date": "2024-06-01",
-        "account_create_date": "2023-12-01",
-        "totalRating": { "noofrecord": 3, "avgRating": 4.5 },
+        "last_modify_date": "2024-06-01 12:00:00",
+        "account_create_date": "2023-12-01 09:00:00",
+        "totalRating": { "rating": 12, "noofrecord": 3 },
         "userRating": 4.2,
         "in_wishlist": false,
-        "on_explore": 1,
-        "on_immediate": 1,
+        "on_explore": 0,
+        "on_immediate": 0,
         "on_notice": 0
       }
     ],
-    "past_count": 2,
-    "past": [
-      {
-        "user": 2,
-        "employee_status": "Past",
-        "worked_till_date": "2023-06-01",
-        "in_wishlist": true
-      }
-    ],
-    "currentEmployeeCount": 5,
-    "pastEmployeeCount": 2
+    "past_count": 1,
+    "past": [],
+    "currentEmployeeCount": 25,
+    "pastEmployeeCount": 10
   }
 }
 ```
 ### Notes
-- Two separate queries: current employees (`still_working=1`) and past (`still_working=0`).
-- Both require `approved=1`.
-- `currentEmployeeCount`/`pastEmployeeCount` are total counts (without pagination) for UI badges.
-- Past employees check `company_wishlist` for `in_wishlist` flag; current employees don't.
-- `on_explore` visibility uses `show_exploring()` — respects user's privacy settings.
+- Current: `still_working=1`; past: `still_working=0`; both `approved=1`, GROUP BY user.
+- `current_count` / `past_count` = **page** lengths; `*EmployeeCount` = totals.
+- Current cards: `in_wishlist` always **false**; past may be true.
+- Past list deduped against current by **user** id.
+- `totalRating` is **sum** `{ rating, noofrecord }`, not average.
 
 ---
 
 ## 5. GET `company/all-employement`
+
+> **Path spelling:** **`all-employement`** (legacy typo)  
+> **Stack:** `allEmployment` → `allEmploymentService` · menu **6**  
+> **Contract:** same debug file §2 · **Status:** **implemented**
 
 ### Route
 ```
 GET /wapi/company/all-employement
 ```
 ### Auth
-JWT required. `req.auth.id` = company ID.
-**Permission guard:** `checkMenuAccess(loginUserId, user_id, 6)`. Returns **403** if denied.
+JWT + `req.auth.id` as company. Menu **6** when `user_type == 2` → 403 `{ message }` singular.
 
-### DB Queries
-```
-1. get_company_experience_list(user_id)
-   → All employment records where company = {companyId} (approved + pending)
-
-   For each record:
-   a. get_skill(skill) → skill names
-   b. get_update_experience(id) → pending update requests
-   c. get_certificate(certificate) → document URL
-   d. get_rating(id) → rating for this employment
-   e. get_employment_status(id) → verification status
-   f. get_employment_history(id) → update history
-   g. show_exploring() → on_explore visibility
-
-2. get_basic_experience_update_list(user_id)
-   → Basic info update requests (salary/designation changes from employee)
-```
 ### Request
-No body params (company identified from JWT).
+No query/body. Full dump (no pagination).
 
 ### Response
 ```json
@@ -263,9 +228,10 @@ No body params (company identified from JWT).
   "data": [
     {
       "id": 10,
+      "employement_id": 10,
       "profile": "https://s3.../profile.jpg",
       "userName": "John Doe",
-      "salary": "$80k",
+      "salary": "80000",
       "employment_type": "Full-time",
       "designation": "Software Engineer",
       "joining_date": "2024-01-15",
@@ -318,11 +284,14 @@ No body params (company identified from JWT).
 }
 ```
 ### Notes
-- `data` = all employment records for the company (both approved and pending).
-- `newUpdateList` = basic info change requests (salary/designation updates proposed by employees).
-- `request_type`: `1` = normal, `3` = has pending update record.
-- `approved`: `0` = pending, `1` = approved.
-- `lastReview`: count of reviews for this employment.
+- `data` = **all** `user_experience` for company (`is_deleted=0`), including pending/approved/rejected — **no** pagination.
+- Top-level **`newUpdateList`** always present (basic salary/designation update queue).
+- `document` is a **string[]** of S3 URLs (from CSV certificate field).
+- `employment_status` is **`"complete"|"pending"` string** (not `{ verified }`).
+- `rating` is a **review array** (not avg object).
+- `skill` is **name strings only**.
+- `request_type` on main cards: `3` if update rows exist else `1`; on **`newUpdateList` always `1`** (PHP parity).
+- Message: **`Employement History`** (typo).
 
 ---
 

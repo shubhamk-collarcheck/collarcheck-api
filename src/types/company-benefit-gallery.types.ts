@@ -2,12 +2,26 @@ import { z } from "zod";
 
 /** validateData always parses { params, query, body }. Nest fields under the right key. */
 
+/** benefit_id: numeric id or free-text name (auto-create). Form often sends string. */
 export const addBenefitBodySchema = z.object({
-	benefit_id: z.string().min(1, "benefit_id is required"),
-	sortOrder: z.string().optional(),
+	benefit_id: z.preprocess(
+		(v) => {
+			if (v == null || v === '') return v;
+			return String(v).trim();
+		},
+		z.string().min(1, "Id is required."),
+	),
+	sortOrder: z.preprocess(
+		(v) => (v == null || v === '' ? undefined : String(v)),
+		z.string().optional(),
+	),
 	description: z.string().optional(),
 });
-export const addBenefitSchema = z.object({ body: addBenefitBodySchema });
+/** body may be undefined before form parsers run — coerce to {} */
+const bodyObject = <T extends z.ZodTypeAny>(schema: T) =>
+	z.preprocess((v) => (v == null || typeof v !== "object" || Array.isArray(v) ? {} : v), schema);
+
+export const addBenefitSchema = z.object({ body: bodyObject(addBenefitBodySchema) });
 
 export const benefitIdParamsInnerSchema = z.object({
 	id: z.coerce.number().int().positive("Invalid benefit ID"),
@@ -17,9 +31,15 @@ export const benefitIdParamsSchema = z.object({
 });
 
 export const addGalleryBodySchema = z.object({
-	title: z.union([z.string(), z.array(z.string())]).optional(),
+	title: z
+		.preprocess((v) => {
+			if (v == null || v === "") return undefined;
+			// form-data may send title as string or title[0], title[1]
+			if (Array.isArray(v)) return v.map(String);
+			return String(v);
+		}, z.union([z.string(), z.array(z.string())]).optional()),
 });
-export const addGallerySchema = z.object({ body: addGalleryBodySchema });
+export const addGallerySchema = z.object({ body: bodyObject(addGalleryBodySchema) });
 
 export const galleryIdParamsInnerSchema = z.object({
 	id: z.coerce.number().int().positive("Invalid gallery ID"),
@@ -31,13 +51,13 @@ export const galleryIdParamsSchema = z.object({
 // Combined schema for addBenafit/:id route (params + body)
 export const addBenefitUpdateSchema = z.object({
 	params: benefitIdParamsInnerSchema,
-	body: addBenefitBodySchema,
+	body: bodyObject(addBenefitBodySchema),
 });
 
 // Combined schema for addGallery/:id route (params + body)
 export const addGalleryUpdateSchema = z.object({
 	params: galleryIdParamsInnerSchema,
-	body: addGalleryBodySchema,
+	body: bodyObject(addGalleryBodySchema),
 });
 
 export type AddBenefitBody = z.infer<typeof addBenefitBodySchema>;

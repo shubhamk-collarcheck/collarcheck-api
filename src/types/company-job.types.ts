@@ -39,8 +39,26 @@ export const addJobBodySchema = z.object({
 	template_name: z.string().optional(),
 	template_id: z.coerce.number().int().optional(),
 	slug: z.string().optional(),
-	/** Existing document path when no new upload. */
-	document: z.string().optional(),
+	/**
+	 * Existing document path when no new file upload.
+	 * FE often sends `{}` / null / "" when the file field is empty — treat as absent.
+	 * Multipart file uploads use the `document` field via multer, not this body value.
+	 */
+	document: z.preprocess((val) => {
+		if (val == null || val === '') return undefined;
+		// Empty object / file-picker placeholder from JSON clients
+		if (typeof val === 'object' && !Array.isArray(val)) {
+			const keys = Object.keys(val as object);
+			if (keys.length === 0) return undefined;
+			// Sometimes clients send { path: "..." } or { url: "..." }
+			const o = val as Record<string, unknown>;
+			const path = o.path ?? o.url ?? o.document ?? o.key;
+			if (typeof path === 'string' && path.trim()) return path.trim();
+			return undefined;
+		}
+		if (typeof val === 'string') return val;
+		return undefined;
+	}, z.string().optional()),
 });
 
 export const addJobSchema = z.object({

@@ -138,20 +138,24 @@ export const leaveExperience = async (req: Request, res: Response) => {
 
 export const reviewUniqueUsers = async (req: Request, res: Response) => {
 	try {
-		const { user_id: companyId } = req.auth as AuthUser;
-
+		// Acting company = req.auth.id (X-Company); human = user_id for menu 8
+		const { id: companyId, user_id: loginUserId, user_type: userType } = req.auth as AuthUser;
 		const { query } = req.validated as { query: ReviewUniqueUserQuery };
 
-		const result = await companyEmployeeRequestService.reviewUniqueUsersService(companyId, query.keyword);
+		const result = await companyEmployeeRequestService.reviewUniqueUsersService(
+			companyId,
+			loginUserId,
+			userType,
+			query.keyword,
+		);
 
-		return res.status(200).json({
-			status: true,
-			messages: result.message,
-			data: result.data,
-		});
+		if ('httpStatus' in result && result.httpStatus === 403) {
+			return res.status(403).json({ status: false, message: result.message });
+		}
+		return res.status(200).json(result);
 	} catch (error) {
-		console.error("reviewUniqueUsers error:", error);
-		return res.status(500).json({ status: false, messages: "Internal server error" });
+		const messages = error instanceof Error ? error.message : "Access denied";
+		return res.status(200).json({ status: false, messages });
 	}
 };
 

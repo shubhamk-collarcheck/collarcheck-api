@@ -34,10 +34,20 @@ export async function saveCompanySetting(req: Request, res: Response, next: Next
 export async function editCompany(req: Request, res: Response, next: NextFunction) {
 	try {
 		const { user_id } = req.auth as AuthUser;
-		const { body } = req.validated as { body: EditCompanyBody };
+		// type comes from ?type= (preferred) or body — schema merges both onto body.type
+		const { body, query } = req.validated as {
+			body: EditCompanyBody;
+			query?: { type?: number };
+		};
+		const type = query?.type ?? body.type;
+		if (type == null) {
+			return res.status(200).json({ status: false, messages: "Invalid Param" });
+		}
 		const files = req.files as any[] | undefined;
-		const profilePath = files?.[0]?.location;
-		const result = await editCompanyService(user_id, body.type, body, profilePath);
+		// Multer may set .location (S3) or .key; prefer uploaded file over body.profile URL
+		const uploaded = files?.[0] as { location?: string; key?: string } | undefined;
+		const profilePath = uploaded?.location || uploaded?.key || undefined;
+		const result = await editCompanyService(user_id, type, body, profilePath);
 		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
@@ -46,26 +56,45 @@ export async function editCompany(req: Request, res: Response, next: NextFunctio
 
 export async function allConnection(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		// Acting company = req.auth.id (X-Company); human = user_id for menu check
+		const { id: companyId, user_id: loginUserId, user_type: userType } = req.auth as AuthUser;
 		const { query } = req.validated as { query: AllConnectionQuery };
 		const keyword = query.keyword || '';
-		const sortBy = query.sort_by || 4;
-		const limit = query.limit || 10;
-		const offset = query.offset || 0;
-		const result = await allConnectionService(user_id, keyword, sortBy, limit, offset);
+		// sort_by empty → PHP uses ue.id DESC (service treats null/0 as that)
+		const sortBy = query.sort_by;
+		const limit = query.limit ?? 10;
+		// offset is page number (0 and 1 both first page)
+		const pageOffset = query.offset ?? 0;
+		const result = await allConnectionService(
+			companyId,
+			loginUserId,
+			userType,
+			keyword,
+			sortBy,
+			limit,
+			pageOffset,
+		);
+		if ('httpStatus' in result && result.httpStatus === 403) {
+			return res.status(403).json({ status: false, message: result.message });
+		}
 		return res.status(200).json(result);
 	} catch (error) {
-		next(error);
+		const messages = error instanceof Error ? error.message : 'Access denied';
+		return res.status(200).json({ status: false, messages });
 	}
 }
 
 export async function allEmployment(req: Request, res: Response, next: NextFunction) {
 	try {
-		const { user_id } = req.auth as AuthUser;
-		const result = await allEmploymentService(user_id);
+		const { id: companyId, user_id: loginUserId, user_type: userType } = req.auth as AuthUser;
+		const result = await allEmploymentService(companyId, loginUserId, userType);
+		if ('httpStatus' in result && result.httpStatus === 403) {
+			return res.status(403).json({ status: false, message: result.message });
+		}
 		return res.status(200).json(result);
 	} catch (error) {
-		next(error);
+		const messages = error instanceof Error ? error.message : 'Access denied';
+		return res.status(200).json({ status: false, messages });
 	}
 }
 

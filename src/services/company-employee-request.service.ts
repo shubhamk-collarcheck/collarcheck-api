@@ -1,5 +1,7 @@
 import companyEmployeeRequestRepositery from "../repositery/company-employee-request.repositery";
 import companyReviewRepositery from "../repositery/company-review.repositery";
+import companyRepositery from "../repositery/company.repositery";
+import generalRepositery from "../repositery/general.repositery";
 import employmentRepositery from "../repositery/employee.repositery";
 import skillRepositery from "../repositery/skill.repositery";
 import { user_verified } from "./users.service";
@@ -12,6 +14,43 @@ function pageToSqlOffset(page: number, limit: number): number {
 
 function profileUrl(profile: string | null | undefined, socialImage: string | null | undefined) {
 	return profile ? `${S3_PREFIX}${profile}` : (socialImage || '');
+}
+
+function parseJsonArray(raw: string | null | undefined): number[] {
+	if (!raw) return [];
+	try {
+		const v = JSON.parse(raw);
+		if (Array.isArray(v)) return v.map(Number).filter((n) => Number.isFinite(n));
+	} catch { /* ignore */ }
+	return [];
+}
+
+async function showExploring(employeeId: number, companyId: number): Promise<boolean> {
+	const privacy = await generalRepositery.getUserExploringPrivacy(employeeId);
+	const options = parseJsonArray(privacy?.exploringOption ?? null);
+	if (options.length === 0) return true;
+	const hideIds = new Set(parseJsonArray(privacy?.exploringDetails ?? null));
+	if ((options.includes(3) || options.includes(4)) && hideIds.has(companyId)) return false;
+	return true;
+}
+
+async function exploringFlags(
+	employeeId: number,
+	companyId: number,
+	onExploreUser: number | null | undefined,
+	onImmediateUser: number | null | undefined,
+	onNoticeUser: number | null | undefined,
+) {
+	const on_explore_user_flag = onExploreUser ? 1 : 0;
+	let on_explore = 0;
+	if (on_explore_user_flag === 1) {
+		on_explore = (await showExploring(employeeId, companyId)) ? 1 : 0;
+	}
+	return {
+		on_explore,
+		on_immediate: on_explore === 1 ? (onImmediateUser ? 1 : 0) : 0,
+		on_notice: on_explore === 1 ? (onNoticeUser ? 1 : 0) : 0,
+	};
 }
 
 /** Company branch of PHP ProfilePercentage */
@@ -386,38 +425,117 @@ class companyEmployeeRequestService {
 		return { success: true, message: "Update successfully !" };
 	}
 
-	async reviewUniqueUsersService(companyId: number, keyword?: string) {
-		const employees = await companyEmployeeRequestRepositery.getUniqueEmployeesWithReviews(companyId, keyword);
+	/**
+	 * GET /wapi/company/reviewUniqueUsers
+	 * Contract: src/debug/company-reviewuniqueusers-addgallery-addbenafit-endpoints.md
+	 */
+	async reviewUniqueUsersService(
+		companyId: number,
+		loginUserId: number,
+		userType: number | null,
+		keyword?: string,
+	) {
+		try {
+			if (userType === 2) {
+				const perm = await companyRepositery.checkMenuAccess(loginUserId, companyId, 8);
+				if (!perm.ok) {
+					return {
+						status: false as const,
+						message: perm.message || "You don't have permission to access this.",
+						httpStatus: 403 as const,
+					};
+				}
+			}
 
-		const result = [];
-		const seenUsers = new Set<number>();
+			const uniqueRows = await companyEmployeeRequestRepositery.getUniqueUserExperiences(
+				companyId,
+				keyword,
+			);
 
-		for (const emp of employees) {
-			if (!emp.userId || seenUsers.has(emp.userId)) continue;
-			seenUsers.add(emp.userId);
+			const allreview: Record<string, unknown>[] = [];
 
-			const ratingStats = await companyEmployeeRequestRepositery.getUserRatingStats(emp.userId, companyId);
-			const designationName = emp.designation ? await companyEmployeeRequestRepositery.getDesignationName(emp.designation) : '';
+			for (const unique of uniqueRows) {
+				const userId = unique.userId;
+				if (userId == null) continue;
 
-			result.push({
-				id: emp.experienceId,
-				user_id: emp.userId,
-				is_verified: false,
-				designation: designationName,
-				user_slug: emp.slug,
-				user: `${emp.fname || ''} ${emp.lname || ''}`.trim(),
-				profile: emp.profile ? `${S3_PREFIX}${emp.profile}` : '',
-				rating: Number(ratingStats.avgRating),
-				noofrecord: ratingStats.count,
-				employmentScore: emp.stillWorking ? 100 : 0,
-				pendingReview: 0,
-				on_explore: emp.onExplore || 0,
-				on_immediate: emp.onImmediate || 0,
-				on_notice: emp.onNotice || 0,
-			});
+				const [stillWorking, lastReviewUser, atLeastOneReview] = await Promise.all([
+					companyEmployeeRequestRepositery.countStillWorking(userId, companyId),
+					companyEmployeeRequestRepositery.countLastReviewFlag(userId, companyId),
+					companyEmployeeRequestRepositery.countReviewsOnExperienceNotCompany(unique.id),
+				]);
+
+				// Gate: still_working OR atLeastOneReview OR lastReview
+				if (!(stillWorking > 0 || atLeastOneReview > 0 || lastReviewUser > 0)) {
+					continue;
+				}
+
+				const experiences =
+					await companyEmployeeRequestRepositery.getApprovedExperiencesForUserAtCompany(
+						userId,
+						companyId,
+					);
+
+				let noofrecord = 0;
+				let pendingReview = 0;
+				// PHP rating sum loop is commented out → always 0
+				const rating = 0;
+
+				for (const exp of experiences) {
+					const reviews =
+						await companyEmployeeRequestRepositery.getExperienceRatingsForReviewList(exp.id);
+					for (const rev of reviews) {
+						const avg =
+							await companyEmployeeRequestRepositery.getSkillBasedRatingAverage(rev.id);
+						if (avg > 0) noofrecord += 1;
+					}
+					pendingReview +=
+						await companyEmployeeRequestRepositery.countPendingReviewsOnExperience(exp.id);
+				}
+
+				// EMIT only if noofrecord > 0
+				if (!noofrecord) continue;
+
+				const scoreNum = await employmentRepositery.getAllEmploymentScore(userId, companyId);
+				// PHP number_format(..., 1) → string when non-zero
+				const employmentScore =
+					scoreNum === 0 ? 0 : (Number.isInteger(scoreNum) ? scoreNum.toFixed(1) : scoreNum.toFixed(1));
+
+				const isVerified = await user_verified(userId);
+				const flags = await exploringFlags(
+					userId,
+					companyId,
+					unique.onExplore,
+					unique.onImmediate,
+					unique.onNotice,
+				);
+
+				allreview.push({
+					id: unique.id,
+					user_id: userId,
+					isVerified,
+					designation: unique.designationName || '',
+					user_slug: unique.slug || '',
+					user: `${unique.fname || ''} ${unique.lname || ''}`.trim(),
+					profile: profileUrl(unique.profile, unique.socialImage),
+					rating,
+					noofrecord,
+					employmentScore,
+					pendingReview,
+					...flags,
+				});
+			}
+
+			return {
+				status: true as const,
+				messages: 'review list',
+				data: allreview,
+			};
+		} catch (e: any) {
+			return {
+				status: false as const,
+				messages: e?.message || 'Access denied',
+			};
 		}
-
-		return { success: true, message: "review list", data: result };
 	}
 
 	async validToReviewService(companyId: number, userId: number) {

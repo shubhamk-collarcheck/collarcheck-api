@@ -115,9 +115,12 @@ JWT required. `req.auth.id` = company ID.
 { "status": false, "messages": "Record Already added!" }
 ```
 ### Notes
-- `benefit_id` accepts either an existing ID (int) or a new name (string) — auto-creates if new.
-- Duplicate check: same company + same benefit_id = rejected.
-- Update mode (`id`) does NOT check for duplicates (allows updating existing).
+- Path spelling: **`addBenafit`** (legacy typo).
+- `benefit_id` accepts pure integer string (id) or free-text name (auto-creates `benefits` with `user_defined=1`).
+- Name match is **case-insensitive** (`LOWER(TRIM(name))`).
+- **Duplicate check always runs** (create and `:id` update) — same `benefit_id` → `"Record Already added!"` even on update path (PHP parity).
+- HTTP **200** for success and business failure.
+- Contract: `src/debug/company-reviewuniqueusers-addgallery-addbenafit-endpoints.md`
 
 ---
 
@@ -199,39 +202,29 @@ No body params.
 ### Route
 ```
 POST /wapi/company/addGallery
+POST /wapi/company/addGallery/:id   → :id ignored; always insert
 ```
 ### Auth
-JWT required. `req.auth.id` = company ID.
+JWT · `req.auth.id` · **no** menu check on write.
 
-### DB Queries
-```
-1. Validate: file uploaded, max 3MB, JPG/JPEG/PNG/WEBP only
-
-2. For each uploaded file:
-   a. S3 upload via s3fileUploads(file, 'uploads/images/')
-   b. INSERT INTO galleries (company_id, name, image, create_date, modify_date)
-```
 ### Request
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
-| `file` | file[] | Yes | Multiple images, max 3MB each (JPG/PNG/WEBP) |
-| `title` | string/array | No | Image name(s); array for multiple, single string for all |
+| `file` | file[] | soft | Multi upload; empty → success **Nothing Modified !** |
+| `title` | string/array | No | Per-file name if array |
 
 ### Response
 ```json
 { "status": true, "messages": "Successfully added" }
 ```
 ```json
-{ "status": true, "messages": "Nothing Modified !" }   // when no files uploaded
+{ "status": true, "messages": "Nothing Modified !" }
 ```
-```json
-{ "status": false, "messages": "You must upload file as png,jpg," }
-```
+
 ### Notes
-- Supports **multiple file upload** — each file creates a separate `galleries` row.
-- `title` can be a string (same name for all) or array (individual names per image).
-- Update mode (`id` route) exists in routes but the handler **always creates** new records (update code is commented out).
-- Images uploaded to S3 via `s3fileUploads()`.
+- One `galleries` row per successful file; image stored as **path** (not full URL).
+- `:id` route always **inserts** (update code dead in PHP).
+- HTTP **200** always for soft empty / success.
 
 ---
 

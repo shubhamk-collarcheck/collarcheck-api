@@ -288,32 +288,147 @@ class companyEmployeeRequestRepositery {
 			.where(eq(cybUserExperience.id, experienceId));
 	}
 
-	async getUniqueEmployeesWithReviews(companyId: number, keyword?: string) {
+	/**
+	 * PHP get_unique_user_experience (groupby user, approved=1).
+	 * Keyword: fname LIKE only.
+	 */
+	async getUniqueUserExperiences(companyId: number, keyword?: string) {
 		const conditions = [
 			eq(cybUserExperience.company, companyId),
-			eq(cybUserExperience.status, 1),
+			eq(cybUserExperience.approved, 1),
 			eq(cybUserExperience.isDeleted, 0),
+			eq(cybUser.isDeleted, 0),
+			eq(cybUser.userType, 1),
 		];
+		const kw = keyword?.trim();
+		if (kw) {
+			conditions.push(sql`${cybUser.fname} LIKE ${`%${kw}%`}`);
+		}
 
-		const rows = await db.select({
-			userId: cybUserExperience.user,
-			experienceId: cybUserExperience.id,
-			designation: cybUserExperience.designation,
-			stillWorking: cybUserExperience.stillWorking,
-			fname: cybUser.fname,
-			lname: cybUser.lname,
-			slug: cybUser.slug,
-			profile: cybUser.profile,
-			onExplore: cybUser.onExplore,
-			onImmediate: cybUser.onImmediate,
-			onNotice: cybUser.onNotice,
-			individualId: cybUser.individualId,
-		})
+		return db
+			.select({
+				id: cybUserExperience.id,
+				userId: cybUserExperience.user,
+				designationName: cybDesignation.name,
+				stillWorking: cybUserExperience.stillWorking,
+				joiningDate: cybUserExperience.joiningDate,
+				fname: cybUser.fname,
+				lname: cybUser.lname,
+				slug: cybUser.slug,
+				profile: cybUser.profile,
+				socialImage: cybUser.socialImage,
+				onExplore: cybUser.onExplore,
+				onImmediate: cybUser.onImmediate,
+				onNotice: cybUser.onNotice,
+			})
 			.from(cybUserExperience)
 			.leftJoin(cybUser, eq(cybUserExperience.user, cybUser.id))
-			.where(and(...conditions));
+			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
+			.where(and(...conditions))
+			.groupBy(cybUserExperience.user)
+			.orderBy(desc(cybUserExperience.stillWorking), desc(cybUserExperience.joiningDate));
+	}
 
-		return rows;
+	/** All approved experiences for user@company (no groupby). */
+	async getApprovedExperiencesForUserAtCompany(userId: number, companyId: number) {
+		return db
+			.select({ id: cybUserExperience.id })
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperience.approved, 1),
+				eq(cybUserExperience.isDeleted, 0),
+			));
+	}
+
+	async countStillWorking(userId: number, companyId: number): Promise<number> {
+		const [row] = await db
+			.select({ c: count() })
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUserExperience.stillWorking, 1),
+			));
+		return row?.c ?? 0;
+	}
+
+	async countLastReviewFlag(userId: number, companyId: number): Promise<number> {
+		const [row] = await db
+			.select({ c: count() })
+			.from(cybUserExperience)
+			.where(and(
+				eq(cybUserExperience.user, userId),
+				eq(cybUserExperience.company, companyId),
+				eq(cybUserExperience.isDeleted, 0),
+				eq(cybUserExperience.lastReview, 1),
+			));
+		return row?.c ?? 0;
+	}
+
+	/** atLeastOneReview on representative experience only; added_by != 1 */
+	async countReviewsOnExperienceNotCompany(experienceId: number): Promise<number> {
+		const [row] = await db
+			.select({ c: count() })
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.experience, experienceId),
+				eq(cybUserExperienceRating.isDeleted, 0),
+				ne(cybUserExperienceRating.addedBy, 1),
+			));
+		return row?.c ?? 0;
+	}
+
+	/** CompanyModel get_all_experience_rating: status=1, approved <> 2 */
+	async getExperienceRatingsForReviewList(experienceId: number) {
+		return db
+			.select({
+				id: cybUserExperienceRating.id,
+				approved: cybUserExperienceRating.approved,
+			})
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.experience, experienceId),
+				eq(cybUserExperienceRating.status, 1),
+				ne(cybUserExperienceRating.approved, 2),
+				eq(cybUserExperienceRating.isDeleted, 0),
+			))
+			.orderBy(desc(cybUserExperienceRating.id));
+	}
+
+	/** Pending reviews: approved = 0 (PHP filter approved=3 → 0) */
+	async countPendingReviewsOnExperience(experienceId: number): Promise<number> {
+		const [row] = await db
+			.select({ c: count() })
+			.from(cybUserExperienceRating)
+			.where(and(
+				eq(cybUserExperienceRating.experience, experienceId),
+				eq(cybUserExperienceRating.status, 1),
+				eq(cybUserExperienceRating.approved, 0),
+				eq(cybUserExperienceRating.isDeleted, 0),
+			));
+		return row?.c ?? 0;
+	}
+
+	/** PHP get_skill_based_rating_average(review_id) */
+	async getSkillBasedRatingAverage(reviewId: number): Promise<number> {
+		const [row] = await db
+			.select({
+				avg: sql<string>`COALESCE(CAST(AVG(${cybSkillRating.rating}) AS DECIMAL(10,2)), 0)`,
+			})
+			.from(cybSkillRating)
+			.where(and(
+				eq(cybSkillRating.reviewId, reviewId),
+				eq(cybSkillRating.isDeleted, 0),
+			));
+		return Number(row?.avg || 0);
+	}
+
+	/** @deprecated prefer getUniqueUserExperiences */
+	async getUniqueEmployeesWithReviews(companyId: number, keyword?: string) {
+		return this.getUniqueUserExperiences(companyId, keyword);
 	}
 
 	async getUserRatingStats(userId: number, companyId: number) {

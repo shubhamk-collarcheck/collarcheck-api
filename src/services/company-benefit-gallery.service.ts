@@ -2,6 +2,15 @@ import companyBenefitGalleryRepositery from "../repositery/company-benefit-galle
 
 const S3_PREFIX = process.env.S3_PREFIX || '';
 
+/** Store path only (PHP s3fileUploads), not full URL. */
+function s3ObjectPath(file: Express.MulterS3.File): string {
+	if (file.key) return file.key;
+	const loc = file.location || '';
+	const uploadsIdx = loc.indexOf('uploads/');
+	if (uploadsIdx >= 0) return loc.slice(uploadsIdx);
+	return loc.replace(/^https?:\/\/[^/]+\//, '');
+}
+
 class companyBenefitGalleryService {
 
 	async getBenefitService(companyId: number) {
@@ -16,61 +25,81 @@ class companyBenefitGalleryService {
 		}));
 	}
 
+	/**
+	 * POST /wapi/company/addBenafit[/:id]
+	 * Duplicate check ALWAYS runs (even with :id) — PHP parity.
+	 */
 	async addBenefitService(companyId: number, data: {
 		benefit_id: string;
 		sortOrder?: string;
 		description?: string;
 	}, updateId?: number) {
-		let benefitId: number;
+		try {
+			if (!data.benefit_id?.trim()) {
+				return { status: false as const, messages: 'Id is required.' };
+			}
 
-		// Check if benefit_id is a string (new benefit name) or int (existing benefit ID)
-		const parsedId = parseInt(data.benefit_id);
-		if (!isNaN(parsedId) && String(parsedId) === data.benefit_id) {
-			// It's an existing benefit ID
-			benefitId = parsedId;
-		} else {
-			// It's a new benefit name - create it
-			const existingBenefit = await companyBenefitGalleryRepositery.getBenefitByName(data.benefit_id);
-			if (existingBenefit) {
-				benefitId = existingBenefit.id;
+			let benefitId: number;
+			const raw = data.benefit_id.trim();
+			// FILTER_VALIDATE_INT style: pure integer string
+			if (/^\d+$/.test(raw)) {
+				benefitId = Number(raw);
 			} else {
-				benefitId = await companyBenefitGalleryRepositery.createBenefit(data.benefit_id);
-			}
-		}
-
-		if (!updateId) {
-			// Check for duplicate (only on create, not update)
-			const isDuplicate = await companyBenefitGalleryRepositery.checkDuplicateBenefit(companyId, benefitId);
-			if (isDuplicate) {
-				return { success: false, message: "Record Already added!" };
+				const existingBenefit = await companyBenefitGalleryRepositery.getBenefitByName(raw);
+				if (existingBenefit) {
+					benefitId = existingBenefit.id;
+				} else {
+					benefitId = await companyBenefitGalleryRepositery.createBenefit(raw, companyId);
+				}
 			}
 
-			await companyBenefitGalleryRepositery.createCompanyBenefit({
+			// ⚠ Always before insert/update — same benefit_id on :id → "Record Already added!"
+			const isDuplicate = await companyBenefitGalleryRepositery.checkDuplicateBenefit(
 				companyId,
 				benefitId,
-				sortOrder: data.sortOrder ? parseInt(data.sortOrder) : undefined,
-				description: data.description,
-			});
-		} else {
-			await companyBenefitGalleryRepositery.updateCompanyBenefit(updateId, {
-				benefitId,
-				sortOrder: data.sortOrder ? parseInt(data.sortOrder) : undefined,
-				description: data.description,
-			});
-		}
+			);
+			if (isDuplicate) {
+				return { status: false as const, messages: 'Record Already added!' };
+			}
 
-		return { success: true, message: "Successfully added" };
+			const sortOrder = data.sortOrder != null && data.sortOrder !== ''
+				? Number(data.sortOrder)
+				: undefined;
+
+			if (updateId) {
+				const result = await companyBenefitGalleryRepositery.updateCompanyBenefit(updateId, {
+					benefitId,
+					sortOrder: Number.isFinite(sortOrder) ? sortOrder : undefined,
+					description: data.description,
+				});
+				void result;
+			} else {
+				await companyBenefitGalleryRepositery.createCompanyBenefit({
+					companyId,
+					benefitId,
+					sortOrder: Number.isFinite(sortOrder as number) ? sortOrder : undefined,
+					description: data.description,
+				});
+			}
+
+			return { status: true as const, messages: 'Successfully added' };
+		} catch (e: any) {
+			return {
+				status: false as const,
+				messages: e?.message || 'Something Went Wrong',
+			};
+		}
 	}
 
 	async deleteBenefitService(companyId: number, id: number) {
 		const record = await companyBenefitGalleryRepositery.getCompanyBenefitById(id, companyId);
 		if (!record) {
-			return { success: false, message: "Invalid Id" };
+			return { status: false as const, messages: 'Invalid Id' };
 		}
 
 		await companyBenefitGalleryRepositery.deleteCompanyBenefit(id, companyId);
 
-		return { success: true, message: "Delete Successfully" };
+		return { status: true as const, messages: 'Delete Successfully' };
 	}
 
 	async getGalleryService(companyId: number) {
@@ -84,37 +113,59 @@ class companyBenefitGalleryService {
 		}));
 	}
 
-	async addGalleryService(companyId: number, files: Express.MulterS3.File[], titles?: string | string[]) {
-		if (!files || files.length === 0) {
-			return { success: true, message: "Nothing Modified !" };
+	/**
+	 * POST /wapi/company/addGallery[/:id]
+	 * :id ignored — always insert. No files → status true + "Nothing Modified !"
+	 */
+	async addGalleryService(
+		companyId: number,
+		files: Express.MulterS3.File[] | undefined,
+		titles?: string | string[],
+	) {
+		try {
+			if (!files || files.length === 0) {
+				return { status: true as const, messages: 'Nothing Modified !' };
+			}
+
+			const titleArray = Array.isArray(titles)
+				? titles
+				: (titles ? Array(files.length).fill(titles) : Array(files.length).fill(''));
+
+			let inserted = 0;
+			for (let i = 0; i < files.length; i++) {
+				const file = files[i];
+				const path = s3ObjectPath(file);
+				if (!path) continue;
+				const title = titleArray[i] || '';
+				await companyBenefitGalleryRepositery.createGallery({
+					companyId,
+					name: title,
+					image: path,
+				});
+				inserted += 1;
+			}
+
+			if (inserted > 0) {
+				return { status: true as const, messages: 'Successfully added' };
+			}
+			return { status: true as const, messages: 'Nothing Modified !' };
+		} catch (e: any) {
+			return {
+				status: false as const,
+				messages: e?.message || 'Access denied',
+			};
 		}
-
-		const titleArray = Array.isArray(titles) ? titles : 
-			(titles ? Array(files.length).fill(titles) : Array(files.length).fill(''));
-
-		for (let i = 0; i < files.length; i++) {
-			const file = files[i];
-			const title = titleArray[i] || '';
-
-			await companyBenefitGalleryRepositery.createGallery({
-				companyId,
-				name: title,
-				image: file.location,
-			});
-		}
-
-		return { success: true, message: "Successfully added" };
 	}
 
 	async deleteGalleryService(companyId: number, id: number) {
 		const record = await companyBenefitGalleryRepositery.getGalleryById(id, companyId);
 		if (!record) {
-			return { success: false, message: "Invalid Id" };
+			return { status: false as const, messages: 'Invalid Id' };
 		}
 
 		await companyBenefitGalleryRepositery.deleteGallery(id, companyId);
 
-		return { success: true, message: "Delete Successfully" };
+		return { status: true as const, messages: 'Delete Successfully' };
 	}
 }
 

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import { Authorization } from "../middlewares/Authorization";
 import { validateData } from "../middlewares/validation.middleware";
 import { sendUserProfileViewRequestSchema } from "../types/common-auth.types";
@@ -49,12 +50,25 @@ import {
 
 import { companyRegisterSchema } from "../types/login.types";
 import { companyRegister } from "../controllers/login.controller";
-import multer from "multer";
 
 const companyRouter = Router();
 
-// multipart/form-data field parser (no files) for form-based register
+// multipart/form-data field parser (no files) — register + addBenafit
 const formData = multer().none();
+
+/**
+ * Gallery upload: FE may use file / file[] / image / document.
+ * educationUpload allows images; uploadToS3 is PDF-only and rejected gallery fields.
+ */
+const galleryUpload = educationUpload.fields([
+	{ name: "file", maxCount: 10 },
+	{ name: "file[]", maxCount: 10 },
+	{ name: "image", maxCount: 10 },
+	{ name: "image[]", maxCount: 10 },
+	{ name: "gallery", maxCount: 10 },
+	{ name: "document", maxCount: 10 },
+	{ name: "document[]", maxCount: 10 },
+]);
 
 // Company form register (JWT required)
 companyRouter.post("/register", Authorization, formData, validateData(companyRegisterSchema), companyRegister);
@@ -95,13 +109,14 @@ companyRouter.get("/allapplication", Authorization, validateData(allApplicationQ
 companyRouter.put("/updateBasicExperience/:id", Authorization, validateData(updateBasicExperienceParamsSchema), updateBasicExperience);
 
 companyRouter.get("/benefit", Authorization, getBenefit);
-companyRouter.post("/addBenafit", Authorization, validateData(addBenefitSchema), addBenefit);
-companyRouter.post("/addBenafit/:id", Authorization, validateData(addBenefitUpdateSchema), addBenefitUpdate);
+// formData so multipart/form-data fields populate req.body (JSON still works via express.json)
+companyRouter.post("/addBenafit", Authorization, formData, validateData(addBenefitSchema), addBenefit);
+companyRouter.post("/addBenafit/:id", Authorization, formData, validateData(addBenefitUpdateSchema), addBenefitUpdate);
 companyRouter.delete("/deleteBenafit/:id", Authorization, validateData(benefitIdParamsSchema), deleteBenefit);
 
 companyRouter.get("/gallery", Authorization, getGallery);
-companyRouter.post("/addGallery", Authorization, uploadToS3.array("file"), validateData(addGallerySchema), addGallery);
-companyRouter.post("/addGallery/:id", Authorization, uploadToS3.array("file"), validateData(addGalleryUpdateSchema), addGalleryUpdate);
+companyRouter.post("/addGallery", Authorization, galleryUpload, validateData(addGallerySchema), addGallery);
+companyRouter.post("/addGallery/:id", Authorization, galleryUpload, validateData(addGalleryUpdateSchema), addGalleryUpdate);
 companyRouter.delete("/deleteGallery/:id", Authorization, validateData(galleryIdParamsSchema), deleteGallery);
 
 companyRouter.post("/addEmployee", Authorization, validateData(addEmployeeSchema), addEmployee);

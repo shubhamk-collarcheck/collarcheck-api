@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, sql, like, ne, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, sql, like, ne, inArray, or, SQL } from 'drizzle-orm';
 import { isEmpty, isEmptyArray } from '../utils/helpers';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
@@ -10,6 +10,7 @@ import {
 	cybCompanySize, cybTurnover, cybAccomodation, cybWorkType,
 	cybGender, cybNoticePeriod, cybAccountSetting,
 	cybCompanyInvite, cybCompanyConnection, cybCompanyDocument,
+	cybUserPermission, cybUserGroup, cybUserUpdateExperienceHistory,
 } from '../db/schema';
 
 class companyRepositery {
@@ -107,15 +108,33 @@ class companyRepositery {
 
 		if (data.company_name !== undefined) setFields.fname = data.company_name;
 		if (data.contact_person !== undefined) setFields.contactPerson = data.contact_person;
-		if (data.company_size !== undefined) setFields.companySize = data.company_size;
+		if (data.company_size !== undefined) {
+			const n = Number(data.company_size);
+			setFields.companySize = Number.isFinite(n) ? n : data.company_size;
+		}
 		if (data.email !== undefined) setFields.email = data.email;
+		if (data.phone !== undefined && data.phone !== '') setFields.phone = data.phone;
+		if (data.secondPhone !== undefined) setFields.secondPhone = data.secondPhone || null;
+		if (data.emailAlternate !== undefined) setFields.emailAlternate = data.emailAlternate || null;
 		if (data.landline !== undefined) { /* landline goes to user_details */ }
 		if (data.incorporate_date !== undefined) setFields.incorporateDate = data.incorporate_date;
-		if (data.turnover !== undefined) setFields.turnover = data.turnover;
+		if (data.turnover !== undefined) {
+			const n = Number(data.turnover);
+			setFields.turnover = Number.isFinite(n) ? n : data.turnover;
+		}
 		if (data.profile_description !== undefined) setFields.profileDescription = data.profile_description;
 		if (data.website !== undefined) setFields.website = data.website;
-		if (data.industry !== undefined) setFields.industry = data.industry;
-		if (data.profile !== undefined) setFields.profile = data.profile;
+		if (data.industry !== undefined) {
+			const n = Number(data.industry);
+			setFields.industry = Number.isFinite(n) ? n : data.industry;
+		}
+		// Prefer new upload path; else keep existing S3 URL/path from body.profile
+		if (data.profile !== undefined && data.profile !== '') {
+			// Strip CDN prefix if FE sent full URL
+			const p = String(data.profile);
+			const uploadsIdx = p.indexOf('/uploads/');
+			setFields.profile = uploadsIdx >= 0 ? p.slice(uploadsIdx + 1) : p.replace(/^https?:\/\/[^/]+\//, '');
+		}
 
 		await db.update(cybUser)
 			.set(setFields)
@@ -218,167 +237,258 @@ class companyRepositery {
 		}
 	}
 
-	// ====== All Connection ======
+	// ====== Menu access (PHP checkMenuAccess) ======
 
-	async getCurrentEmployees(companyId: number, keyword: string, sortBy: number, limit: number, offset: number) {
-		const companyUser = alias(cybUser, 'empUser');
-		const conditions = [
+	/**
+	 * When login user is the company account → allow.
+	 * Super-admin (user_group.id === 1) → allow.
+	 * Else menu id must appear in user_group.menu_permission JSON for their permission row.
+	 */
+	async checkMenuAccess(
+		loginUserId: number,
+		companyId: number,
+		menuId: number,
+	): Promise<{ ok: boolean; message?: string }> {
+		if (loginUserId === companyId) return { ok: true };
+
+		const [perm] = await db
+			.select({
+				groupId: cybUserPermission.groupId,
+				menuPermission: cybUserGroup.menuPermission,
+				ugId: cybUserGroup.id,
+			})
+			.from(cybUserPermission)
+			.leftJoin(cybUserGroup, eq(cybUserPermission.groupId, cybUserGroup.id))
+			.where(and(
+				eq(cybUserPermission.userId, loginUserId),
+				eq(cybUserPermission.addedBy, companyId),
+				eq(cybUserPermission.isDeleted, 0),
+				eq(cybUserPermission.status, 1),
+			))
+			.limit(1);
+
+		if (!perm) {
+			return { ok: false, message: "You don't have permission to access this." };
+		}
+		// Super admin group row id === 1
+		if (perm.ugId === 1 || perm.groupId === 1) return { ok: true };
+
+		try {
+			const raw = perm.menuPermission || '[]';
+			const menus = JSON.parse(raw);
+			const ids = Array.isArray(menus) ? menus.map(Number) : [];
+			if (ids.includes(menuId)) return { ok: true };
+		} catch {
+			// fall through
+		}
+		return { ok: false, message: "You don't have permission to access this." };
+	}
+
+	// ====== All Connection (PHP MainModel::getAllCollections) ======
+
+	private connectionKeywordCondition(keyword: string, us: typeof cybUser): SQL | undefined {
+		const trimmed = keyword.trim();
+		if (!trimmed) return undefined;
+		const words = trimmed.split(/\s+/).filter(Boolean);
+		const nameParts = words.map(
+			(w) => sql`CONCAT(${us.fname}, ' ', ${us.lname}) LIKE ${`%${w}%`}`,
+		);
+		// individual_id: if "CC-123" use part after first dash, else whole keyword
+		const dash = trimmed.indexOf('-');
+		const indivFrag =
+			dash >= 0 && trimmed.slice(dash + 1).length > 0
+				? trimmed.slice(dash + 1)
+				: trimmed;
+		const indiv = sql`${us.individualId} LIKE ${`%${indivFrag}%`}`;
+		return or(...nameParts, indiv);
+	}
+
+	private connectionOrder(sortBy: number | undefined | null, us: typeof cybUser) {
+		// empty/missing → ue.id DESC; 1 fname ASC; 2 fname DESC; 3 create ASC; else create DESC
+		if (sortBy == null || Number.isNaN(sortBy) || sortBy === 0) {
+			return desc(cybUserExperience.id);
+		}
+		switch (sortBy) {
+			case 1: return asc(us.fname);
+			case 2: return desc(us.fname);
+			case 3: return asc(cybUserExperience.createDate);
+			default: return desc(cybUserExperience.createDate);
+		}
+	}
+
+	/**
+	 * type=1 current (still_working=1), else past (still_working=0).
+	 * approved=1, status=1, is_deleted=0, GROUP BY user.
+	 * limit null → count only (distinct users).
+	 */
+	async getAllCollections(
+		companyId: number,
+		opts: {
+			keyword?: string;
+			sortBy?: number | null;
+			/** 1 = current, falsy = past */
+			type?: 1 | null;
+			limit?: number | null;
+			sqlOffset?: number;
+		},
+	) {
+		const stillWorking = opts.type === 1 ? 1 : 0;
+		const conditions: SQL[] = [
 			eq(cybUserExperience.company, companyId),
 			eq(cybUserExperience.approved, 1),
-			eq(cybUserExperience.stillWorking, 1),
+			eq(cybUserExperience.stillWorking, stillWorking),
+			eq(cybUserExperience.status, 1),
 			eq(cybUserExperience.isDeleted, 0),
 			eq(cybUser.isDeleted, 0),
 			eq(cybUser.status, 1),
 		];
+		const kw = this.connectionKeywordCondition(opts.keyword || '', cybUser);
+		if (kw) conditions.push(kw);
 
-		if (keyword) {
-			conditions.push(sql`(${companyUser.fname} LIKE ${`%${keyword}%`} OR ${companyUser.individualId} LIKE ${`%${keyword}%`})`);
+		// Count path (no limit): distinct users
+		if (opts.limit == null) {
+			const [row] = await db
+				.select({
+					count: sql<number>`COUNT(DISTINCT ${cybUser.id})`.mapWith(Number),
+				})
+				.from(cybUser)
+				.innerJoin(cybUserExperience, eq(cybUserExperience.user, cybUser.id))
+				.where(and(...conditions));
+			return { rows: [] as any[], total: row?.count ?? 0 };
 		}
 
-		let orderClause;
-		switch (sortBy) {
-			case 1: orderClause = asc(companyUser.fname); break;
-			case 2: orderClause = desc(companyUser.fname); break;
-			case 3: orderClause = asc(cybUserExperience.createDate); break;
-			default: orderClause = desc(cybUserExperience.createDate); break;
-		}
-
-		const rows = await db.select({
-			user: companyUser.id,
-			profile: companyUser.profile,
-			socialImage: companyUser.socialImage,
-			fname: companyUser.fname,
-			lname: companyUser.lname,
-			phone: companyUser.phone,
-			email: companyUser.email,
-			linkdin: companyUser.linkdin,
-			individualId: companyUser.individualId,
-			slug: companyUser.slug,
-			profileDescription: companyUser.profileDescription,
-			dob: companyUser.dob,
-			presentAddress: companyUser.presentAddress,
-			emailVerified: companyUser.emailVerified,
-			phoneVerified: companyUser.phoneVerified,
-			onExplore: companyUser.onExplore,
-			onImmediate: companyUser.onImmediate,
-			onNotice: companyUser.onNotice,
-			experienceId: cybUserExperience.id,
-			stillWorking: cybUserExperience.stillWorking,
-			approved: cybUserExperience.approved,
-			createDate: cybUserExperience.createDate,
-			joiningDate: cybUserExperience.joiningDate,
-			workedTillDate: cybUserExperience.workedTillDate,
-			designationName: cybDesignation.name,
-		})
-			.from(cybUserExperience)
-			.innerJoin(companyUser, eq(cybUserExperience.user, companyUser.id))
-			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
+		const orderClause = this.connectionOrder(opts.sortBy, cybUser);
+		const rows = await db
+			.select({
+				user: cybUser.id,
+				profile: cybUser.profile,
+				socialImage: cybUser.socialImage,
+				fname: cybUser.fname,
+				lname: cybUser.lname,
+				phone: cybUser.phone,
+				email: cybUser.email,
+				linkdin: cybUser.linkdin,
+				youtube: cybUser.youtube,
+				instagram: cybUser.instagram,
+				facebook: cybUser.facebook,
+				individualId: cybUser.individualId,
+				slug: cybUser.slug,
+				profileDescription: cybUser.profileDescription,
+				dob: cybUser.dob,
+				presentAddress: cybUser.presentAddress,
+				onExplore: cybUser.onExplore,
+				onImmediate: cybUser.onImmediate,
+				onNotice: cybUser.onNotice,
+				modifyDate: cybUser.modifyDate,
+				accountCreateDate: cybUser.createDate,
+				experienceId: cybUserExperience.id,
+				stillWorking: cybUserExperience.stillWorking,
+				approved: cybUserExperience.approved,
+				connectiondate: cybUserExperience.createDate,
+				joiningDate: cybUserExperience.joiningDate,
+				workedTillDate: cybUserExperience.workedTillDate,
+				designationName: cybDesignation.name,
+			})
+			.from(cybUser)
+			.innerJoin(cybUserExperience, eq(cybUserExperience.user, cybUser.id))
+			.innerJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
 			.where(and(...conditions))
+			.groupBy(cybUser.id)
 			.orderBy(orderClause)
-			.limit(limit)
-			.offset(offset);
+			.limit(opts.limit)
+			.offset(opts.sqlOffset ?? 0);
+
+		return { rows, total: rows.length };
+	}
+
+	/** @deprecated use getAllCollections — kept for callers */
+	async getCurrentEmployees(
+		companyId: number,
+		keyword: string,
+		sortBy: number,
+		limit: number,
+		sqlOffset: number,
+	) {
+		const { rows } = await this.getAllCollections(companyId, {
+			keyword,
+			sortBy,
+			type: 1,
+			limit,
+			sqlOffset,
+		});
 		return rows;
 	}
 
-	async getPastEmployees(companyId: number, keyword: string, sortBy: number, limit: number, offset: number) {
-		const companyUser = alias(cybUser, 'pastEmpUser');
-		const conditions = [
-			eq(cybUserExperience.company, companyId),
-			eq(cybUserExperience.approved, 1),
-			eq(cybUserExperience.stillWorking, 0),
-			eq(cybUserExperience.isDeleted, 0),
-			eq(companyUser.isDeleted, 0),
-			eq(companyUser.status, 1),
-		];
-
-		if (keyword) {
-			conditions.push(sql`(${companyUser.fname} LIKE ${`%${keyword}%`} OR ${companyUser.individualId} LIKE ${`%${keyword}%`})`);
-		}
-
-		let orderClause;
-		switch (sortBy) {
-			case 1: orderClause = asc(companyUser.fname); break;
-			case 2: orderClause = desc(companyUser.fname); break;
-			case 3: orderClause = asc(cybUserExperience.createDate); break;
-			default: orderClause = desc(cybUserExperience.createDate); break;
-		}
-
-		const rows = await db.select({
-			user: companyUser.id,
-			profile: companyUser.profile,
-			socialImage: companyUser.socialImage,
-			fname: companyUser.fname,
-			lname: companyUser.lname,
-			phone: companyUser.phone,
-			email: companyUser.email,
-			linkdin: companyUser.linkdin,
-			individualId: companyUser.individualId,
-			slug: companyUser.slug,
-			profileDescription: companyUser.profileDescription,
-			dob: companyUser.dob,
-			presentAddress: companyUser.presentAddress,
-			emailVerified: companyUser.emailVerified,
-			phoneVerified: companyUser.phoneVerified,
-			onExplore: companyUser.onExplore,
-			onImmediate: companyUser.onImmediate,
-			onNotice: companyUser.onNotice,
-			experienceId: cybUserExperience.id,
-			stillWorking: cybUserExperience.stillWorking,
-			approved: cybUserExperience.approved,
-			createDate: cybUserExperience.createDate,
-			joiningDate: cybUserExperience.joiningDate,
-			workedTillDate: cybUserExperience.workedTillDate,
-			designationName: cybDesignation.name,
-		})
-			.from(cybUserExperience)
-			.innerJoin(companyUser, eq(cybUserExperience.user, companyUser.id))
-			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
-			.where(and(...conditions))
-			.orderBy(orderClause)
-			.limit(limit)
-			.offset(offset);
+	async getPastEmployees(
+		companyId: number,
+		keyword: string,
+		sortBy: number,
+		limit: number,
+		sqlOffset: number,
+	) {
+		const { rows } = await this.getAllCollections(companyId, {
+			keyword,
+			sortBy,
+			type: null,
+			limit,
+			sqlOffset,
+		});
 		return rows;
 	}
 
-	async countCurrentEmployees(companyId: number): Promise<number> {
-		const [result] = await db.select({ count: sql<number>`count(*)` })
-			.from(cybUserExperience)
-			.where(and(
-				eq(cybUserExperience.company, companyId),
-				eq(cybUserExperience.approved, 1),
-				eq(cybUserExperience.stillWorking, 1),
-				eq(cybUserExperience.isDeleted, 0),
-			));
-		return result.count;
+	async countCurrentEmployees(companyId: number, keyword = ''): Promise<number> {
+		const { total } = await this.getAllCollections(companyId, {
+			keyword,
+			type: 1,
+			limit: null,
+		});
+		return total;
 	}
 
-	async countPastEmployees(companyId: number): Promise<number> {
-		const [result] = await db.select({ count: sql<number>`count(*)` })
-			.from(cybUserExperience)
-			.where(and(
-				eq(cybUserExperience.company, companyId),
-				eq(cybUserExperience.approved, 1),
-				eq(cybUserExperience.stillWorking, 0),
-				eq(cybUserExperience.isDeleted, 0),
-			));
-		return result.count;
+	async countPastEmployees(companyId: number, keyword = ''): Promise<number> {
+		const { total } = await this.getAllCollections(companyId, {
+			keyword,
+			type: null,
+			limit: null,
+		});
+		return total;
 	}
 
 	async checkInWishlist(companyId: number, userId: number) {
-		const [row] = await db.select()
+		const [row] = await db.select({ id: cybCompanyWishlist.id })
 			.from(cybCompanyWishlist)
 			.where(and(
 				eq(cybCompanyWishlist.company, companyId),
 				eq(cybCompanyWishlist.user, userId),
 				eq(cybCompanyWishlist.status, 1),
-			));
+			))
+			.limit(1);
 		return !!row;
 	}
 
+	async batchInWishlist(companyId: number, userIds: number[]): Promise<Set<number>> {
+		const ids = [...new Set(userIds.filter((id) => Number.isFinite(id) && id > 0))];
+		const set = new Set<number>();
+		if (!ids.length) return set;
+		const rows = await db
+			.select({ user: cybCompanyWishlist.user })
+			.from(cybCompanyWishlist)
+			.where(and(
+				eq(cybCompanyWishlist.company, companyId),
+				inArray(cybCompanyWishlist.user, ids),
+				eq(cybCompanyWishlist.status, 1),
+			));
+		for (const r of rows) {
+			if (r.user != null) set.add(r.user);
+		}
+		return set;
+	}
+
+	/** PHP get_user_rating: SUM rating + COUNT (not average). */
 	async getUserRating(userId: number) {
 		const [result] = await db.select({
-			noofrecord: sql<number>`count(*)`,
-			avgRating: sql<number>`COALESCE(AVG(${cybUserExperienceRating.rating}), 0)`,
+			noofrecord: sql<number>`count(*)`.mapWith(Number),
+			rating: sql<number>`COALESCE(SUM(${cybUserExperienceRating.rating}), 0)`.mapWith(Number),
 		})
 			.from(cybUserExperienceRating)
 			.leftJoin(cybUserExperience, eq(cybUserExperienceRating.experience, cybUserExperience.id))
@@ -387,13 +497,45 @@ class companyRepositery {
 				eq(cybUserExperienceRating.status, 1),
 				eq(cybUserExperienceRating.isDeleted, 0),
 			));
-		return result;
+		return {
+			rating: result?.rating ?? 0,
+			noofrecord: result?.noofrecord ?? 0,
+		};
+	}
+
+	async batchUserRatings(userIds: number[]) {
+		const map = new Map<number, { rating: number; noofrecord: number }>();
+		const ids = [...new Set(userIds.filter((id) => Number.isFinite(id) && id > 0))];
+		for (const id of ids) map.set(id, { rating: 0, noofrecord: 0 });
+		if (!ids.length) return map;
+
+		const rows = await db
+			.select({
+				userId: cybUserExperience.user,
+				noofrecord: sql<number>`count(*)`.mapWith(Number),
+				rating: sql<number>`COALESCE(SUM(${cybUserExperienceRating.rating}), 0)`.mapWith(Number),
+			})
+			.from(cybUserExperienceRating)
+			.innerJoin(cybUserExperience, eq(cybUserExperienceRating.experience, cybUserExperience.id))
+			.where(and(
+				inArray(cybUserExperience.user, ids),
+				eq(cybUserExperienceRating.status, 1),
+				eq(cybUserExperienceRating.isDeleted, 0),
+			))
+			.groupBy(cybUserExperience.user);
+
+		for (const r of rows) {
+			if (r.userId != null) {
+				map.set(r.userId, { rating: r.rating ?? 0, noofrecord: r.noofrecord ?? 0 });
+			}
+		}
+		return map;
 	}
 
 	// ====== All Employment ======
 
 	async getCompanyExperienceList(companyId: number) {
-		const companyUser = alias(cybUser, 'expUser');
+		const expUser = alias(cybUser, 'expUser');
 		const rows = await db.select({
 			id: cybUserExperience.id,
 			user: cybUserExperience.user,
@@ -409,39 +551,46 @@ class companyRepositery {
 			stillWorking: cybUserExperience.stillWorking,
 			skill: cybUserExperience.skill,
 			description: cybUserExperience.description,
+			certificate: cybUserExperience.certificate,
 			approved: cybUserExperience.approved,
 			status: cybUserExperience.status,
+			lastReview: cybUserExperience.lastReview,
 			createDate: cybUserExperience.createDate,
 			designationName: cybDesignation.name,
 			departmentName: cybDepartment.name,
 			employmentTypeName: cybEmployementType.name,
-			userFname: companyUser.fname,
-			userLname: companyUser.lname,
-			userProfile: companyUser.profile,
-			userSocialImage: companyUser.socialImage,
-			userSlug: companyUser.slug,
-			userIndividualId: companyUser.individualId,
-			userEmailVerified: companyUser.emailVerified,
-			userPhoneVerified: companyUser.phoneVerified,
-			userOnExplore: companyUser.onExplore,
-			userOnImmediate: companyUser.onImmediate,
-			userOnNotice: companyUser.onNotice,
+			userFname: expUser.fname,
+			userLname: expUser.lname,
+			userProfile: expUser.profile,
+			userSocialImage: expUser.socialImage,
+			userSlug: expUser.slug,
+			userIndividualId: expUser.individualId,
+			userClaimStatus: expUser.claimStatus,
+			userOnExplore: expUser.onExplore,
+			userOnImmediate: expUser.onImmediate,
+			userOnNotice: expUser.onNotice,
 		})
 			.from(cybUserExperience)
-			.leftJoin(companyUser, eq(cybUserExperience.user, companyUser.id))
+			.leftJoin(expUser, eq(cybUserExperience.user, expUser.id))
 			.leftJoin(cybDesignation, eq(cybUserExperience.designation, cybDesignation.id))
 			.leftJoin(cybDepartment, eq(cybUserExperience.department, cybDepartment.id))
 			.leftJoin(cybEmployementType, eq(cybUserExperience.employmentType, cybEmployementType.id))
 			.where(and(
 				eq(cybUserExperience.company, companyId),
 				eq(cybUserExperience.isDeleted, 0),
+				eq(expUser.isDeleted, 0),
 			))
 			.orderBy(desc(cybUserExperience.id));
 		return rows;
 	}
 
+	/**
+	 * PHP get_basic_experience_update_list — no status/type filter on uue.
+	 */
 	async getBasicExperienceUpdateList(companyId: number) {
-		const companyUser = alias(cybUser, 'updUser');
+		const updUser = alias(cybUser, 'updUser');
+		const newDs = alias(cybDesignation, 'newDs');
+		const oldDs = alias(cybDesignation, 'oldDs');
 		const rows = await db.select({
 			id: cybUserUpdateExperience.id,
 			experienceId: cybUserUpdateExperience.experienceId,
@@ -449,35 +598,178 @@ class companyRepositery {
 			salary: cybUserUpdateExperience.salary,
 			salaryInhand: cybUserUpdateExperience.salaryInhand,
 			salaryMode: cybUserUpdateExperience.salaryMode,
-			designation: cybUserUpdateExperience.designation,
+			designationId: cybUserUpdateExperience.designation,
+			designation: newDs.name,
 			workedTillDate: cybUserUpdateExperience.workedTillDate,
 			status: cybUserUpdateExperience.status,
 			type: cybUserUpdateExperience.type,
 			createDate: cybUserUpdateExperience.createDate,
-			userFname: companyUser.fname,
-			userLname: companyUser.lname,
-			userSlug: companyUser.slug,
-			userIndividualId: companyUser.individualId,
-			userEmailVerified: companyUser.emailVerified,
-			userPhoneVerified: companyUser.phoneVerified,
+			modifyDate: cybUserUpdateExperience.modifyDate,
+			userFname: updUser.fname,
+			userLname: updUser.lname,
+			userProfile: updUser.profile,
+			userSocialImage: updUser.socialImage,
+			userSlug: updUser.slug,
+			userIndividualId: updUser.individualId,
+			oldDesignation: oldDs.name,
+			oldSalary: cybUserExperience.salary,
+			lastReview: cybUserExperience.lastReview,
 		})
 			.from(cybUserUpdateExperience)
-			.leftJoin(companyUser, eq(cybUserUpdateExperience.user, companyUser.id))
-			.leftJoin(cybUserExperience, eq(cybUserUpdateExperience.experienceId, cybUserExperience.id))
+			.innerJoin(cybUserExperience, eq(cybUserUpdateExperience.experienceId, cybUserExperience.id))
+			.leftJoin(updUser, eq(cybUserExperience.user, updUser.id))
+			.leftJoin(newDs, eq(cybUserUpdateExperience.designation, newDs.id))
+			.leftJoin(oldDs, eq(cybUserExperience.designation, oldDs.id))
 			.where(and(
 				eq(cybUserExperience.company, companyId),
-				eq(cybUserUpdateExperience.status, 1),
+				eq(cybUserExperience.isDeleted, 0),
 				eq(cybUserUpdateExperience.isDeleted, 0),
-				eq(cybUserUpdateExperience.type, 1),
 			))
 			.orderBy(desc(cybUserUpdateExperience.id));
 		return rows;
 	}
 
+	/**
+	 * PHP get_update_experience — COUNT rows join user_experience ↔ user_update_experience
+	 * on user with experience_id match. >0 → request_type 3.
+	 */
+	async countUpdateExperienceForExperience(experienceId: number): Promise<number> {
+		const [row] = await db
+			.select({ count: sql<number>`count(*)`.mapWith(Number) })
+			.from(cybUserExperience)
+			.innerJoin(
+				cybUserUpdateExperience,
+				eq(cybUserExperience.user, cybUserUpdateExperience.user),
+			)
+			.where(eq(cybUserUpdateExperience.experienceId, experienceId));
+		return row?.count ?? 0;
+	}
+
+	async batchCountUpdateExperience(experienceIds: number[]): Promise<Map<number, number>> {
+		const map = new Map<number, number>();
+		const ids = [...new Set(experienceIds.filter((id) => Number.isFinite(id) && id > 0))];
+		for (const id of ids) map.set(id, 0);
+		if (!ids.length) return map;
+
+		const rows = await db
+			.select({
+				experienceId: cybUserUpdateExperience.experienceId,
+				count: sql<number>`count(*)`.mapWith(Number),
+			})
+			.from(cybUserUpdateExperience)
+			.innerJoin(
+				cybUserExperience,
+				and(
+					eq(cybUserExperience.user, cybUserUpdateExperience.user),
+					eq(cybUserUpdateExperience.experienceId, cybUserExperience.id),
+				),
+			)
+			.where(inArray(cybUserUpdateExperience.experienceId, ids))
+			.groupBy(cybUserUpdateExperience.experienceId);
+
+		for (const r of rows) {
+			map.set(r.experienceId, r.count ?? 0);
+		}
+		return map;
+	}
+
+	/**
+	 * PHP get_employment_history — parent=0 rows + optional reply (parent = history.id).
+	 */
+	async getEmploymentHistory(experienceId: number) {
+		const parents = await db
+			.select({
+				id: cybUserUpdateExperienceHistory.id,
+				type: cybUserUpdateExperienceHistory.type,
+				salary: cybUserUpdateExperienceHistory.salary,
+				salaryInhand: cybUserUpdateExperienceHistory.salaryInhand,
+				salaryMode: cybUserUpdateExperienceHistory.salaryMode,
+				workedTillDate: cybUserUpdateExperienceHistory.workedTillDate,
+				modifyDate: cybUserUpdateExperienceHistory.modifyDate,
+				designation: cybUserUpdateExperienceHistory.designation,
+				designationName: cybDesignation.name,
+			})
+			.from(cybUserUpdateExperienceHistory)
+			.leftJoin(cybDesignation, eq(cybUserUpdateExperienceHistory.designation, cybDesignation.id))
+			.where(and(
+				eq(cybUserUpdateExperienceHistory.experienceId, experienceId),
+				eq(cybUserUpdateExperienceHistory.parent, 0),
+				eq(cybUserUpdateExperienceHistory.isDeleted, 0),
+			))
+			.orderBy(desc(cybUserUpdateExperienceHistory.id));
+
+		if (!parents.length) return [];
+
+		const parentIds = parents.map((p) => p.id);
+		const replies = await db
+			.select({
+				id: cybUserUpdateExperienceHistory.id,
+				parent: cybUserUpdateExperienceHistory.parent,
+				type: cybUserUpdateExperienceHistory.type,
+				salary: cybUserUpdateExperienceHistory.salary,
+				salaryInhand: cybUserUpdateExperienceHistory.salaryInhand,
+				salaryMode: cybUserUpdateExperienceHistory.salaryMode,
+				workedTillDate: cybUserUpdateExperienceHistory.workedTillDate,
+				modifyDate: cybUserUpdateExperienceHistory.modifyDate,
+				designation: cybUserUpdateExperienceHistory.designation,
+				designationName: cybDesignation.name,
+			})
+			.from(cybUserUpdateExperienceHistory)
+			.leftJoin(cybDesignation, eq(cybUserUpdateExperienceHistory.designation, cybDesignation.id))
+			.where(and(
+				inArray(cybUserUpdateExperienceHistory.parent, parentIds),
+				eq(cybUserUpdateExperienceHistory.isDeleted, 0),
+			));
+
+		const replyByParent = new Map<number, (typeof replies)[number]>();
+		for (const r of replies) {
+			if (r.parent != null && !replyByParent.has(r.parent)) {
+				replyByParent.set(r.parent, r);
+			}
+		}
+
+		return parents.map((p) => {
+			const reply = replyByParent.get(p.id);
+			return {
+				type: p.type,
+				designation_name: p.designationName || '',
+				worked_till_date: p.workedTillDate,
+				salary: p.salary,
+				salary_inhand: p.salaryInhand,
+				salary_mode: p.salaryMode,
+				modify_date: p.modifyDate,
+				approved: !!reply,
+				reply: reply
+					? {
+							type: reply.type,
+							designation_name: reply.designationName || '',
+							salary: reply.salary,
+							salary_inhand: reply.salaryInhand,
+							salary_mode: reply.salaryMode,
+							modify_date: reply.modifyDate,
+							worked_till_date: reply.workedTillDate,
+						}
+					: {},
+			};
+		});
+	}
+
+	async getEmploymentHistoryByExperienceIds(experienceIds: number[]) {
+		const map = new Map<number, Awaited<ReturnType<typeof this.getEmploymentHistory>>>();
+		const ids = [...new Set(experienceIds.filter((id) => Number.isFinite(id) && id > 0))];
+		await Promise.all(
+			ids.map(async (id) => {
+				map.set(id, await this.getEmploymentHistory(id));
+			}),
+		);
+		return map;
+	}
+
+	/** @deprecated — rating list is built in service via reviewRepositery */
 	async getEmploymentRating(experienceId: number) {
 		const [result] = await db.select({
-			noofrecord: sql<number>`count(*)`,
-			avgRating: sql<number>`COALESCE(AVG(${cybUserExperienceRating.rating}), 0)`,
+			noofrecord: sql<number>`count(*)`.mapWith(Number),
+			avgRating: sql<number>`COALESCE(AVG(${cybUserExperienceRating.rating}), 0)`.mapWith(Number),
 		})
 			.from(cybUserExperienceRating)
 			.where(and(

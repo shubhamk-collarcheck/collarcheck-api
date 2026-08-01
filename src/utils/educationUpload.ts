@@ -12,12 +12,13 @@ const s3 = new S3Client({
 	region: process.env.AWS_REGION!
 });
 
-const ALLOWED_EXTS = [".pdf", ".png", ".jpg", ".jpeg", ".doc", ".docx"];
+const ALLOWED_EXTS = [".pdf", ".png", ".jpg", ".jpeg", ".webp", ".doc", ".docx"];
 const ALLOWED_MIMES = [
 	"application/pdf",
 	"image/png",
 	"image/jpeg",
 	"image/jpg",
+	"image/webp",
 	"application/msword",
 	"application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ];

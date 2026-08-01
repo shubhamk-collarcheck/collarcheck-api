@@ -23,13 +23,15 @@ class companyBenefitGalleryRepositery {
 			));
 	}
 
+	/** PHP FrontModel::check_record_exit — LOWER(TRIM(name)) match */
 	async getBenefitByName(name: string) {
 		const [row] = await db.select()
 			.from(cybBenefits)
 			.where(and(
-				eq(cybBenefits.name, name),
+				sql`LOWER(TRIM(${cybBenefits.name})) = LOWER(TRIM(${name}))`,
 				eq(cybBenefits.status, 1),
-			));
+			))
+			.limit(1);
 		return row;
 	}
 
