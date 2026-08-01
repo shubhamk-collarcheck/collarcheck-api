@@ -57,18 +57,11 @@ const companyRouter = Router();
 const formData = multer().none();
 
 /**
- * Gallery upload: FE may use file / file[] / image / document.
- * educationUpload allows images; uploadToS3 is PDF-only and rejected gallery fields.
+ * Gallery upload: FE may use file / file[] / image / document / photos, etc.
+ * Use .any() so unexpected field names don't 400; controller filters image-ish files.
+ * educationUpload allows images; uploadToS3 is PDF/TXT-only.
  */
-const galleryUpload = educationUpload.fields([
-	{ name: "file", maxCount: 10 },
-	{ name: "file[]", maxCount: 10 },
-	{ name: "image", maxCount: 10 },
-	{ name: "image[]", maxCount: 10 },
-	{ name: "gallery", maxCount: 10 },
-	{ name: "document", maxCount: 10 },
-	{ name: "document[]", maxCount: 10 },
-]);
+const galleryUpload = educationUpload.any();
 
 // Company form register (JWT required)
 companyRouter.post("/register", Authorization, formData, validateData(companyRegisterSchema), companyRegister);

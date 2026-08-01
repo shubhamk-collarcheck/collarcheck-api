@@ -33,6 +33,7 @@ const allowedOrigins = [
 	"http://admin.collarcheck.com",
 	"https://admin.collarcheck.com",
 	"https://collarcheck-frontend.vercel.app/",
+	"https://collarcheck-frontend.vercel.app",
 	"https://test.collarcheck.com",
 ];
 
