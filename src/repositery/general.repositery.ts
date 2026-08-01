@@ -271,13 +271,41 @@ class generalRepositery {
 		return row;
 	}
 
+	/** PHP single remove: soft-delete notifications.is_deleted = 1 */
+	async softDeleteNotification(notificationId: number): Promise<boolean> {
+		const [result] = await db.update(cybNotifications)
+			.set({
+				isDeleted: 1,
+				modifyDate: new Date().toISOString().slice(0, 19).replace('T', ' '),
+			})
+			.where(eq(cybNotifications.id, notificationId));
+		return (result?.affectedRows ?? 0) > 0;
+	}
+
+	/**
+	 * Hide for this viewer via clear table (all-notification filter).
+	 * Idempotent — skips if already cleared (avoids unique-key crashes).
+	 */
 	async clearNotification(userId: number, notificationId: number) {
+		const [existing] = await db.select({ id: cybClearNotification.id })
+			.from(cybClearNotification)
+			.where(and(
+				eq(cybClearNotification.userId, userId),
+				eq(cybClearNotification.notificationId, notificationId),
+			))
+			.limit(1);
+		if (existing) return;
+
 		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-		await db.insert(cybClearNotification).values({
-			userId,
-			notificationId,
-			clearedAt: now,
-		});
+		try {
+			await db.insert(cybClearNotification).values({
+				userId,
+				notificationId,
+				clearedAt: now,
+			});
+		} catch {
+			// race / unique constraint — already cleared
+		}
 	}
 
 	async getAllActiveNotificationIds(userId: number) {

@@ -782,13 +782,19 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 
 ### 15. `DELETE /wapi/removeNotification/:id`
 
-**Function:** `removeNotification`
+**Function:** `removeNotificationByParams` → `removeNotificationService`
 
-**Description:** Removes (soft deletes) a specific notification by ID.
+**Description:** Soft-deletes a notification (`is_deleted=1`) and records a clear row for the list filter. Idempotent if already removed.
+
+**Also registered (aliases):**
+- `GET /wapi/removeNotification/:id`
+- `DELETE|GET /wapi/response/removeNotification/:id`
+- `DELETE|GET /wapi/employee/removeNotification/:id`
+- `DELETE /wapi/employee/removeNotification` (body `{ "id": N }`)
 
 **Request:**
 ```
-DELETE /wapi/removeNotification/5001
+DELETE /wapi/removeNotification/16608
 Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 ```
 - Path Parameter: `id` (numeric) — notification ID
@@ -796,14 +802,18 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 **Success Response (200):**
 ```json
 {
-  "success": true,
-  "data": {
-    "message": "Notification removed",
-    "notification_id": 5001
-  }
+  "status": true,
+  "messages": "Notification removed"
 }
 ```
-**Error Response (404):**
+**Error Response (200):**
+```json
+{
+  "status": false,
+  "messages": "Notification not found!"
+}
+```
+**Legacy error shape (removed):**
 ```json
 {
   "success": false,

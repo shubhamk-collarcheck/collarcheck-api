@@ -974,18 +974,43 @@ export const chatMessageReadGeneralService = async (userId: number, messageId: n
 
 // ====== Remove Notification (Endpoints #13, #15) ======
 
+/**
+ * DELETE /wapi/removeNotification/:id
+ * DELETE /wapi/employee/removeNotification  (body.id)
+ *
+ * Soft-deletes notification (is_deleted=1) and records clear row for list filter.
+ * Idempotent if already removed/cleared.
+ */
 export const removeNotificationService = async (userId: number, notificationId: number) => {
-	const notification = await generalRepositery.findNotificationById(notificationId);
-	if (!notification) {
-		throw new NotFoundError("Notification not found");
+	if (!userId) {
+		return { status: false, messages: "User not found!" };
+	}
+	if (!notificationId) {
+		return { status: false, messages: "Invalid notification id!" };
 	}
 
-	await generalRepositery.clearNotification(userId, notificationId);
+	try {
+		const notification = await generalRepositery.findNotificationById(notificationId);
+		if (!notification) {
+			return { status: false, messages: "Notification not found!" };
+		}
 
-	return {
-		message: "Notification removed",
-		notification_id: notificationId,
-	};
+		// Soft-delete row (debug: remove one → is_deleted=1)
+		if (notification.isDeleted !== 1) {
+			await generalRepositery.softDeleteNotification(notificationId);
+		}
+
+		// Also hide via clear table so all-notification filter is consistent
+		await generalRepositery.clearNotification(userId, notificationId);
+
+		return {
+			status: true,
+			messages: "Notification removed",
+		};
+	} catch (err) {
+		const messages = err instanceof Error ? err.message : String(err);
+		return { status: false, messages };
+	}
 };
 
 // ====== Clear All Notification (Endpoint #14) ======

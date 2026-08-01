@@ -603,14 +603,15 @@ export const chatMessageReadGeneral = async (req: Request, res: Response, next: 
 
 // ====== Remove Notification by Body (Endpoint #13) ======
 
-export const removeNotificationByBody = async (req: Request, res: Response, next: NextFunction) => {
+export const removeNotificationByBody = async (req: Request, res: Response, _next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		const { id: userId } = req.auth as AuthUser;
 		const { body } = req.validated as RemoveNotificationBody;
-		const data = await removeNotificationService(user_id, body.id);
-		return res.status(200).json({ status: true, message: '', data });
+		const result = await removeNotificationService(userId, body.id);
+		return res.status(200).json(result);
 	} catch (error) {
-		next(error);
+		const messages = error instanceof Error ? error.message : String(error);
+		return res.status(200).json({ status: false, messages });
 	}
 };
 
@@ -643,14 +644,16 @@ export const logout = async (req: Request, res: Response, next: NextFunction) =>
 
 // ====== Remove Notification by Params (Endpoint #15) ======
 
-export const removeNotificationByParams = async (req: Request, res: Response, next: NextFunction) => {
+export const removeNotificationByParams = async (req: Request, res: Response, _next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
+		// acting id (honours X-Company)
+		const { id: userId } = req.auth as AuthUser;
 		const { params } = req.validated as RemoveNotificationParams;
-		const data = await removeNotificationService(user_id, params.id);
-		return res.status(200).json({ status: true, message: '', data });
+		const result = await removeNotificationService(userId, params.id);
+		return res.status(200).json(result);
 	} catch (error) {
-		next(error);
+		const messages = error instanceof Error ? error.message : String(error);
+		return res.status(200).json({ status: false, messages });
 	}
 };
 

@@ -33,8 +33,15 @@ import { applyJobSchema, approvedEmploymentSchema, approvedViewRequestSchema, vi
 import { applyJob, applyJobList, profilePercentage, approvedEmployment, allViewRequest, approvedVeiwRequest, rejectVeiwRequest, deleteViewRequest, checkCurrentCompany, dashboard, appliedjob, removeResume } from "../controllers/job-dashboard.controller";
 import { saveExploringSchema, allCompanyQuerySchema, editProfileSchema } from "../types/misc.types";
 import { sidebarCount, leaveReminderExperience, saveExploring, cvDetails, editProfile, allCompany, userDetail } from "../controllers/misc.controller";
-import { removeNotificationBodySchema, allUserQuerySchema } from "../types/general.types";
-import { removeNotificationByBody } from "../controllers/general.controller";
+import {
+	removeNotificationBodySchema,
+	removeNotificationParamsSchema,
+	allUserQuerySchema,
+} from "../types/general.types";
+import {
+	removeNotificationByBody,
+	removeNotificationByParams,
+} from "../controllers/general.controller";
 import { allUser } from "../controllers/misc.controller";
 import { employeeRegisterSchema, employeeSignupSchema, finalSignupSchema, uploadResumeSchema, } from "../types/login.types";
 import { employeeRegister, employeeSignup, finalSignup, uploadResume, } from "../controllers/login.controller";
@@ -146,8 +153,10 @@ employRouter.post("/edit-profile", Authorization, validateData(editProfileSchema
 employRouter.get("/all-company", Authorization, validateData(allCompanyQuerySchema), allCompany)
 employRouter.get("/user-detail", Authorization, userDetail)
 
-// PHP: DELETE employee/removeNotification
+// PHP: DELETE employee/removeNotification (body id) + path id alias
 employRouter.delete("/removeNotification", Authorization, validateData(removeNotificationBodySchema), removeNotificationByBody)
+employRouter.delete("/removeNotification/:id", Authorization, validateData(removeNotificationParamsSchema), removeNotificationByParams)
+employRouter.get("/removeNotification/:id", Authorization, validateData(removeNotificationParamsSchema), removeNotificationByParams)
 
 // GET employee/all-user
 employRouter.get("/all-user", Authorization, validateData(allUserQuerySchema), allUser)

@@ -30,7 +30,11 @@ rootRouter.get("/logout", Authorization, logout);
 rootRouter.get("/people-list", Authorization, peopleList);
 rootRouter.get("/company-list", Authorization, validateData(companyListRootQuerySchema), companyList);
 rootRouter.delete("/notifications/clear-all-notification", Authorization, clearAllNotification);
+// Primary + FE aliases (some clients use GET; some prefix "response/")
 rootRouter.delete("/removeNotification/:id", Authorization, validateData(removeNotificationParamsSchema), removeNotificationByParams);
+rootRouter.get("/removeNotification/:id", Authorization, validateData(removeNotificationParamsSchema), removeNotificationByParams);
+rootRouter.delete("/response/removeNotification/:id", Authorization, validateData(removeNotificationParamsSchema), removeNotificationByParams);
+rootRouter.get("/response/removeNotification/:id", Authorization, validateData(removeNotificationParamsSchema), removeNotificationByParams);
 rootRouter.post("/multi-unfollow", Authorization, validateData(multiUnfollowSchema), multiUnfollow);
 rootRouter.post("/multi-acceptfollow", Authorization, validateData(multiFollowIdsSchema), multiAcceptFollow);
 rootRouter.post("/multi-rejectfollow", Authorization, validateData(multiFollowIdsSchema), multiRejectFollow);
