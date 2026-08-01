@@ -588,34 +588,46 @@ Get follower and following lists for a user/company with counts. Includes explor
 
 ## 19. Verification Status
 
-**Route:** `GET /wapi/verificationStatus`
-**Controller:** `verificationStatus` ()
+> **Stack:** Node.js + Express + Drizzle  
+> **Routes:** `GET /wapi/general/company-verificationStatus` and `GET /wapi/general/verificationStatus` (same handler)  
+> **Controller:** `src/controllers/general.controller.ts` — `verificationStatus`  
+> **Service:** `src/services/general.service.ts` — `verificationStatusService`  
+> **Repositery:** `src/repositery/general.repositery.ts`  
+> **Contract:** `src/debug/company-verificationstatus-endpoint.md`
 
-Get the verification status of authenticated user. For companies: checks claim status, email/phone verify, manual verify. For users: checks email/phone verify, document verify, job apply limit (max 5 if unverified).
+JWT required. Acting identity = `req.auth.id` (honours `X-Company`). No query/body.
 
-**DB Tables:** `user`, `verify_document`, `user_domains`, `company_invite`, `job_applied`
+Two branches (PHP `GeneralApi::verificationStatus`):
+1. **Non-claim company** (`user_type=2`, `claim_status=0`): invite email/phone, empty doc fields, **no** `jobCount`/`doc_name`, always `ApplyStatus: true`.
+2. **Claimed / individual:** `jobCount`, apply gate (`jobCount > 5` → `ApplyStatus` false unless verified), doc verify + domain override for companies.
 
-**Response:**
+Envelope: `{ status, data }` only — **no `messages`**.
+
+**Response (Branch B example):**
 ```json
 {
   "status": true,
   "data": {
-    "isVerify": true,
-    "email": "...",
-    "phone": "...",
-    "emailVerify": true,
-    "phoneVerify": true,
-    "doc_type_id": 4,
-    "doc_type": "GST",
-    "doc_name": "...",
-    "doc_no": "...",
-    "docVerify": true,
     "ApplyStatus": true,
     "jobCount": 2,
+    "isVerify": false,
+    "email": "user@example.com",
+    "phone": "9876543210",
+    "emailVerify": true,
+    "phoneVerify": true,
+    "doc_type_id": "4",
+    "doc_type": "GST",
+    "doc_name": "Acme Pvt Ltd",
+    "doc_no": "22AAAAA0000A1Z5",
+    "docVerify": false,
     "manual_verify": false
   }
 }
 ```
+
+**DB tables:** `cyb_user`, `cyb_verify_document`, `cyb_doctype`, `cyb_user_domains`, `cyb_company_invite`, `cyb_application`, `cyb_manual_document_verify`
+
+**Status:** **implemented**
 ---
 
 ## 20. Claim Company

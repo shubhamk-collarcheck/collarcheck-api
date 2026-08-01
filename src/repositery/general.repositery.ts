@@ -1,4 +1,4 @@
-import { and, eq, sql, desc, asc, count, inArray, SQL } from 'drizzle-orm';
+import { and, eq, ne, sql, desc, asc, count, inArray, SQL, or, isNull } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import db from '../db';
 import {
@@ -10,7 +10,8 @@ import {
 	cybBenefits, cybRoleTypes, cybJobExperiences, cybAccomodation, cybTag,
 	cybJobMode, cybWorkType, cybDepartment, cybJobMeta, cybCompanyBenefits,
 	cybUserExperienceRating, cybCompanyInvite, cybSuggestion, cybUserLoginHistory,
-	cybUserRelation, cybUserDetails,
+	cybUserRelation, cybUserDetails, cybApplication, cybVerifyDocument,
+	cybUserDomains, cybManualDocumentVerify,
 } from '../db/schema';
 
 class generalRepositery {
@@ -331,17 +332,140 @@ class generalRepositery {
 		return notificationIds.length;
 	}
 
-	// ====== Verification Status (Endpoint #5) ======
+	// ====== Verification Status (company-verificationStatus / verificationStatus) ======
 
-	async getVerificationStatus(userId: number) {
-		const [user] = await db.select({
-			phoneVerified: cybUser.phoneVerified,
+	/** Unclaimed company probe: claim_status = 0 (no status/is_deleted filter — PHP fs) */
+	async findUnclaimedUser(userId: number) {
+		const [row] = await db.select({
+			id: cybUser.id,
 			emailVerified: cybUser.emailVerified,
+			phoneVerified: cybUser.phoneVerified,
+			claimStatus: cybUser.claimStatus,
 		})
 			.from(cybUser)
-			.where(eq(cybUser.id, userId));
+			.where(and(eq(cybUser.id, userId), eq(cybUser.claimStatus, 0)))
+			.limit(1);
+		return row;
+	}
 
-		return user;
+	/** company_invite for (company=userId, added_by=loginUserId) */
+	async findCompanyInviteForClaimer(companyId: number, loginUserId: number) {
+		const [row] = await db.select({
+			email: cybCompanyInvite.email,
+			phone: cybCompanyInvite.phone,
+		})
+			.from(cybCompanyInvite)
+			.where(and(
+				eq(cybCompanyInvite.company, companyId),
+				eq(cybCompanyInvite.addedBy, loginUserId),
+			))
+			.limit(1);
+		return row;
+	}
+
+	/**
+	 * get_user_detail for verificationStatus: status=1, is_deleted=0.
+	 * Only fields this endpoint needs (not full dashboard detail joins).
+	 */
+	async getUserDetailForVerification(userId: number) {
+		const [row] = await db.select({
+			id: cybUser.id,
+			email: cybUser.email,
+			phone: cybUser.phone,
+			fullName: cybUser.fullName,
+			emailVerified: cybUser.emailVerified,
+			phoneVerified: cybUser.phoneVerified,
+			userType: cybUser.userType,
+			claimStatus: cybUser.claimStatus,
+		})
+			.from(cybUser)
+			.where(and(
+				eq(cybUser.id, userId),
+				eq(cybUser.status, 1),
+				eq(cybUser.isDeleted, 0),
+			))
+			.limit(1);
+		return row;
+	}
+
+	/** COUNT application WHERE user, is_deleted=0, status=1 */
+	async countActiveApplications(userId: number): Promise<number> {
+		const [row] = await db.select({ count: count() })
+			.from(cybApplication)
+			.where(and(
+				eq(cybApplication.user, userId),
+				eq(cybApplication.isDeleted, 0),
+				eq(cybApplication.status, 1),
+			));
+		return row?.count ?? 0;
+	}
+
+	/** verify_document verify=1 JOIN doctype + user is_deleted=0 — first row only */
+	async getVerifiedDocumentDetail(userId: number) {
+		const [row] = await db.select({
+			doctype: cybVerifyDocument.doctype,
+			doctypeName: cybDoctype.name,
+			docName: cybVerifyDocument.docName,
+			docnumber: cybVerifyDocument.docnumber,
+		})
+			.from(cybVerifyDocument)
+			.leftJoin(cybDoctype, sql`${cybVerifyDocument.doctype} = ${cybDoctype.id}`)
+			.leftJoin(cybUser, eq(cybVerifyDocument.userId, cybUser.id))
+			.where(and(
+				eq(cybVerifyDocument.userId, userId),
+				eq(cybVerifyDocument.verify, 1),
+				eq(cybUser.isDeleted, 0),
+			))
+			.limit(1);
+		return row;
+	}
+
+	/** verify_document verify != 1 JOIN doctype — first row only */
+	async getUnverifiedDocumentDetail(userId: number) {
+		const [row] = await db.select({
+			doctype: cybVerifyDocument.doctype,
+			doctypeName: cybDoctype.name,
+			docName: cybVerifyDocument.docName,
+			docnumber: cybVerifyDocument.docnumber,
+		})
+			.from(cybVerifyDocument)
+			.leftJoin(cybDoctype, sql`${cybVerifyDocument.doctype} = ${cybDoctype.id}`)
+			.where(and(
+				eq(cybVerifyDocument.userId, userId),
+				ne(cybVerifyDocument.verify, 1),
+			))
+			.limit(1);
+		return row;
+	}
+
+	/** Claimed company domain override: is_verified=1, claim_status=1, is_deleted=0 */
+	async findVerifiedDomainForClaimedCompany(userId: number) {
+		const [row] = await db.select({ id: cybUserDomains.id })
+			.from(cybUserDomains)
+			.leftJoin(cybUser, eq(cybUserDomains.userId, cybUser.id))
+			.where(and(
+				eq(cybUserDomains.userId, userId),
+				eq(cybUserDomains.isVerified, 1),
+				eq(cybUser.claimStatus, 1),
+				eq(cybUserDomains.isDeleted, 0),
+			))
+			.limit(1);
+		return row;
+	}
+
+	/** Any non-deleted manual_document_verify row (is_deleted = 0 OR NULL) */
+	async hasManualDocumentVerify(userId: number): Promise<boolean> {
+		const [row] = await db.select({ id: cybManualDocumentVerify.id })
+			.from(cybManualDocumentVerify)
+			.where(and(
+				eq(cybManualDocumentVerify.userId, userId),
+				or(
+					eq(cybManualDocumentVerify.isDeleted, 0),
+					isNull(cybManualDocumentVerify.isDeleted),
+				),
+			))
+			.limit(1);
+		return !!row;
 	}
 
 	// ====== Follow (PHP inverted naming) ======

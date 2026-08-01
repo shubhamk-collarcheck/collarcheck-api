@@ -5,7 +5,7 @@ import {
 	alldesignation, allSkill, jobTypeList, allDepartment, allCourseType, allEmploymentType,
 	allWorkType, employeeFilterDataList, jobDataList, job_detail, allJob, searchSuggestion,
 	globalSearch, ratingFilter, starRatingEmployees, inviteDetail, addSuggestion, userProfile,
-	verifyAuthToken, allDocList, allMessageListGeneral, allNotification, verificationStatusGeneral,
+	verifyAuthToken, allDocList, allMessageListGeneral, allNotification, verificationStatus,
 	followDataListGeneral, saveDocument, allReadNotification, chatMessageReadGeneral,
 	unfollow, removeFollower, multiRemoveFollower,
 	follow, acceptFollow, rejectFollow, deleteMessage, skillByCategory, generalCompanyProfile,
@@ -19,7 +19,6 @@ import {
 } from '../types/company-employee-request.types';
 import {
 	allMessageList, addMessage, chatMessageRead,
-	verificationStatus,
 } from '../controllers/company-employee-request.controller';
 import { uploadToS3 } from '../utils/uploadToS3';
 import {
@@ -97,7 +96,9 @@ generalRoute.get("/all-message-company", Authorization, validateData(allMessageL
 generalRoute.post("/send-message-company", Authorization, uploadToS3.single("doc"), validateData(addMessageSchema), addMessage)
 generalRoute.put("/chatMessageReadCompany/:id", Authorization, validateData(chatMessageReadParamsSchema), chatMessageRead)
 generalRoute.get("/company-followDataList", Authorization, validateData(followDataListGeneralQuerySchema), followDataListGeneral)
+// Same handler (PHP GeneralApi::verificationStatus) — company vs employee only via auth identity / X-Company
 generalRoute.get("/company-verificationStatus", Authorization, verificationStatus)
+generalRoute.get("/verificationStatus", Authorization, verificationStatus)
 
 // ====== New API Endpoints from Documentation ======
 
@@ -106,7 +107,6 @@ generalRoute.get("/verify-authtoken", Authorization, verifyAuthToken)
 generalRoute.get("/doc-list/:id", Authorization, validateData(docListParamsSchema), allDocList)
 generalRoute.get("/all-message", Authorization, allMessageListGeneral)
 generalRoute.get("/all-notification", Authorization, allNotification)
-generalRoute.get("/verificationStatus", Authorization, verificationStatusGeneral)
 generalRoute.post("/saveDocument", Authorization, validateData(saveDocumentSchema), saveDocument)
 generalRoute.put("/allReadNotification", Authorization, allReadNotification)
 generalRoute.put("/chatMessageRead/:id", Authorization, validateData(chatMessageReadIdParamsSchema), chatMessageReadGeneral)

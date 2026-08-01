@@ -9,6 +9,7 @@ import employmentRepositery from '../repositery/employee.repositery';
 import { get_empoyee_designation_service, get_industry_list_service, get_state_by_employees_service, get_state_by_id_service, get_employee_department_service, get_skill_list_service, get_course_list_service, get_user_skill_service, get_user_experience_skill_service } from './job.service';
 import { allEmploymentType } from '../controllers/general.controller';
 import { user_verified } from './users.service';
+import { decryptUrl } from '../utils/encrypt';
 
 const s3Prefix = process.env.S3_PREFIX || '';
 
@@ -792,40 +793,142 @@ export const allNotificationService = async (userId: number, token?: string) => 
 	};
 };
 
-// ====== Verification Status (Endpoint #5) ======
+// ====== Verification Status (company-verificationStatus + verificationStatus) ======
+// Debug: src/debug/company-verificationstatus-endpoint.md
+// Envelope: { status, data } — no messages. Two URL aliases, one handler.
 
-export const verificationStatusGeneralService = async (userId: number) => {
-	const user = await generalRepositery.getVerificationStatus(userId);
-	if (!user) {
-		throw new NotFoundError("User not found");
-	}
+/** PHP: !empty(strtolower(a)==strtolower(b)) → case-insensitive equality */
+function nameMatch(docName: string | null | undefined, fullName: string | null | undefined): boolean {
+	return String(docName || '').toLowerCase() === String(fullName || '').toLowerCase();
+}
 
-	const phoneVerified = user.phoneVerified === 1;
-	const emailVerified = user.emailVerified === 1;
+function decryptDocNo(docnumber: string | null | undefined): string {
+	if (!docnumber) return '';
+	return decryptUrl(docnumber) || '';
+}
 
-	const pendingItems: string[] = [];
-	if (!phoneVerified) pendingItems.push("phone_verification");
-	if (!emailVerified) pendingItems.push("email_verification");
-
-	let overallStatus: string;
-	if (phoneVerified && emailVerified) {
-		overallStatus = "complete";
-	} else if (phoneVerified || emailVerified) {
-		overallStatus = "partial";
-	} else {
-		overallStatus = "incomplete";
-	}
-
-	return {
-		phone_verified: phoneVerified,
-		email_verified: emailVerified,
-		identity_verified: false,
-		documents_verified: false,
-		business_verified: false,
-		overall_status: overallStatus,
-		pending_items: pendingItems,
+/**
+ * Shared by:
+ * - GET /wapi/general/company-verificationStatus
+ * - GET /wapi/general/verificationStatus
+ *
+ * @param userId acting identity (req.auth.id — honours X-Company)
+ * @param loginUserId human JWT user (req.auth.user_id) — invite lookup only
+ * @param userType acting user_type (req.auth.user_type)
+ */
+export const verificationStatusService = async (
+	userId: number,
+	loginUserId: number,
+	userType: number | null,
+) => {
+	const arr: Record<string, unknown> = {
+		ApplyStatus: true,
 	};
+
+	// ── BRANCH A: company + non-claim early return ──
+	if (userType === 2) {
+		const authUser = await generalRepositery.findUnclaimedUser(userId);
+		if (authUser) {
+			const invite = await generalRepositery.findCompanyInviteForClaimer(userId, loginUserId);
+			const manualVerify = await generalRepositery.hasManualDocumentVerify(userId);
+
+			return {
+				status: true as const,
+				data: {
+					ApplyStatus: true,
+					email: invite?.email || '',
+					phone: invite?.phone || '',
+					manual_verify: manualVerify,
+					emailVerify: !!authUser.emailVerified,
+					phoneVerify: !!authUser.phoneVerified,
+					doc_type_id: '',
+					doc_type: '',
+					doc_no: '',
+					isVerify: false,
+					docVerify: false,
+				},
+			};
+		}
+	}
+
+	// ── BRANCH B: claimed company OR individual ──
+	const detail = await generalRepositery.getUserDetailForVerification(userId);
+	const jobCount = await generalRepositery.countActiveApplications(userId);
+	arr.jobCount = jobCount;
+	if (jobCount > 5) {
+		arr.ApplyStatus = false;
+	}
+
+	arr.isVerify = false;
+	arr.email = detail?.email || '';
+	arr.phone = detail?.phone || '';
+	arr.emailVerify = false;
+	arr.phoneVerify = false;
+
+	if (!detail) {
+		// PHP may fatal; harden to status:false + partial data
+		return { status: false as const, data: arr };
+	}
+
+	// emailVerify / phoneVerify: non-empty contact AND verified flag == 1
+	if (detail.email && detail.emailVerified === 1) {
+		arr.emailVerify = true;
+	}
+	if (detail.phone && detail.phoneVerified === 1) {
+		arr.phoneVerify = true;
+	}
+
+	const [verify, unverify] = await Promise.all([
+		generalRepositery.getVerifiedDocumentDetail(userId),
+		generalRepositery.getUnverifiedDocumentDetail(userId),
+	]);
+
+	// Display fields: verify first, unverify overwrites if present
+	if (verify) {
+		arr.doc_type_id = verify.doctype ?? '';
+		arr.doc_type = verify.doctypeName || '';
+		arr.doc_name = verify.docName || '';
+		arr.doc_no = decryptDocNo(verify.docnumber);
+	}
+	if (unverify) {
+		arr.doc_type_id = unverify.doctype ?? '';
+		arr.doc_type = unverify.doctypeName || '';
+		arr.doc_name = unverify.docName || '';
+		arr.doc_no = decryptDocNo(unverify.docnumber);
+	}
+
+	// isVerify: email+phone verified + verified doc name matches full_name
+	if (
+		detail.phoneVerified === 1 &&
+		detail.emailVerified === 1 &&
+		verify &&
+		nameMatch(verify.docName, detail.fullName)
+	) {
+		arr.isVerify = true;
+	}
+
+	// Verified always allowed to apply (only when isVerify set above — domain override is after)
+	if (arr.isVerify === true) {
+		arr.ApplyStatus = true;
+	}
+
+	// Domain override (companies only) — sets isVerify; does not re-force ApplyStatus (PHP order)
+	if (detail.userType === 2) {
+		const domain = await generalRepositery.findVerifiedDomainForClaimedCompany(userId);
+		if (domain) {
+			arr.isVerify = true;
+		}
+	}
+
+	// docVerify uses verified doc only (not unverify overwrite)
+	arr.docVerify = !!(verify && nameMatch(verify.docName, detail.fullName));
+	arr.manual_verify = await generalRepositery.hasManualDocumentVerify(userId);
+
+	return { status: true as const, data: arr };
 };
+
+/** @deprecated alias — use verificationStatusService */
+export const verificationStatusGeneralService = verificationStatusService;
 
 // ====== Follow Data List (Endpoint #6) ======
 // PHP inverted naming: followed_id = initiator, follower_id = target

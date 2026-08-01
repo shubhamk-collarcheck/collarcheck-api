@@ -357,37 +357,76 @@ Exception:
 
 ---
 
-### 5. `GET /wapi/general/verificationStatus`
+### 5. `GET /wapi/general/verificationStatus`  
+### Alias: `GET /wapi/general/company-verificationStatus`
 
-**Function:** `verificationStatus`
+**Function:** `verificationStatus` → `verificationStatusService`
 
-**Description:** Returns the current verification status of the authenticated user.
+**Description:** Verification + job-apply gate for the **acting** identity (`req.auth.id`, honours `X-Company`). Both paths are the **same** PHP handler.
 
-**Request:**
+**Auth:** JWT. Uses `req.auth.id` (acting), `req.auth.user_id` (invite lookup), `req.auth.user_type`.
+
+**Request:** no query/body.
+
 ```
 GET /wapi/general/verificationStatus
-Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+GET /wapi/general/company-verificationStatus
+Authorization: Bearer …
+X-Company: {companyId}   # optional
 ```
-**Success Response (200):**
+
+**Success envelope (200):** `{ "status": true, "data": { … } }` — **no `messages` key**.
+
+**Branch A** — `user_type == 2` and company has `claim_status = 0` (early return; **no** `jobCount` / `doc_name`):
 ```json
 {
-  "success": true,
+  "status": true,
   "data": {
-    "phone_verified": true,
-    "email_verified": true,
-    "identity_verified": false,
-    "documents_verified": false,
-    "business_verified": false,
-    "overall_status": "partial",
-    "pending_items": [
-      "identity_verification",
-      "document_upload"
-    ]
+    "ApplyStatus": true,
+    "email": "claimer@example.com",
+    "phone": "9876543210",
+    "manual_verify": false,
+    "emailVerify": false,
+    "phoneVerify": false,
+    "doc_type_id": "",
+    "doc_type": "",
+    "doc_no": "",
+    "isVerify": false,
+    "docVerify": false
   }
 }
 ```
-**Implementation Notes:**
-- Database reads from user verification/status tables
+- `email` / `phone` from **company_invite** `(company=actingId, added_by=loginUserId)`, not user row.
+
+**Branch B** — claimed company or individual:
+```json
+{
+  "status": true,
+  "data": {
+    "ApplyStatus": true,
+    "jobCount": 2,
+    "isVerify": false,
+    "email": "user@example.com",
+    "phone": "9876543210",
+    "emailVerify": true,
+    "phoneVerify": true,
+    "doc_type_id": "4",
+    "doc_type": "GST",
+    "doc_name": "Acme Pvt Ltd",
+    "doc_no": "22AAAAA0000A1Z5",
+    "docVerify": false,
+    "manual_verify": false
+  }
+}
+```
+- `ApplyStatus`: default `true`; `false` if `jobCount > 5` and not verified; forced `true` when name-match `isVerify` is set.
+- `isVerify`: email+phone verified + verified-doc name matches `full_name`, **or** claimed company has verified domain.
+- `doc_*` only set when a verify/unverify document row exists (unverify overwrites display fields).
+- `doc_no` is **decrypted** (`decryptUrl`).
+
+**Contract source:** `src/debug/company-verificationstatus-endpoint.md` (prefer over older aadhar/pan shapes).
+
+**Status:** **implemented**
 
 ---
 

@@ -4,8 +4,24 @@
 
 **Authoritative source:** PHP controllers/models below (prefer this file over summary tables in `api-ai-document/` when they conflict).
 
-| Route | Auth | Controller | What it returns |
-|-------|------|------------|-----------------|
+## Node implementation map (shipped)
+
+| Layer | File |
+|-------|------|
+| Routes | `src/routes/general.route.ts` — both paths → `verificationStatus` |
+| Controller | `src/controllers/general.controller.ts` — `verificationStatus` |
+| Service | `src/services/general.service.ts` — `verificationStatusService` |
+| Repositery | `src/repositery/general.repositery.ts` |
+| Decrypt | `src/utils/encrypt.ts` — `decryptUrl` |
+| Node docs | `src/api-ai-document/general/half-of-next-general-api.md` §5, `company/company-employee-request-endpoints.md` §19 |
+
+| Route | Auth | Node handler | What it returns |
+|-------|------|--------------|-----------------|
+| `GET /wapi/general/company-verificationStatus` | **JWT** | `verificationStatus` | Verification + job-apply gate for **acting company** (or user if no `X-Company`) |
+| `GET /wapi/general/verificationStatus` | **JWT** | `verificationStatus` | **Same handler**, typically employee context |
+
+| Route | Auth | PHP Controller | What it returns |
+|-------|------|----------------|-----------------|
 | `GET /wapi/general/company-verificationStatus` | **JWT** | `GeneralApi::verificationStatus` | Verification + job-apply gate for **acting company** (or user if no `X-Company`) |
 | `GET /wapi/general/verificationStatus` | **JWT** | `GeneralApi::verificationStatus` | **Same handler**, typically employee context |
 

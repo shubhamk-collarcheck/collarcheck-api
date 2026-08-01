@@ -406,34 +406,12 @@ export const followDataList = async (req: Request, res: Response) => {
 	}
 };
 
-export const verificationStatus = async (req: Request, res: Response) => {
-	try {
-		const { user_id: userId } = req.auth as AuthUser;
-
-		// TODO: Implement full verification status
-		return res.status(200).json({
-			status: true,
-			data: {
-				isVerify: false,
-				email: '',
-				phone: '',
-				emailVerify: false,
-				phoneVerify: false,
-				doc_type_id: 0,
-				doc_type: '',
-				doc_name: '',
-				doc_no: '',
-				docVerify: false,
-				ApplyStatus: true,
-				jobCount: 0,
-				manual_verify: false,
-			},
-		});
-	} catch (error) {
-		console.error("verificationStatus error:", error);
-		return res.status(500).json({ status: false, messages: "Internal server error" });
-	}
-};
+/**
+ * GET company-verificationStatus — same PHP handler as general/verificationStatus.
+ * Prefer `verificationStatus` from general.controller (wired on general.route).
+ * Kept as thin re-export path if other imports still use this module.
+ */
+export { verificationStatus } from "./general.controller";
 
 export const claimCompany = async (req: Request, res: Response) => {
 	try {

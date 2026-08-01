@@ -17,7 +17,7 @@ import {
 	starRatingEmployeesService, inviteDetailService, globalSearchService,
 	addSuggestionService,
 	verifyAuthTokenService, docListService, allMessageListGeneralService,
-	allNotificationService, verificationStatusGeneralService, followDataListGeneralService,
+	allNotificationService, verificationStatusService, followDataListGeneralService,
 	saveDocumentService, allReadNotificationService, chatMessageReadGeneralService,
 	removeNotificationService, clearAllNotificationService, logoutService, unfollowService,
 	removeFollowerService, multiUnfollowService, multiRemoveFollowerService,
@@ -537,17 +537,21 @@ export const allNotification = async (req: Request, res: Response, _next: NextFu
 	}
 };
 
-// ====== Verification Status (Endpoint #5) ======
+// ====== Verification Status (company-verificationStatus + verificationStatus) ======
+// Same handler for both routes. Envelope: { status, data } — no messages.
 
-export const verificationStatusGeneral = async (req: Request, res: Response, next: NextFunction) => {
+export const verificationStatus = async (req: Request, res: Response, next: NextFunction) => {
 	try {
-		const { user_id } = req.auth as AuthUser;
-		const data = await verificationStatusGeneralService(user_id);
-		return res.status(200).json({ status: true, message: '', data });
+		const { id: userId, user_id: loginUserId, user_type: userType } = req.auth as AuthUser;
+		const result = await verificationStatusService(userId, loginUserId, userType);
+		return res.status(200).json(result);
 	} catch (error) {
 		next(error);
 	}
 };
+
+/** Alias export for route imports that used the old name */
+export const verificationStatusGeneral = verificationStatus;
 
 // ====== Follow Data List (Endpoint #6) ======
 
