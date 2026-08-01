@@ -24,6 +24,8 @@ import {
 	cybJobMode,
 	cybSalary,
 	cybInstitutions,
+	cybVerifyDocument,
+	cybUserDomains,
 } from "../db/schema";
 
 function nowSql() {
@@ -147,6 +149,8 @@ class WidgetRepositery {
 		limit: number;
 		sqlOffset: number;
 		orderRandom?: boolean;
+		/** Skip COUNT(*) — use for home feed widgets (totalCounts ≈ rows.length). */
+		skipCount?: boolean;
 	}) {
 		const conditions = [
 			eq(cybUser.userType, 2),
@@ -158,7 +162,10 @@ class WidgetRepositery {
 		if (opts.industry) conditions.push(eq(cybUser.industry, opts.industry));
 		if (opts.city) conditions.push(eq(cybUser.city, opts.city));
 
-		const order = opts.orderRandom ? sql`RAND()` : desc(cybUser.id);
+		// Prefer precomputed random_value when present (avoids full-table ORDER BY RAND())
+		const order = opts.orderRandom
+			? sql`COALESCE(${cybUser.randomValue}, RAND())`
+			: desc(cybUser.id);
 		const rows = await db
 			.select(this.companySelect())
 			.from(cybUser)
@@ -173,6 +180,10 @@ class WidgetRepositery {
 			.orderBy(order)
 			.limit(opts.limit)
 			.offset(opts.sqlOffset);
+
+		if (opts.skipCount) {
+			return { rows, total: rows.length };
+		}
 
 		const [countRow] = await db
 			.select({ count: sql<number>`count(*)`.mapWith(Number) })
@@ -197,6 +208,7 @@ class WidgetRepositery {
 		limit: number;
 		sqlOffset: number;
 		orderRandom?: boolean;
+		skipCount?: boolean;
 	}) {
 		const companyUser = alias(cybUser, "cmp");
 		const conditions = [
@@ -232,7 +244,9 @@ class WidgetRepositery {
 			);
 		}
 
-		const order = opts.orderRandom ? sql`RAND()` : desc(cybUser.id);
+		const order = opts.orderRandom
+			? sql`COALESCE(${cybUser.randomValue}, RAND())`
+			: desc(cybUser.id);
 		const rows = await db
 			.select(this.personSelect())
 			.from(cybUser)
@@ -246,6 +260,10 @@ class WidgetRepositery {
 			.orderBy(order)
 			.limit(opts.limit)
 			.offset(opts.sqlOffset);
+
+		if (opts.skipCount) {
+			return { rows, total: rows.length };
+		}
 
 		const [countRow] = await db
 			.select({ count: sql<number>`count(*)`.mapWith(Number) })
@@ -279,7 +297,8 @@ class WidgetRepositery {
 		universityIds: number[],
 		excludeId: number,
 		limit: number,
-		sqlOffset: number
+		sqlOffset: number,
+		skipCount = false
 	) {
 		if (!universityIds.length) return { rows: [] as any[], total: 0 };
 		const companyUser = alias(cybUser, "cmp");
@@ -309,6 +328,8 @@ class WidgetRepositery {
 			.where(and(...conditions))
 			.limit(limit)
 			.offset(sqlOffset);
+
+		if (skipCount) return { rows, total: rows.length };
 
 		const [countRow] = await db
 			.select({
@@ -347,7 +368,8 @@ class WidgetRepositery {
 		excludeId: number,
 		limit: number,
 		sqlOffset: number,
-		stillWorking?: number
+		stillWorking?: number,
+		skipCount = false
 	) {
 		if (!companyIds.length) return { rows: [] as any[], total: 0 };
 		const companyUser = alias(cybUser, "cmp");
@@ -377,6 +399,8 @@ class WidgetRepositery {
 			.limit(limit)
 			.offset(sqlOffset);
 
+		if (skipCount) return { rows, total: rows.length };
+
 		const [countRow] = await db
 			.select({
 				count: sql<number>`COUNT(DISTINCT ${cybUser.id})`.mapWith(Number),
@@ -393,6 +417,7 @@ class WidgetRepositery {
 		sqlOffset: number;
 		urgent?: boolean;
 		viewerId?: number;
+		skipCount?: boolean;
 	}) {
 		const companyUser = alias(cybUser, "cmp");
 		const conditions = [
@@ -447,30 +472,40 @@ class WidgetRepositery {
 			.limit(opts.limit)
 			.offset(opts.sqlOffset);
 
-		const [countRow] = await db
-			.select({ count: sql<number>`count(*)`.mapWith(Number) })
-			.from(cybCompanyJob)
-			.where(and(...conditions));
+		const totalPromise = opts.skipCount
+			? Promise.resolve(rows.length)
+			: db
+					.select({ count: sql<number>`count(*)`.mapWith(Number) })
+					.from(cybCompanyJob)
+					.where(and(...conditions))
+					.then(([countRow]) => countRow?.count ?? 0);
 
 		let appliedJobIds = new Set<number>();
-		if (opts.viewerId && rows.length) {
-			const jobIds = rows.map((r) => r.id);
-			const apps = await db
-				.select({ job: cybApplication.job })
-				.from(cybApplication)
-				.where(
-					and(
-						eq(cybApplication.user, opts.viewerId),
-						eq(cybApplication.isDeleted, 0),
-						inArray(cybApplication.job, jobIds)
-					)
-				);
+		const appsPromise =
+			opts.viewerId && rows.length
+				? db
+						.select({ job: cybApplication.job })
+						.from(cybApplication)
+						.where(
+							and(
+								eq(cybApplication.user, opts.viewerId),
+								eq(cybApplication.isDeleted, 0),
+								inArray(
+									cybApplication.job,
+									rows.map((r) => r.id)
+								)
+							)
+						)
+				: Promise.resolve([] as { job: number | null }[]);
+
+		const [total, apps] = await Promise.all([totalPromise, appsPromise]);
+		if (apps.length) {
 			appliedJobIds = new Set(
 				apps.map((a) => a.job).filter((id): id is number => id != null)
 			);
 		}
 
-		return { rows, total: countRow?.count ?? 0, appliedJobIds };
+		return { rows, total, appliedJobIds };
 	}
 
 	// ---- follow / explore ----
@@ -488,6 +523,30 @@ class WidgetRepositery {
 			)
 			.limit(1);
 		return row;
+	}
+
+	/** Batch follow status: viewer → targets (followed_id=viewer, follower_id=target). */
+	async batchFollowStatus(viewerId: number, targetIds: number[]) {
+		const map = new Map<number, { status: number }>();
+		const ids = [...new Set(targetIds.filter((id) => Number.isFinite(id) && id > 0))];
+		if (!ids.length) return map;
+		const rows = await db
+			.select({
+				followerId: cybFollow.followerId,
+				status: cybFollow.status,
+			})
+			.from(cybFollow)
+			.where(
+				and(
+					eq(cybFollow.followedId, viewerId),
+					inArray(cybFollow.followerId, ids),
+					eq(cybFollow.isDeleted, 0)
+				)
+			);
+		for (const r of rows) {
+			if (r.followerId != null) map.set(r.followerId, { status: r.status ?? 0 });
+		}
+		return map;
 	}
 
 	async getFollowCounts(userId: number) {
@@ -518,6 +577,59 @@ class WidgetRepositery {
 		};
 	}
 
+	/** Batch follow counts for many users (2 grouped queries). */
+	async batchFollowCounts(userIds: number[]) {
+		const map = new Map<number, { following: number; follower: number }>();
+		const ids = [...new Set(userIds.filter((id) => Number.isFinite(id) && id > 0))];
+		if (!ids.length) return map;
+		for (const id of ids) map.set(id, { following: 0, follower: 0 });
+
+		const [followingRows, followerRows] = await Promise.all([
+			db
+				.select({
+					userId: cybFollow.followedId,
+					count: sql<number>`count(*)`.mapWith(Number),
+				})
+				.from(cybFollow)
+				.where(
+					and(
+						inArray(cybFollow.followedId, ids),
+						eq(cybFollow.status, 1),
+						eq(cybFollow.isDeleted, 0)
+					)
+				)
+				.groupBy(cybFollow.followedId),
+			db
+				.select({
+					userId: cybFollow.followerId,
+					count: sql<number>`count(*)`.mapWith(Number),
+				})
+				.from(cybFollow)
+				.where(
+					and(
+						inArray(cybFollow.followerId, ids),
+						eq(cybFollow.status, 1),
+						eq(cybFollow.isDeleted, 0)
+					)
+				)
+				.groupBy(cybFollow.followerId),
+		]);
+
+		for (const r of followingRows) {
+			if (r.userId == null) continue;
+			const cur = map.get(r.userId) || { following: 0, follower: 0 };
+			cur.following = r.count ?? 0;
+			map.set(r.userId, cur);
+		}
+		for (const r of followerRows) {
+			if (r.userId == null) continue;
+			const cur = map.get(r.userId) || { following: 0, follower: 0 };
+			cur.follower = r.count ?? 0;
+			map.set(r.userId, cur);
+		}
+		return map;
+	}
+
 	async hasActiveJobs(companyId: number): Promise<number> {
 		const [row] = await db
 			.select({ id: cybCompanyJob.id })
@@ -531,6 +643,110 @@ class WidgetRepositery {
 			)
 			.limit(1);
 		return row ? 1 : 0;
+	}
+
+	/** Companies that have at least one active job (set of company ids). */
+	async batchHasActiveJobs(companyIds: number[]): Promise<Set<number>> {
+		const ids = [...new Set(companyIds.filter((id) => Number.isFinite(id) && id > 0))];
+		const set = new Set<number>();
+		if (!ids.length) return set;
+		const rows = await db
+			.selectDistinct({ company: cybCompanyJob.company })
+			.from(cybCompanyJob)
+			.where(
+				and(
+					inArray(cybCompanyJob.company, ids),
+					eq(cybCompanyJob.status, 1),
+					eq(cybCompanyJob.isDeleted, 0)
+				)
+			);
+		for (const r of rows) {
+			if (r.company != null) set.add(r.company);
+		}
+		return set;
+	}
+
+	/**
+	 * Batch version of users.service user_verified (same rules, far fewer round-trips).
+	 */
+	async batchUsersVerified(userIds: number[]): Promise<Map<number, boolean>> {
+		const result = new Map<number, boolean>();
+		const ids = [...new Set(userIds.filter((id) => Number.isFinite(id) && id > 0))];
+		if (!ids.length) return result;
+
+		const [users, docs, domains] = await Promise.all([
+			db
+				.select({
+					id: cybUser.id,
+					fullName: cybUser.fullName,
+					phone: cybUser.phone,
+					email: cybUser.email,
+					phoneVerified: cybUser.phoneVerified,
+					emailVerified: cybUser.emailVerified,
+					secondPhone: cybUser.secondPhone,
+					secondPhoneVerify: cybUser.secondPhoneVerify,
+					emailAlternate: cybUser.emailAlternate,
+					emailAlternateVerify: cybUser.emailAlternateVerify,
+				})
+				.from(cybUser)
+				.where(inArray(cybUser.id, ids)),
+			db
+				.select({
+					userId: cybVerifyDocument.userId,
+					docName: cybVerifyDocument.docName,
+				})
+				.from(cybVerifyDocument)
+				.where(
+					and(
+						inArray(cybVerifyDocument.userId, ids),
+						eq(cybVerifyDocument.verify, 1)
+					)
+				),
+			db
+				.select({ userId: cybUserDomains.userId })
+				.from(cybUserDomains)
+				.leftJoin(cybUser, eq(cybUserDomains.userId, cybUser.id))
+				.where(
+					and(
+						inArray(cybUserDomains.userId, ids),
+						eq(cybUserDomains.isVerified, 1),
+						eq(cybUser.claimStatus, 1),
+						eq(cybUserDomains.isDeleted, 0)
+					)
+				),
+		]);
+
+		const docsByUser = new Map<number, string[]>();
+		for (const d of docs) {
+			if (d.userId == null) continue;
+			const list = docsByUser.get(d.userId) || [];
+			if (d.docName) list.push(d.docName);
+			docsByUser.set(d.userId, list);
+		}
+		const domainSet = new Set(
+			domains.map((d) => d.userId).filter((id): id is number => id != null)
+		);
+
+		for (const u of users) {
+			const names = docsByUser.get(u.id) || [];
+			const full = (u.fullName || "").toLowerCase();
+			const accountVerify = names.some((n) => n.toLowerCase() === full);
+			const phoneVerify = !!(
+				(u.phoneVerified && u.phone) ||
+				(u.secondPhoneVerify && u.secondPhone)
+			);
+			const emailVerify = !!(
+				(u.emailVerified && u.email) ||
+				(u.emailAlternateVerify && u.emailAlternate)
+			);
+			let isVerify = !!(emailVerify && phoneVerify && accountVerify);
+			if (domainSet.has(u.id)) isVerify = true;
+			result.set(u.id, isVerify);
+		}
+		for (const id of ids) {
+			if (!result.has(id)) result.set(id, false);
+		}
+		return result;
 	}
 
 	// ---- impressions ----

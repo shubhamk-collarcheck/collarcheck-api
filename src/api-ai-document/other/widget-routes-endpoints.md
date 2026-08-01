@@ -103,9 +103,11 @@ See service `mapCompanyCard` / `mapPersonCard` — include verify, follow, geo `
 
 1. Audience from `user_type` (`USER` vs `COMPANY`).
 2. Load `cyb_ramdom_widgets` (`ORDER BY RAND()`, status=1, type match or `BOTH`).
-3. Dispatch each row’s `api` key in-process (no HTTP loopback).
+3. Dispatch each row’s `api` key in-process (no HTTP loopback) — **in parallel**.
 4. Keep block only if `list.length >= min_limit`.
 5. Return `{ status, data: [{ heading, widget, placement, version, slug, list }] }`.
+
+**Perf (Node):** parallel widget fan-out; batch `is_verified` / follow / exploreTalent for cards; skip `COUNT(*)` on feed lists; short geo cache; prefer `user.random_value` over bare `RAND()` for list shuffle.
 
 Registry `api` keys mapped in `API_DISPATCH` (near, top_company, urgent_job, university, past_company, …).
 

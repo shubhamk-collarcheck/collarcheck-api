@@ -34,5 +34,8 @@ export const detailsJobsImpressionsQuerySchema = z.object({
 	}),
 });
 
-export type PaginationQuery = z.infer<typeof paginationQuerySchema>["query"];
+/** Internal feed flag (not a client query param): skip expensive COUNT(*) on list queries. */
+export type PaginationQuery = z.infer<typeof paginationQuerySchema>["query"] & {
+	skipCount?: boolean;
+};
 export type ViewImpressionsBody = z.infer<typeof viewImpressionsBodySchema>;

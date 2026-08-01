@@ -1,11 +1,24 @@
 import widgetRepositery from "../repositery/widget.repositery";
-import { get_user_detail, user_verified } from "./users.service";
+import { get_user_detail } from "./users.service";
 import type { PaginationQuery, ViewImpressionsBody } from "../types/widget.types";
 
 const s3Prefix = process.env.S3_PREFIX || "";
 
 /** Simple in-memory cache for widget-detail sidebar (2h TTL). */
 const sidebarCache = new Map<string, { exp: number; value: any[] }>();
+
+/** Short TTL geo cache — many widget lists re-fetch the same viewer context. */
+const geoCache = new Map<number, { exp: number; value: Awaited<ReturnType<typeof widgetRepositery.getUserGeo>> }>();
+const GEO_TTL_MS = 30_000;
+
+async function getUserGeoCached(userId: number) {
+	const hit = geoCache.get(userId);
+	const now = Date.now();
+	if (hit && hit.exp > now) return hit.value;
+	const value = await widgetRepositery.getUserGeo(userId);
+	geoCache.set(userId, { exp: now + GEO_TTL_MS, value });
+	return value;
+}
 
 function pageToSqlOffset(page: number, limit: number) {
 	const p = Number(page) || 0;
@@ -39,76 +52,117 @@ function profileUrl(profile?: string | null, social?: string | null) {
 	return social || "";
 }
 
-async function enrichFollowing(viewerId: number, targetId: number) {
-	const row = await widgetRepositery.getFollowStatus(viewerId, targetId);
+function followingFromMap(
+	map: Map<number, { status: number }>,
+	targetId: number
+) {
+	const row = map.get(targetId);
 	if (!row) return { requestSend: false, requestApproved: false };
 	return { requestSend: true, requestApproved: row.status === 1 };
 }
 
-async function mapCompanyCard(
-	row: any,
+/** Batch-map company cards: ~4 queries total instead of ~4×N. */
+async function mapCompanyCardsBatch(
+	rows: any[],
 	viewerId: number,
-	opts?: { distance?: number; includeSize?: boolean }
+	opts?: {
+		includeSize?: boolean;
+		geo?: { lat?: string | null; lng?: string | null };
+	}
 ) {
-	const [isVerified, followData, following, exploreTalent] = await Promise.all([
-		user_verified(row.id),
-		widgetRepositery.getFollowCounts(row.id),
-		enrichFollowing(viewerId, row.id),
-		widgetRepositery.hasActiveJobs(row.id),
+	if (!rows.length) return [] as any[];
+	const ids = rows.map((r) => r.id as number);
+	const [verified, followMap, followCounts, activeJobs] = await Promise.all([
+		widgetRepositery.batchUsersVerified(ids),
+		widgetRepositery.batchFollowStatus(viewerId, ids),
+		widgetRepositery.batchFollowCounts(ids),
+		widgetRepositery.batchHasActiveJobs(ids),
 	]);
-	return {
-		id: row.id,
-		profile: profileUrl(row.profile, row.socialImage),
-		name: row.fname || row.name || "",
-		individual_id: row.individualId,
-		slug: row.slug,
-		city_name: row.cityName || "",
-		state_name: row.stateName || "",
-		country_name: row.countryName || "",
-		industry_name: row.industryName || "",
-		is_verified: isVerified,
-		followData,
-		following,
-		exploreTalent,
-		...(opts?.distance != null ? { distance: opts.distance } : {}),
-		...(opts?.includeSize
-			? {
-					turnover_name: row.turnoverName || null,
-					company_size_name: row.companySizeName || null,
-				}
-			: {}),
-	};
+
+	const data = rows.map((row) => {
+		const distance = opts?.geo
+			? haversineKm(opts.geo.lat, opts.geo.lng, row.latitude, row.longitude)
+			: undefined;
+		return {
+			id: row.id,
+			profile: profileUrl(row.profile, row.socialImage),
+			name: row.fname || row.name || "",
+			individual_id: row.individualId,
+			slug: row.slug,
+			city_name: row.cityName || "",
+			state_name: row.stateName || "",
+			country_name: row.countryName || "",
+			industry_name: row.industryName || "",
+			is_verified: verified.get(row.id) ?? false,
+			followData: followCounts.get(row.id) ?? { following: 0, follower: 0 },
+			following: followingFromMap(followMap, row.id),
+			exploreTalent: activeJobs.has(row.id) ? 1 : 0,
+			...(distance != null ? { distance } : {}),
+			...(opts?.includeSize
+				? {
+						turnover_name: row.turnoverName || null,
+						company_size_name: row.companySizeName || null,
+					}
+				: {}),
+		};
+	});
+
+	if (opts?.geo) {
+		data.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
+	}
+	return data;
 }
 
-async function mapPersonCard(row: any, viewerId: number, opts?: { distance?: number; imageKey?: boolean }) {
-	const [isVerified, following] = await Promise.all([
-		user_verified(row.id),
-		enrichFollowing(viewerId, row.id),
+/** Batch-map person cards: ~2 queries total instead of ~3×N. */
+async function mapPersonCardsBatch(
+	rows: any[],
+	viewerId: number,
+	opts?: {
+		imageKey?: boolean;
+		geo?: { lat?: string | null; lng?: string | null };
+	}
+) {
+	if (!rows.length) return [] as any[];
+	const ids = rows.map((r) => r.id as number);
+	const [verified, followMap] = await Promise.all([
+		widgetRepositery.batchUsersVerified(ids),
+		widgetRepositery.batchFollowStatus(viewerId, ids),
 	]);
-	const image = profileUrl(row.profile, row.socialImage);
-	return {
-		id: row.id,
-		individual_id: row.individualId,
-		name: [row.fname, row.lname].filter(Boolean).join(" "),
-		designation_name: row.designationName || "",
-		slug: row.slug,
-		...(opts?.imageKey !== false ? { image } : {}),
-		profile: image,
-		city_name: row.cityName || "",
-		state_name: row.stateName || "",
-		country_name: row.countryName || "",
-		company_name: row.companyName || "",
-		is_verified: isVerified,
-		userRating: 0,
-		ratings: {},
-		following,
-		on_explore: row.onExplore ?? 0,
-		on_immediate: row.onImmediate ?? 0,
-		on_notice: row.onNotice ?? 0,
-		user_type: row.userType ?? 1,
-		...(opts?.distance != null ? { distance: opts.distance } : {}),
-		...(row.universityName ? { university_name: row.universityName } : {}),
-	};
+
+	const data = rows.map((row) => {
+		const distance = opts?.geo
+			? haversineKm(opts.geo.lat, opts.geo.lng, row.latitude, row.longitude)
+			: undefined;
+		const image = profileUrl(row.profile, row.socialImage);
+		return {
+			id: row.id,
+			individual_id: row.individualId,
+			name: [row.fname, row.lname].filter(Boolean).join(" "),
+			designation_name: row.designationName || "",
+			slug: row.slug,
+			...(opts?.imageKey !== false ? { image } : {}),
+			profile: image,
+			city_name: row.cityName || "",
+			state_name: row.stateName || "",
+			country_name: row.countryName || "",
+			company_name: row.companyName || "",
+			is_verified: verified.get(row.id) ?? false,
+			userRating: 0,
+			ratings: {},
+			following: followingFromMap(followMap, row.id),
+			on_explore: row.onExplore ?? 0,
+			on_immediate: row.onImmediate ?? 0,
+			on_notice: row.onNotice ?? 0,
+			user_type: row.userType ?? 1,
+			...(distance != null ? { distance } : {}),
+			...(row.universityName ? { university_name: row.universityName } : {}),
+		};
+	});
+
+	if (opts?.geo) {
+		data.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
+	}
+	return data;
 }
 
 type ListResult = { status: boolean; message?: string; messages?: string; data: any[]; totalCounts: number };
@@ -122,21 +176,10 @@ async function listCompaniesEnriched(
 	}
 ): Promise<ListResult> {
 	const { rows, total } = await widgetRepositery.listCompanies(opts);
-	const data = [];
-	for (const r of rows) {
-		const distance = opts.geo
-			? haversineKm(opts.geo.lat, opts.geo.lng, r.latitude, r.longitude)
-			: undefined;
-		data.push(
-			await mapCompanyCard(r, viewerId, {
-				distance,
-				includeSize: opts.includeSize,
-			})
-		);
-	}
-	if (opts.geo) {
-		data.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
-	}
+	const data = await mapCompanyCardsBatch(rows, viewerId, {
+		includeSize: opts.includeSize,
+		geo: opts.geo,
+	});
 	return {
 		status: true,
 		...(opts.message ? { message: opts.message } : {}),
@@ -154,16 +197,7 @@ async function listEmployeesEnriched(
 	rowsOverride?: { rows: any[]; total: number }
 ): Promise<ListResult> {
 	const { rows, total } = rowsOverride || (await widgetRepositery.listEmployees(opts));
-	const data = [];
-	for (const r of rows) {
-		const distance = opts.geo
-			? haversineKm(opts.geo.lat, opts.geo.lng, r.latitude, r.longitude)
-			: undefined;
-		data.push(await mapPersonCard(r, viewerId, { distance }));
-	}
-	if (opts.geo) {
-		data.sort((a, b) => (a.distance ?? 9999) - (b.distance ?? 9999));
-	}
+	const data = await mapPersonCardsBatch(rows, viewerId, { geo: opts.geo });
 	return {
 		status: true,
 		...(opts.message ? { message: opts.message } : {}),
@@ -172,51 +206,57 @@ async function listEmployeesEnriched(
 	};
 }
 
+function feedOpts(q: PaginationQuery) {
+	const limit = q.limit || 10;
+	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	return { limit, sqlOffset, skipCount: !!q.skipCount };
+}
+
 // ====== Discovery endpoints ======
 
 export async function similarCompanyService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const geo = await getUserGeoCached(viewerId);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listCompaniesEnriched(viewerId, {
 		excludeId: viewerId,
 		industry: geo?.industry,
 		limit,
 		sqlOffset,
+		skipCount,
 		orderRandom: true,
 	});
 }
 
 export async function peopleSimilarUniversityService(viewerId: number, q: PaginationQuery) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	const uniIds = await widgetRepositery.getViewerUniversityIds(viewerId);
 	const result = await widgetRepositery.listPeopleByUniversities(
 		uniIds,
 		viewerId,
 		limit,
-		sqlOffset
+		sqlOffset,
+		skipCount
 	);
 	return listEmployeesEnriched(viewerId, { limit, sqlOffset, excludeId: viewerId }, result);
 }
 
 export async function userPastCompanyService(viewerId: number, q: PaginationQuery) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	const companyIds = await widgetRepositery.getPastCompanyIds(viewerId);
 	const result = await widgetRepositery.listPeopleByCompanies(
 		companyIds,
 		viewerId,
 		limit,
-		sqlOffset
+		sqlOffset,
+		undefined,
+		skipCount
 	);
 	return listEmployeesEnriched(viewerId, { limit, sqlOffset, excludeId: viewerId }, result);
 }
 
 export async function userCurrentCompanyService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const geo = await getUserGeoCached(viewerId);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	if (!geo?.currentCompany) {
 		return { status: true, data: [], totalCounts: 0 };
 	}
@@ -225,58 +265,59 @@ export async function userCurrentCompanyService(viewerId: number, q: PaginationQ
 		currentCompany: geo.currentCompany,
 		limit,
 		sqlOffset,
+		skipCount,
 	});
 }
 
 export async function similarEmployeeService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const geo = await getUserGeoCached(viewerId);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		industry: geo?.industry,
 		city: geo?.city,
 		limit,
 		sqlOffset,
+		skipCount,
 		orderRandom: true,
 	});
 }
 
 export async function featuredEmployeeService(viewerId: number, q: PaginationQuery) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		onExplore: true,
 		limit,
 		sqlOffset,
+		skipCount,
 		orderRandom: true,
 	});
 }
 
 export async function peopleMightKnowService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const geo = await getUserGeoCached(viewerId);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		city: geo?.city,
 		limit,
 		sqlOffset,
+		skipCount,
 		orderRandom: true,
 	});
 }
 
 export async function nearbyCompanyService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
+	const geo = await getUserGeoCached(viewerId);
 	if (!geo) return { status: false, messages: "invalid User", data: [], totalCounts: 0 };
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listCompaniesEnriched(viewerId, {
 		excludeId: viewerId,
 		city: geo.city,
 		limit,
 		sqlOffset,
+		skipCount,
 		message: "Near by company list",
 		geo: { lat: geo.latitude, lng: geo.longitude },
 		includeSize: true,
@@ -284,15 +325,15 @@ export async function nearbyCompanyService(viewerId: number, q: PaginationQuery)
 }
 
 export async function nearbyEmployeeService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
+	const geo = await getUserGeoCached(viewerId);
 	if (!geo) return { status: false, messages: "invalid User", data: [], totalCounts: 0 };
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		city: geo.city,
 		limit,
 		sqlOffset,
+		skipCount,
 		geo: { lat: geo.latitude, lng: geo.longitude },
 	});
 }
@@ -303,12 +344,11 @@ export async function similarJobService(viewerId: number, q: PaginationQuery) {
 }
 
 export async function immediateJoinerService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
+	const geo = await getUserGeoCached(viewerId);
 	if (!geo || geo.userType !== 2) {
 		return { status: false, messages: "invalid company", data: [], totalCounts: 0 };
 	}
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		onImmediate: true,
@@ -316,33 +356,33 @@ export async function immediateJoinerService(viewerId: number, q: PaginationQuer
 		city: geo.city,
 		limit,
 		sqlOffset,
+		skipCount,
 		geo: { lat: geo.latitude, lng: geo.longitude },
 	});
 }
 
 export async function noticePeriodService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
+	const geo = await getUserGeoCached(viewerId);
 	if (!geo || geo.userType !== 2) {
 		return { status: false, messages: "invalid company", data: [], totalCounts: 0 };
 	}
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		onNotice: true,
 		limit,
 		sqlOffset,
+		skipCount,
 	});
 }
 
 export async function similarCompaniesCurrentService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const geo = await getUserGeoCached(viewerId);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	// Similar to current company industry
 	let industry = geo?.industry;
 	if (geo?.currentCompany) {
-		const company = await widgetRepositery.getUserGeo(geo.currentCompany);
+		const company = await getUserGeoCached(geo.currentCompany);
 		industry = company?.industry ?? industry;
 	}
 	return listCompaniesEnriched(viewerId, {
@@ -350,32 +390,32 @@ export async function similarCompaniesCurrentService(viewerId: number, q: Pagina
 		industry,
 		limit,
 		sqlOffset,
+		skipCount,
 		orderRandom: true,
 	});
 }
 
 export async function recommendedEmployeeGeneralService(viewerId: number, q: PaginationQuery) {
-	const geo = await widgetRepositery.getUserGeo(viewerId);
+	const geo = await getUserGeoCached(viewerId);
 	if (!geo || geo.userType !== 2) {
 		return { status: false, messages: "invalid company", data: [], totalCounts: 0 };
 	}
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		industry: geo.industry,
 		city: geo.city,
 		limit,
 		sqlOffset,
+		skipCount,
 		orderRandom: true,
 		geo: { lat: geo.latitude, lng: geo.longitude },
 	});
 }
 
 export async function peopleRecentlyJoinService(viewerId: number, q: PaginationQuery) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
-	const geo = await widgetRepositery.getUserGeo(viewerId);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
+	const geo = await getUserGeoCached(viewerId);
 	// Company team: people currently at this company who joined recently
 	if (geo?.userType === 2) {
 		return listEmployeesEnriched(viewerId, {
@@ -384,6 +424,7 @@ export async function peopleRecentlyJoinService(viewerId: number, q: PaginationQ
 			recentJoinDays: 90,
 			limit,
 			sqlOffset,
+			skipCount,
 		});
 	}
 	return listEmployeesEnriched(viewerId, {
@@ -391,30 +432,31 @@ export async function peopleRecentlyJoinService(viewerId: number, q: PaginationQ
 		recentJoinDays: 90,
 		limit,
 		sqlOffset,
+		skipCount,
 	});
 }
 
 export async function currentlyUnemployedService(viewerId: number, q: PaginationQuery) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	// work_status often: unemployed codes vary; use on_explore as proxy + no current company
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		onExplore: true,
 		limit,
 		sqlOffset,
+		skipCount,
 		orderRandom: true,
 	});
 }
 
 export async function freshersService(viewerId: number, q: PaginationQuery) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	return listEmployeesEnriched(viewerId, {
 		excludeId: viewerId,
 		fresher: true,
 		limit,
 		sqlOffset,
+		skipCount,
 		orderRandom: true,
 	});
 }
@@ -424,13 +466,13 @@ export async function authAllJobService(
 	q: PaginationQuery,
 	urgentOnly = false
 ) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset, skipCount } = feedOpts(q);
 	const { rows, total, appliedJobIds } = await widgetRepositery.listOpenJobs({
 		limit,
 		sqlOffset,
 		urgent: urgentOnly,
 		viewerId,
+		skipCount,
 	});
 	const data = rows.map((j) => ({
 		job_title: j.jobTitle,
@@ -509,8 +551,7 @@ export async function jobsImpressionsService(viewerId: number, q: PaginationQuer
 }
 
 export async function peopleViewedProfileService(viewerId: number, q: PaginationQuery) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset } = feedOpts(q);
 	const { rows, total } = await widgetRepositery.listImpressionsOnMe({
 		remoteId: viewerId,
 		type: "Profile",
@@ -518,19 +559,18 @@ export async function peopleViewedProfileService(viewerId: number, q: Pagination
 		limit,
 		sqlOffset,
 	});
-	const data = [];
 	const seen = new Set<number>();
-	for (const r of rows) {
-		if (seen.has(r.id)) continue;
+	const unique = rows.filter((r) => {
+		if (seen.has(r.id)) return false;
 		seen.add(r.id);
-		data.push(await mapPersonCard(r, viewerId, { imageKey: true }));
-	}
+		return true;
+	});
+	const data = await mapPersonCardsBatch(unique, viewerId, { imageKey: true });
 	return { status: true, data, totalCounts: total };
 }
 
 export async function companyViewedProfileService(viewerId: number, q: PaginationQuery) {
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset } = feedOpts(q);
 	const { rows, total } = await widgetRepositery.listImpressionsOnMe({
 		remoteId: viewerId,
 		type: "Profile",
@@ -538,29 +578,13 @@ export async function companyViewedProfileService(viewerId: number, q: Paginatio
 		limit,
 		sqlOffset,
 	});
-	const data = [];
 	const seen = new Set<number>();
-	for (const r of rows) {
-		if (seen.has(r.id)) continue;
+	const unique = rows.filter((r) => {
+		if (seen.has(r.id)) return false;
 		seen.add(r.id);
-		data.push(
-			await mapCompanyCard(
-				{
-					id: r.id,
-					fname: r.fname,
-					individualId: r.individualId,
-					slug: r.slug,
-					profile: r.profile,
-					socialImage: r.socialImage,
-					cityName: r.cityName,
-					stateName: r.stateName,
-					countryName: r.countryName,
-					industryName: r.industryName,
-				},
-				viewerId
-			)
-		);
-	}
+		return true;
+	});
+	const data = await mapCompanyCardsBatch(unique, viewerId);
 	return { status: true, data, totalCounts: total };
 }
 
@@ -572,17 +596,13 @@ export async function detailsJobsImpressionsService(
 	if (!jobId) {
 		return { status: false, message: "ID is required.", data: [], totalCounts: 0 };
 	}
-	const limit = q.limit || 10;
-	const sqlOffset = pageToSqlOffset(q.offset || 0, limit);
+	const { limit, sqlOffset } = feedOpts(q);
 	const { rows, total } = await widgetRepositery.listJobImpressionViewers(
 		jobId,
 		limit,
 		sqlOffset
 	);
-	const data = [];
-	for (const r of rows) {
-		data.push(await mapPersonCard(r, viewerId));
-	}
+	const data = await mapPersonCardsBatch(rows, viewerId);
 	return { status: true, data, totalCounts: total };
 }
 
@@ -593,7 +613,7 @@ const API_DISPATCH: Record<
 	(viewerId: number, q: PaginationQuery) => Promise<ListResult | any>
 > = {
 	near: async (id, q) => {
-		const geo = await widgetRepositery.getUserGeo(id);
+		const geo = await getUserGeoCached(id);
 		if (geo?.userType === 2) return nearbyEmployeeService(id, q);
 		return nearbyCompanyService(id, q);
 	},
@@ -654,35 +674,47 @@ export async function randomWidgetService(viewerId: number, fixed = false) {
 			? await widgetRepositery.getFixedWidgets(audience)
 			: await widgetRepositery.getRandomWidgets(audience, 10);
 
-		const data = [];
-		const q: PaginationQuery = { limit: 10, offset: 0 };
+		// Feed mode: skip COUNT(*) on every list; batch card enrichment is always on
+		const q: PaginationQuery = { limit: 10, offset: 0, skipCount: true };
 
-		for (const w of widgets) {
-			const apiKey = (w.api || "").trim();
-			const handler = API_DISPATCH[apiKey];
-			let list: any[] = [];
-			if (handler) {
-				const res = await handler(viewerId, q);
-				list = Array.isArray(res?.data) ? res.data : [];
-			}
-			const minLimit = w.minLimit ?? 0;
-			if (list.length < minLimit) continue;
+		// Warm geo cache once so parallel handlers share it
+		await getUserGeoCached(viewerId);
 
-			const block: any = {
-				heading: (w.heading || "").trim(),
-				widget: w.widget,
-				placement: 0,
-				version: w.variant || "v1",
-				slug: w.slug,
-				list,
-			};
-			if (w.id === 25 || w.id === 26) {
-				block.profile_view = true;
-				block.placement = 10;
-			}
-			data.push(block);
-		}
+		// Run all widget list handlers in parallel (was sequential ~10× latency)
+		const blocks = await Promise.all(
+			widgets.map(async (w) => {
+				const apiKey = (w.api || "").trim();
+				const handler = API_DISPATCH[apiKey];
+				let list: any[] = [];
+				if (handler) {
+					try {
+						const res = await handler(viewerId, q);
+						list = Array.isArray(res?.data) ? res.data : [];
+					} catch (err) {
+						console.error(`[random-widget] api=${apiKey}`, err);
+						list = [];
+					}
+				}
+				const minLimit = w.minLimit ?? 0;
+				if (list.length < minLimit) return null;
 
+				const block: Record<string, unknown> = {
+					heading: (w.heading || "").trim(),
+					widget: w.widget,
+					placement: 0,
+					version: w.variant || "v1",
+					slug: w.slug,
+					list,
+				};
+				if (w.id === 25 || w.id === 26) {
+					block.profile_view = true;
+					block.placement = 10;
+				}
+				return block;
+			})
+		);
+
+		const data = blocks.filter((b): b is NonNullable<typeof b> => b != null);
 		return { status: true, data };
 	} catch (e: any) {
 		return { status: false, messages: e?.message || String(e) };
